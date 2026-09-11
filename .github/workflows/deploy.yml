@@ -19,9 +19,6 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm test
-      # User/org pages (repo named exactly <account>.github.io) are always
-      # served from the domain root, so the base path must be "/".
-      # Any other repo name is a project page, served under /repo-name/.
       - name: Set base path
         id: base
         run: |
@@ -37,7 +34,9 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:
-    environment: name: github-pages url: ${{ steps.deployment.outputs.page_url }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
     steps:
