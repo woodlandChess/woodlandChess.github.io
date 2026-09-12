@@ -1,33 +1,65 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Move, type Square } from 'chess.js'
-import { gameStatus, type Difficulty } from './engine'
+import { gameStatus, chooseMove, difficultyDepth, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 
-const glyph: Record<Color, Record<string, string>> = {
-  w: { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕', k: '♔' },
-  b: { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' },
+// ── cburnett SVG pieces from Wikimedia Commons ───────────────────────────────
+// https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces
+const PIECE_SVGS: Record<Color, Record<string, string>> = {
+  w: {
+    k: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+    q: 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+    r: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+    b: 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+    n: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+    p: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+  },
+  b: {
+    k: 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+    q: 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+    r: 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+    b: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+    n: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+    p: 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+  },
 }
+
+
 const files = ['a','b','c','d','e','f','g','h']
 const ranks = ['8','7','6','5','4','3','2','1']
 const squareName = (file: string, rank: string) => `${file}${rank}` as Square
 
-type DropdownOption = { value: string; label: string; summary?: string }
-
-/**
- * Custom-styled listbox dropdown. Replaces the native <select> so the
- * menu always matches the app's branding — a compact anchored panel on
- * desktop, a full-width sheet-style panel on mobile — instead of the
- * OS-rendered picker.
- */
-function Dropdown({
+// ── Weight bar component ─────────────────────────────────────────────────────
+function WeightBar({
   label,
   value,
-  options,
-  onChange,
+  color,
 }: {
   label: string
-  value: string
-  options: DropdownOption[]
+  value: number
+  color: string
+}) {
+  return (
+    <div className="weight-bar-row">
+      <span className="weight-label">{label}</span>
+      <div className="weight-track">
+        <div
+          className="weight-fill"
+          style={{ width: `${value * 10}%`, background: color }}
+        />
+      </div>
+      <span className="weight-value">{value}</span>
+    </div>
+  )
+}
+
+// ── Dropdown ─────────────────────────────────────────────────────────────────
+type DropdownOption = { value: string; label: string; summary?: string }
+
+function Dropdown({
+  label, value, options, onChange,
+}: {
+  label: string; value: string; options: DropdownOption[]
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -36,28 +68,20 @@ function Dropdown({
 
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
+    const onPD = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('pointerdown', onPD)
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => { document.removeEventListener('pointerdown', onPD); document.removeEventListener('keydown', onKey) }
   }, [open])
 
   return (
     <div className="dropdown" ref={rootRef}>
       <span className="dropdown-label">{label}</span>
-      <button
-        type="button"
-        className="dropdown-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-      >
+      <button type="button" className="dropdown-trigger" aria-haspopup="listbox"
+        aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <span>{current?.label ?? value}</span>
         <svg className="dropdown-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
           <path d="M0 0l5 6 5-6z" fill="currentColor" />
@@ -71,17 +95,14 @@ function Dropdown({
             <li className="dropdown-menu-handle" role="presentation" aria-hidden="true"><span /></li>
             {options.map(opt => (
               <li key={opt.value} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={opt.value === value}
+                <button type="button" role="option" aria-selected={opt.value === value}
                   className="dropdown-option"
-                  onClick={() => { onChange(opt.value); setOpen(false) }}
-                >
+                  onClick={() => { onChange(opt.value); setOpen(false) }}>
                   <span>{opt.label}</span>
                   {opt.value === value && (
                     <svg width="12" height="10" viewBox="0 0 12 10" aria-hidden="true">
-                      <path d="M1 5l3.5 3.5L11 1" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1 5l3.5 3.5L11 1" stroke="currentColor" strokeWidth="1.6"
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </button>
@@ -94,6 +115,7 @@ function Dropdown({
   )
 }
 
+// ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
   const gameRef = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
@@ -104,10 +126,14 @@ export function App() {
   const [school, setSchool] = useState<ChessSchool>('Universal')
   const [player, setPlayer] = useState<Color>('w')
   const [setupOpen, setSetupOpen] = useState(true)
-  const [pendingPromotion, setPendingPromotion] = useState<{from: Square; to: Square} | null>(null)
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
+  const [engineMode, setEngineMode] = useState<'stockfish' | 'alphabeta'>('stockfish')
+
   const game = useMemo(() => new Chess(fen), [fen])
   const legalTargets = selected ? game.moves({ square: selected, verbose: true }).map(m => m.to) : []
   const status = gameStatus(game, player)
+  const w = schools[school].weights
+  const sw = schoolWeights[school] ?? schoolWeights.Universal
 
   useEffect(() => {
     engineRef.current = new StockfishClient()
@@ -154,19 +180,37 @@ export function App() {
     const timer = window.setTimeout(async () => {
       const current = gameRef.current
       const played = current.history({ verbose: true }).map(m => `${m.from}${m.to}${m.promotion ?? ''}`)
-      const uci = schoolBookMove(school, played) ?? await engineRef.current?.bestMove(current.fen(), difficulty)
+      const bookMove = schoolBookMove(school, played)
+
+      let uci: string | null = null
+      if (bookMove) {
+        uci = bookMove
+      } else if (engineMode === 'stockfish') {
+        uci = await engineRef.current?.bestMove(current.fen(), difficulty) ?? null
+      } else {
+        // α–β with school-specific weights as fallback / alternative
+        const depth = difficultyDepth[difficulty]
+        const aiColor: Color = player === 'w' ? 'b' : 'w'
+        const move = chooseMove(current, depth, aiColor, sw)
+        uci = move ? `${move.from}${move.to}${move.promotion ?? ''}` : null
+      }
+
       if (!uci || current !== gameRef.current || current.isGameOver()) return
       try {
-        gameRef.current.move({ from: uci.slice(0,2) as Square, to: uci.slice(2,4) as Square, promotion: uci[4] })
+        gameRef.current.move({
+          from: uci.slice(0, 2) as Square,
+          to: uci.slice(2, 4) as Square,
+          promotion: uci[4],
+        })
         sync()
-      } catch { /* discard stale result */ }
+      } catch { /* discard stale */ }
     }, 80)
     return () => window.clearTimeout(timer)
-  }, [fen, player, difficulty, school, pendingPromotion, setupOpen])
+  }, [fen, player, difficulty, school, pendingPromotion, setupOpen, engineMode])
 
   const last = history.at(-1)
 
-  /* ── SETUP SCREEN ── */
+  // ── SETUP ──────────────────────────────────────────────────────────────────
   if (setupOpen) return (
     <main className="setup-shell">
       <section className="setup-card" aria-labelledby="setup-title">
@@ -180,20 +224,23 @@ export function App() {
           <h1 id="setup-title">Set your opponent</h1>
         </div>
 
-        <p className="setup-copy">
-          Choose a playing school and strength before the board opens.
-        </p>
+        <p className="setup-copy">Choose a playing school and strength before the board opens.</p>
 
         <Dropdown
           label="Chess school"
           value={school}
           onChange={v => setSchool(v as ChessSchool)}
-          options={Object.entries(schools).map(([id, profile]) => ({
-            value: id,
-            label: profile.label,
-            summary: profile.summary,
+          options={Object.entries(schools).map(([id, p]) => ({
+            value: id, label: p.label, summary: p.summary,
           }))}
         />
+
+        {/* School weight display */}
+        <div className="school-weights">
+          <WeightBar label="Attack"  value={w.attack}  color="var(--w-attack)"  />
+          <WeightBar label="Focus"   value={w.focus}   color="var(--w-focus)"   />
+          <WeightBar label="Defend"  value={w.defend}  color="var(--w-defend)"  />
+        </div>
 
         <Dropdown
           label="Difficulty"
@@ -202,30 +249,34 @@ export function App() {
           options={['Relaxed', 'Classic', 'Expert'].map(d => ({ value: d, label: d }))}
         />
 
+        <div className="engine-toggle">
+          <span className="dropdown-label">Engine</span>
+          <div className="engine-btns">
+            <button type="button" aria-pressed={engineMode === 'stockfish'}
+              onClick={() => setEngineMode('stockfish')}>
+              Stockfish WASM
+            </button>
+            <button type="button" aria-pressed={engineMode === 'alphabeta'}
+              onClick={() => setEngineMode('alphabeta')}>
+              α–β (school-weighted)
+            </button>
+          </div>
+        </div>
+
         <fieldset className="color-picker">
           <legend>Play as</legend>
           <div className="color-picker-btns">
-            <button
-              type="button"
-              aria-pressed={player === 'w'}
-              onClick={() => setPlayer('w')}
-            >♔ White</button>
-            <button
-              type="button"
-              aria-pressed={player === 'b'}
-              onClick={() => setPlayer('b')}
-            >♚ Black</button>
+            <button type="button" aria-pressed={player === 'w'} onClick={() => setPlayer('w')}>♔ White</button>
+            <button type="button" aria-pressed={player === 'b'} onClick={() => setPlayer('b')}>♚ Black</button>
           </div>
         </fieldset>
 
-        <button className="begin-game" onClick={() => start(player)}>
-          Begin game
-        </button>
+        <button className="begin-game" onClick={() => start(player)}>Begin game</button>
       </section>
     </main>
   )
 
-  /* ── GAME SCREEN ── */
+  // ── GAME ───────────────────────────────────────────────────────────────────
   return (
     <main className="app-shell">
       <header>
@@ -233,9 +284,7 @@ export function App() {
           <span className="brand-mark">♞</span>
           <span className="brand-name">Woodland Chess</span>
         </div>
-        <button className="new-game" onClick={() => setSetupOpen(true)}>
-          New game
-        </button>
+        <button className="new-game" onClick={() => setSetupOpen(true)}>New game</button>
       </header>
 
       <section className="game-layout">
@@ -254,8 +303,7 @@ export function App() {
                     role="gridcell"
                     aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
                     className={[
-                      'square',
-                      dark ? 'dark' : 'light',
+                      'square', dark ? 'dark' : 'light',
                       selected === square ? 'selected' : '',
                       isLast ? 'last' : '',
                     ].filter(Boolean).join(' ')}
@@ -264,9 +312,12 @@ export function App() {
                     {col === 0 && <small className="rank">{rank}</small>}
                     {row === 7 && <small className="file">{file}</small>}
                     {piece && (
-                      <span className={`piece ${piece.color}`}>
-                        {glyph[piece.color][piece.type]}
-                      </span>
+                      <img
+                        className="piece-svg"
+                        src={PIECE_SVGS[piece.color][piece.type]}
+                        alt={`${piece.color === 'w' ? 'white' : 'black'} ${piece.type}`}
+                        draggable={false}
+                      />
                     )}
                     {legalTargets.includes(square) && (
                       <span className={piece ? 'capture' : 'target'} />
@@ -280,70 +331,65 @@ export function App() {
 
         {/* Sidebar */}
         <aside className="sidebar">
-          {/* Opponent */}
           <div className="sidebar-section">
             <div className="opponent">
               <div className="avatar">♛</div>
               <div className="opponent-info">
                 <strong>Computer</strong>
-                <span>{schools[school].label} · {difficulty}</span>
+                <span>{schools[school].label} · {difficulty} · {engineMode === 'stockfish' ? 'SF WASM' : 'α–β'}</span>
               </div>
             </div>
           </div>
 
-          {/* Status */}
+          {/* School weight bars in sidebar */}
+          <div className="sidebar-section sidebar-weights">
+            <span className="status-label">School profile</span>
+            <WeightBar label="Attack"  value={w.attack}  color="var(--w-attack)"  />
+            <WeightBar label="Focus"   value={w.focus}   color="var(--w-focus)"   />
+            <WeightBar label="Defend"  value={w.defend}  color="var(--w-defend)"  />
+          </div>
+
           <div className="sidebar-section">
             <span className="status-label">Position</span>
             <div className="status" aria-live="polite">{status}</div>
           </div>
 
-          {/* Move history */}
           <div className="sidebar-section history-section">
             <p className="history-head">Moves</p>
             <div className="history" aria-label="Move history">
               {history.length === 0
                 ? <p>Opening position</p>
-                : Array.from(
-                    { length: Math.ceil(history.length / 2) },
-                    (_, i) => (
-                      <div className="move-row" key={i}>
-                        <span>{i + 1}.</span>
-                        <span>{history[i * 2]?.san}</span>
-                        <span>{history[i * 2 + 1]?.san ?? ''}</span>
-                      </div>
-                    )
-                  )
+                : Array.from({ length: Math.ceil(history.length / 2) }, (_, i) => (
+                    <div className="move-row" key={i}>
+                      <span>{i + 1}.</span>
+                      <span>{history[i * 2]?.san}</span>
+                      <span>{history[i * 2 + 1]?.san ?? ''}</span>
+                    </div>
+                  ))
               }
             </div>
           </div>
 
-          {/* Secondary action */}
-          <button className="resign" onClick={() => setSetupOpen(true)}>
-            Change setup
-          </button>
+          <button className="resign" onClick={() => setSetupOpen(true)}>Change setup</button>
         </aside>
       </section>
 
       {/* Promotion modal */}
       {pendingPromotion && (
         <div className="modal-backdrop">
-          <section
-            className="promotion"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Choose promotion piece"
-          >
+          <section className="promotion" role="dialog" aria-modal="true" aria-label="Choose promotion piece">
             <h2>Promote pawn</h2>
             <div className="promotion-pieces">
-              {['q','r','b','n'].map(type => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    commit(pendingPromotion.from, pendingPromotion.to, type)
-                    setPendingPromotion(null)
-                  }}
-                >
-                  {glyph[player][type]}
+              {(['q','r','b','n'] as const).map(type => (
+                <button key={type} onClick={() => {
+                  commit(pendingPromotion.from, pendingPromotion.to, type)
+                  setPendingPromotion(null)
+                }}>
+                  <img
+                    src={PIECE_SVGS[player][type]}
+                    alt={`${player === 'w' ? 'white' : 'black'} ${type}`}
+                    className="promo-piece-svg"
+                  />
                 </button>
               ))}
             </div>

@@ -949,3 +949,141 @@ header {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ============================================================
+   SCHOOL WEIGHT TOKENS
+   ============================================================ */
+:root {
+  --w-attack: #c0534a;   /* warm red */
+  --w-focus:  #5a8fd4;   /* steel blue */
+  --w-defend: #4da870;   /* muted green */
+}
+
+/* ============================================================
+   WEIGHT BARS
+   ============================================================ */
+.school-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.4rem;
+  padding: 0.9rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.weight-bar-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 24px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.weight-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.weight-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.weight-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s var(--ease-liturgy);
+  opacity: 0.85;
+}
+
+.weight-value {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-align: right;
+}
+
+/* Sidebar variant — compact */
+.sidebar-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sidebar-weights .weight-bar-row {
+  grid-template-columns: 40px 1fr 20px;
+  gap: 0.4rem;
+}
+
+.sidebar-weights .weight-label { font-size: 0.55rem; }
+.sidebar-weights .weight-track { height: 3px; }
+
+/* ============================================================
+   ENGINE TOGGLE
+   ============================================================ */
+.engine-toggle {
+  margin-bottom: 1.3rem;
+}
+
+.engine-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.engine-btns button {
+  min-height: 44px;
+  padding: 0.65rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  transition: border-color 0.3s var(--ease), color 0.3s var(--ease), background 0.3s var(--ease);
+}
+
+.engine-btns button:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.engine-btns button[aria-pressed="true"] {
+  border-color: var(--accent-bright);
+  color: var(--text);
+  background: rgba(201, 207, 210, 0.07);
+}
+
+/* ============================================================
+   SVG PIECE IMAGES (cburnett / Wikimedia Commons)
+   ============================================================ */
+.piece-svg {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+  /* Subtle drop shadow so pieces lift off the board */
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
+  transition: transform 0.15s var(--ease);
+}
+
+.square:hover .piece-svg { transform: translateY(-2px); }
+
+/* Promotion modal SVGs */
+.promo-piece-svg {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+}
