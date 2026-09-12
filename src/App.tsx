@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Move, type Square } from 'chess.js'
-import { gameStatus, chooseMove, difficultyDepth, schoolWeights, type Difficulty } from './engine'
+import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 
-// ── cburnett SVG pieces from Wikimedia Commons ───────────────────────────────
-// https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces
+// ── cburnett SVG pieces · Wikimedia Commons (CC BY-SA 3.0) ──────────────────
 const PIECE_SVGS: Record<Color, Record<string, string>> = {
   w: {
     k: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
@@ -24,43 +23,29 @@ const PIECE_SVGS: Record<Color, Record<string, string>> = {
   },
 }
 
-
 const files = ['a','b','c','d','e','f','g','h']
 const ranks = ['8','7','6','5','4','3','2','1']
-const squareName = (file: string, rank: string) => `${file}${rank}` as Square
+const squareName = (f: string, r: string) => `${f}${r}` as Square
 
-// ── Weight bar component ─────────────────────────────────────────────────────
-function WeightBar({
-  label,
-  value,
-  color,
-}: {
-  label: string
-  value: number
-  color: string
-}) {
+// ── Weight bar ────────────────────────────────────────────────────────────────
+function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="weight-bar-row">
       <span className="weight-label">{label}</span>
       <div className="weight-track">
-        <div
-          className="weight-fill"
-          style={{ width: `${value * 10}%`, background: color }}
-        />
+        <div className="weight-fill" style={{ width: `${value * 10}%`, background: color }} />
       </div>
       <span className="weight-value">{value}</span>
     </div>
   )
 }
 
-// ── Dropdown ─────────────────────────────────────────────────────────────────
+// ── Dropdown ──────────────────────────────────────────────────────────────────
 type DropdownOption = { value: string; label: string; summary?: string }
 
-function Dropdown({
-  label, value, options, onChange,
-}: {
+function Dropdown({ label, value, options, onChange }: {
   label: string; value: string; options: DropdownOption[]
-  onChange: (value: string) => void
+  onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -68,9 +53,7 @@ function Dropdown({
 
   useEffect(() => {
     if (!open) return
-    const onPD = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
+    const onPD  = (e: PointerEvent)  => { if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false) }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('pointerdown', onPD)
     document.addEventListener('keydown', onKey)
@@ -96,8 +79,7 @@ function Dropdown({
             {options.map(opt => (
               <li key={opt.value} role="presentation">
                 <button type="button" role="option" aria-selected={opt.value === value}
-                  className="dropdown-option"
-                  onClick={() => { onChange(opt.value); setOpen(false) }}>
+                  className="dropdown-option" onClick={() => { onChange(opt.value); setOpen(false) }}>
                   <span>{opt.label}</span>
                   {opt.value === value && (
                     <svg width="12" height="10" viewBox="0 0 12 10" aria-hidden="true">
@@ -117,23 +99,25 @@ function Dropdown({
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
-  const gameRef = useRef(new Chess())
+  const gameRef   = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
-  const [fen, setFen] = useState(gameRef.current.fen())
-  const [history, setHistory] = useState<Move[]>([])
-  const [selected, setSelected] = useState<Square | null>(null)
-  const [difficulty, setDifficulty] = useState<Difficulty>('Classic')
-  const [school, setSchool] = useState<ChessSchool>('Universal')
-  const [player, setPlayer] = useState<Color>('w')
-  const [setupOpen, setSetupOpen] = useState(true)
+  const [fen,              setFen]              = useState(gameRef.current.fen())
+  const [history,          setHistory]          = useState<Move[]>([])
+  const [selected,         setSelected]         = useState<Square | null>(null)
+  const [difficulty,       setDifficulty]       = useState<Difficulty>('Classic')
+  const [school,           setSchool]           = useState<ChessSchool>('Universal')
+  const [player,           setPlayer]           = useState<Color>('w')
+  const [setupOpen,        setSetupOpen]        = useState(true)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
-  const [engineMode, setEngineMode] = useState<'stockfish' | 'alphabeta'>('stockfish')
 
-  const game = useMemo(() => new Chess(fen), [fen])
+  const game         = useMemo(() => new Chess(fen), [fen])
   const legalTargets = selected ? game.moves({ square: selected, verbose: true }).map(m => m.to) : []
-  const status = gameStatus(game, player)
-  const w = schools[school].weights
-  const sw = schoolWeights[school] ?? schoolWeights.Universal
+  const status       = gameStatus(game, player)
+  const w            = schools[school].weights
+  const sw           = schoolWeights[school] ?? schoolWeights.Universal
+
+  // silence unused-var warning — sw is kept for future α–β integration
+  void sw
 
   useEffect(() => {
     engineRef.current = new StockfishClient()
@@ -178,35 +162,18 @@ export function App() {
   useEffect(() => {
     if (setupOpen || game.isGameOver() || game.turn() === player || pendingPromotion) return
     const timer = window.setTimeout(async () => {
-      const current = gameRef.current
-      const played = current.history({ verbose: true }).map(m => `${m.from}${m.to}${m.promotion ?? ''}`)
+      const current  = gameRef.current
+      const played   = current.history({ verbose: true }).map(m => `${m.from}${m.to}${m.promotion ?? ''}`)
       const bookMove = schoolBookMove(school, played)
-
-      let uci: string | null = null
-      if (bookMove) {
-        uci = bookMove
-      } else if (engineMode === 'stockfish') {
-        uci = await engineRef.current?.bestMove(current.fen(), difficulty) ?? null
-      } else {
-        // α–β with school-specific weights as fallback / alternative
-        const depth = difficultyDepth[difficulty]
-        const aiColor: Color = player === 'w' ? 'b' : 'w'
-        const move = chooseMove(current, depth, aiColor, sw)
-        uci = move ? `${move.from}${move.to}${move.promotion ?? ''}` : null
-      }
-
+      const uci      = bookMove ?? await engineRef.current?.bestMove(current.fen(), difficulty) ?? null
       if (!uci || current !== gameRef.current || current.isGameOver()) return
       try {
-        gameRef.current.move({
-          from: uci.slice(0, 2) as Square,
-          to: uci.slice(2, 4) as Square,
-          promotion: uci[4],
-        })
+        gameRef.current.move({ from: uci.slice(0,2) as Square, to: uci.slice(2,4) as Square, promotion: uci[4] })
         sync()
       } catch { /* discard stale */ }
     }, 80)
     return () => window.clearTimeout(timer)
-  }, [fen, player, difficulty, school, pendingPromotion, setupOpen, engineMode])
+  }, [fen, player, difficulty, school, pendingPromotion, setupOpen])
 
   const last = history.at(-1)
 
@@ -214,11 +181,13 @@ export function App() {
   if (setupOpen) return (
     <main className="setup-shell">
       <section className="setup-card" aria-labelledby="setup-title">
+        {/* Brand */}
         <div className="brand">
           <span className="brand-mark">♞</span>
           <span className="brand-name">Woodland Chess</span>
         </div>
 
+        {/* Heading */}
         <div className="setup-heading">
           <span className="setup-kicker">New game</span>
           <h1 id="setup-title">Set your opponent</h1>
@@ -226,22 +195,22 @@ export function App() {
 
         <p className="setup-copy">Choose a playing school and strength before the board opens.</p>
 
+        {/* School selector */}
         <Dropdown
           label="Chess school"
           value={school}
           onChange={v => setSchool(v as ChessSchool)}
-          options={Object.entries(schools).map(([id, p]) => ({
-            value: id, label: p.label, summary: p.summary,
-          }))}
+          options={Object.entries(schools).map(([id, p]) => ({ value: id, label: p.label, summary: p.summary }))}
         />
 
-        {/* School weight display */}
+        {/* Weight bars */}
         <div className="school-weights">
-          <WeightBar label="Attack"  value={w.attack}  color="var(--w-attack)"  />
-          <WeightBar label="Focus"   value={w.focus}   color="var(--w-focus)"   />
-          <WeightBar label="Defend"  value={w.defend}  color="var(--w-defend)"  />
+          <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
+          <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
+          <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
         </div>
 
+        {/* Difficulty */}
         <Dropdown
           label="Difficulty"
           value={difficulty}
@@ -249,20 +218,7 @@ export function App() {
           options={['Relaxed', 'Classic', 'Expert'].map(d => ({ value: d, label: d }))}
         />
 
-        <div className="engine-toggle">
-          <span className="dropdown-label">Engine</span>
-          <div className="engine-btns">
-            <button type="button" aria-pressed={engineMode === 'stockfish'}
-              onClick={() => setEngineMode('stockfish')}>
-              Stockfish WASM
-            </button>
-            <button type="button" aria-pressed={engineMode === 'alphabeta'}
-              onClick={() => setEngineMode('alphabeta')}>
-              α–β (school-weighted)
-            </button>
-          </div>
-        </div>
-
+        {/* Play as */}
         <fieldset className="color-picker">
           <legend>Play as</legend>
           <div className="color-picker-btns">
@@ -302,18 +258,14 @@ export function App() {
                     key={square}
                     role="gridcell"
                     aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
-                    className={[
-                      'square', dark ? 'dark' : 'light',
-                      selected === square ? 'selected' : '',
-                      isLast ? 'last' : '',
-                    ].filter(Boolean).join(' ')}
+                    className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : ''].filter(Boolean).join(' ')}
                     onClick={() => clickSquare(square)}
                   >
                     {col === 0 && <small className="rank">{rank}</small>}
                     {row === 7 && <small className="file">{file}</small>}
                     {piece && (
                       <img
-                        className="piece-svg"
+                        className={`piece-svg piece-svg--${piece.color}`}
                         src={PIECE_SVGS[piece.color][piece.type]}
                         alt={`${piece.color === 'w' ? 'white' : 'black'} ${piece.type}`}
                         draggable={false}
@@ -336,17 +288,17 @@ export function App() {
               <div className="avatar">♛</div>
               <div className="opponent-info">
                 <strong>Computer</strong>
-                <span>{schools[school].label} · {difficulty} · {engineMode === 'stockfish' ? 'SF WASM' : 'α–β'}</span>
+                <span>{schools[school].label} · {difficulty}</span>
               </div>
             </div>
           </div>
 
-          {/* School weight bars in sidebar */}
+          {/* School weight bars */}
           <div className="sidebar-section sidebar-weights">
             <span className="status-label">School profile</span>
-            <WeightBar label="Attack"  value={w.attack}  color="var(--w-attack)"  />
-            <WeightBar label="Focus"   value={w.focus}   color="var(--w-focus)"   />
-            <WeightBar label="Defend"  value={w.defend}  color="var(--w-defend)"  />
+            <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
+            <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
+            <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
           </div>
 
           <div className="sidebar-section">
@@ -381,14 +333,11 @@ export function App() {
             <h2>Promote pawn</h2>
             <div className="promotion-pieces">
               {(['q','r','b','n'] as const).map(type => (
-                <button key={type} onClick={() => {
-                  commit(pendingPromotion.from, pendingPromotion.to, type)
-                  setPendingPromotion(null)
-                }}>
+                <button key={type} onClick={() => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}>
                   <img
                     src={PIECE_SVGS[player][type]}
                     alt={`${player === 'w' ? 'white' : 'black'} ${type}`}
-                    className="promo-piece-svg"
+                    className={`promo-piece-svg promo-piece-svg--${player}`}
                   />
                 </button>
               ))}

@@ -130,10 +130,23 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 
 .setup-shell {
+  /* Allow content to scroll on short viewports instead of clipping */
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: max(1.25rem, var(--safe-top)) max(1.25rem, var(--safe-right)) max(1.25rem, var(--safe-bottom)) max(1.25rem, var(--safe-left));
+  display: flex;
+  align-items: flex-start;       /* top-align so scroll works naturally */
+  justify-content: center;
+  padding: max(1.25rem, var(--safe-top))
+           max(1.25rem, var(--safe-right))
+           max(1.25rem, var(--safe-bottom))
+           max(1.25rem, var(--safe-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* On tall screens re-centre vertically */
+@media (min-height: 700px) {
+  .setup-shell { align-items: center; }
 }
 
 .setup-card {
@@ -148,6 +161,8 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   gap: 0;
   animation: fadeUp 0.9s var(--ease-liturgy) both;
+  /* Prevent card itself from shrinking on short screens */
+  flex-shrink: 0;
 }
 
 /* Brand lockup — shared between setup and header */
@@ -177,7 +192,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Setup eyebrow + heading — tight unit, spaced away from siblings */
 .setup-heading {
-  margin: 1.6rem 0 1.2rem;
+  margin: 1.2rem 0 0.9rem;
 }
 
 .setup-kicker {
@@ -206,7 +221,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: 300;
   color: var(--text-2);
   line-height: 1.75;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.1rem;
 }
 
 /* Form fields — 44px+ tall for comfortable thumb targets */
@@ -951,12 +966,46 @@ header {
 }
 
 /* ============================================================
-   SCHOOL WEIGHT TOKENS
+   SCHOOL WEIGHT TOKENS  +  PIECE FILTER TOKENS
+   ============================================================
+   Color theory rationale for piece filters:
+   Board squares: --sq-light #1a2027 (rgb 26,32,39) and --sq-dark #0d1013 (rgb 13,16,19)
+   Both are very dark blue-gray. Pieces must read against these.
+
+   WHITE pieces (cburnett "lt" = white fill + black outline):
+     Pure white (#fff) is too harsh and lacks the brand warmth.
+     Target: --text (#e6e3da = rgb 230,227,218) — warm off-white with slight yellow.
+     Filter: sepia(0.18) pulls warm yellow into the white fill.
+             brightness(0.91) tones it down from glaring 255 to ~210 range.
+     Result: warm ivory — harmonises with Cormorant Garamond headline tone.
+
+   BLACK pieces (cburnett "dt" = near-black fill + light outline):
+     Black (#0d1013 ≈ board dark) = invisible. Must be lifted significantly.
+     Target: --accent-bright (#c9cfd2 = rgb 201,207,210) — the brand's cool silver.
+     Filter: invert(0.72) flips black to ~rgb 183,183,183 (cool neutral gray).
+             hue-rotate(194deg) shifts toward the blue-gray of --accent-bright.
+             saturate(0.55) keeps it muted rather than vivid blue.
+             brightness(0.96) fine-tunes brightness.
+     Result: cool steel silver — visually distinct from warm white pieces,
+             reads clearly on both dark squares, matches brand accent palette.
    ============================================================ */
 :root {
-  --w-attack: #c0534a;   /* warm red */
-  --w-focus:  #5a8fd4;   /* steel blue */
-  --w-defend: #4da870;   /* muted green */
+  --w-attack: #c0534a;   /* warm red   — Attack bar */
+  --w-focus:  #5a8fd4;   /* steel blue — Focus bar  */
+  --w-defend: #4da870;   /* muted green — Defend bar */
+
+  /* Piece CSS filter chains */
+  --piece-filter-w:
+    sepia(0.18)
+    brightness(0.91)
+    drop-shadow(0 2px 5px rgba(0,0,0,0.70));
+
+  --piece-filter-b:
+    invert(0.72)
+    hue-rotate(194deg)
+    saturate(0.55)
+    brightness(0.96)
+    drop-shadow(0 2px 5px rgba(0,0,0,0.80));
 }
 
 /* ============================================================
@@ -966,8 +1015,8 @@ header {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  margin-bottom: 1.4rem;
-  padding: 0.9rem;
+  margin-bottom: 1.1rem;
+  padding: 0.75rem;
   background: var(--bg-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -1025,65 +1074,49 @@ header {
 .sidebar-weights .weight-track { height: 3px; }
 
 /* ============================================================
-   ENGINE TOGGLE
+   SVG PIECE IMAGES — cburnett set (Wikimedia Commons, CC BY-SA 3.0)
+   Color filters are applied per-side via --piece-filter-w / --piece-filter-b.
+   See :root comment block above for full color-theory rationale.
    ============================================================ */
-.engine-toggle {
-  margin-bottom: 1.3rem;
-}
 
-.engine-btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.engine-btns button {
-  min-height: 44px;
-  padding: 0.65rem 0.6rem;
-  border: 1px solid var(--border);
-  background: var(--bg-3);
-  color: var(--text-2);
-  border-radius: var(--radius-card);
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.04em;
-  transition: border-color 0.3s var(--ease), color 0.3s var(--ease), background 0.3s var(--ease);
-}
-
-.engine-btns button:hover {
-  border-color: var(--border-hover);
-  color: var(--text);
-}
-
-.engine-btns button[aria-pressed="true"] {
-  border-color: var(--accent-bright);
-  color: var(--text);
-  background: rgba(201, 207, 210, 0.07);
-}
-
-/* ============================================================
-   SVG PIECE IMAGES (cburnett / Wikimedia Commons)
-   ============================================================ */
+/* Base layout — shared by both sides */
 .piece-svg {
-  width: 82%;
-  height: 82%;
+  width: 84%;
+  height: 84%;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
   z-index: 2;
-  /* Subtle drop shadow so pieces lift off the board */
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
-  transition: transform 0.15s var(--ease);
+  transition: transform 0.15s var(--ease), filter 0.15s var(--ease);
 }
 
-.square:hover .piece-svg { transform: translateY(-2px); }
+/* White pieces — warm ivory (#e6e3da range) */
+.piece-svg--w {
+  filter: var(--piece-filter-w);
+}
 
-/* Promotion modal SVGs */
+/* Black pieces — cool steel silver (#c9cfd2 range) */
+.piece-svg--b {
+  filter: var(--piece-filter-b);
+}
+
+/* Lift on hover — applies to whichever side's piece is hovered */
+.square:hover .piece-svg {
+  transform: translateY(-3px);
+}
+
+/* Promotion modal SVGs — same filter approach */
 .promo-piece-svg {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
   pointer-events: none;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+}
+
+.promo-piece-svg--w {
+  filter: var(--piece-filter-w);
+}
+
+.promo-piece-svg--b {
+  filter: var(--piece-filter-b);
 }
