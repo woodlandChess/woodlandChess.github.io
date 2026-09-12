@@ -24,7 +24,7 @@
 
 <br/>
 
-> *A Mac-inspired chess game forged in React and TypeScript — powered by Stockfish 18, designed for intent.*
+> *A chess game forged in React and TypeScript, powered by Stockfish 18, designed for intent.*
 
 <br/>
 
@@ -34,7 +34,7 @@
 
 ## ♟ Overview
 
-**Woodland Chess** is a mobile-first, browser-native chess application with a handcrafted dark design system. It plays entirely client-side — no server, no account, no tracking — with Stockfish 18 Lite running as a Web Worker via WebAssembly. Ten historical playing schools shape the engine's opening repertoire, and three difficulty tiers adjust its Skill Level and search time.
+**Woodland Chess** is a mobile-first, browser-native chess application with a handcrafted dark design system. It plays entirely client-side, with no server, no account, and no tracking; Stockfish 18 Lite runs as a Web Worker via WebAssembly. Ten historical playing schools shape the engine's opening repertoire, and three difficulty tiers adjust its Skill Level and search time.
 
 The visual design inherits from the *Abyssal Liturgy* aesthetic: near-black surfaces, muted grey tokens, Cormorant Garamond italics for display text, and Jost for interface copy. Every spacing value, colour token, and easing curve is defined as a CSS custom property so the system can be extended without touching component markup.
 
@@ -53,7 +53,7 @@ The visual design inherits from the *Abyssal Liturgy* aesthetic: near-black surf
 - ♞ Pawn promotion modal with piece picker
 - ♗ Check, checkmate, stalemate, draw detection
 - ♜ Move history displayed as paired SAN notation
-- ♛ Play as White or Black — board does not flip
+- ♛ Play as White or Black; board does not flip
 
 </td>
 <td width="50%" valign="top">
@@ -75,14 +75,14 @@ The visual design inherits from the *Abyssal Liturgy* aesthetic: near-black surf
 - 🖋 Cormorant Garamond + Jost + JetBrains Mono
 - 🌑 Abyssal Liturgy dark palette
 - ✨ `fadeUp` + `subtlePulse` micro-animations
-- 📐 2 px card radius — intentionally minimal
+- 📐 2 px card radius, intentionally minimal
 
 </td>
 <td width="50%" valign="top">
 
 **Platform**
 - 📱 Mobile-first, progressively enhanced with `min-width`
-- 🔔 PWA-ready — `manifest.webmanifest` + `icon.svg`
+- 🔔 PWA-ready: `manifest.webmanifest` + `icon.svg`
 - 📲 Safe-area insets for notched / home-bar devices
 - ♿ ARIA gridcell board, `aria-live` status, full keyboard
 - 🚀 Automated CI/CD → GitHub Pages
@@ -103,11 +103,11 @@ The visual design inherits from the *Abyssal Liturgy* aesthetic: near-black surf
 
 The application is structured across three layers:
 
-**Presentation** — `App.tsx` owns all React state and renders the 8×8 board grid as `<button role="gridcell">` elements, the sidebar, and the promotion modal. A bespoke `<Dropdown>` component replaces the native `<select>` with a fully branded ARIA listbox — a compact anchored panel on desktop, a sheet-style panel on mobile.
+**Presentation:** `App.tsx` owns all React state and renders the 8×8 board grid as `<button role="gridcell">` elements, the sidebar, and the promotion modal. A bespoke `<Dropdown>` component replaces the native `<select>` with a fully branded ARIA listbox: a compact anchored panel on desktop, a sheet-style panel on mobile.
 
-**Logic** — `chess.js` handles every rule of chess; the app never reimplements move validation. `engine.ts` provides a pure α–β minimax search with a material + positional evaluation function used at Relaxed difficulty. `stockfish.ts` wraps the Web Worker in a UCI client with a Promise-based `until(match)` queue and implements the 10-school opening book.
+**Logic:** `chess.js` handles every rule of chess; the app never reimplements move validation. `engine.ts` provides a pure α–β minimax search with a material + positional evaluation function used at Relaxed difficulty. `stockfish.ts` wraps the Web Worker in a UCI client with a Promise-based `until(match)` queue and implements the 10-school opening book.
 
-**Engine** — Stockfish 18 Lite Single runs as a `new Worker(...)` loading a `.wasm` binary from `public/`. The worker is lazily initialised on mount and torn down on unmount via `engineRef`.
+**Engine:** Stockfish 18 Lite Single runs as a `new Worker(...)` loading a `.wasm` binary from `public/`. The worker is lazily initialised on mount and torn down on unmount via `engineRef`.
 
 <br/>
 
@@ -155,7 +155,7 @@ The full design token set is declared in `:root` within `styles.css`. All compon
 ```
 --ease          cubic-bezier(0.25, 0.1, 0.25, 1)     standard
 --ease-out      cubic-bezier(0, 0, 0.2, 1)            decelerate
---ease-liturgy  cubic-bezier(0.16, 0.4, 0.15, 1)      signature — cards, overlays
+--ease-liturgy  cubic-bezier(0.16, 0.4, 0.15, 1)      signature; cards, overlays
 ```
 
 <br/>
@@ -172,7 +172,7 @@ Each school pre-loads a UCI opening book. While the game's move history matches 
 
 | School | Opening Tendency | First Book Moves |
 |---|---|---|
-| **Universal** | No fixed bias; fully adaptive | — |
+| **Universal** | No fixed bias; fully adaptive | (none) |
 | **Russian (Soviet)** | Sound development, balanced | `d4 d5 · c4 e6 · Nf3 Nf6` |
 | **British** | Practical, flexible, endgame-aware | `Nf3 Nf6 · c4 e5` |
 | **Classical German** | Central control, fast development | `e4 e5 · Nf3 Nc6 · Bc4 Bc5` |
@@ -246,7 +246,7 @@ The repository ships a GitHub Actions workflow at `.github/workflows/deploy.yml`
 
 1. Checks out the repo and sets up Node 22 with npm caching
 2. Runs `npm ci` for a clean, reproducible install
-3. Runs `npm test` — the deploy aborts on any test failure
+3. Runs `npm test`, the deploy aborts on any test failure
 4. Detects the repository type to set the correct Vite base path:
    - **User / org page** (`<account>.github.io`) → base `"/"`
    - **Project page** (any other name) → base `"/<repo-name>/"`
@@ -390,11 +390,11 @@ The engine is disposed (`quit` + `terminate`) when the `App` component unmounts.
 |---|---|---|
 | Application source | MIT | `src/`, `public/icon.svg`, `public/manifest.webmanifest` |
 | Stockfish 18 Lite | **GPLv3** | `public/stockfish-18-lite-single.js` + `.wasm` |
-| GPLv3 license text | — | Included at `public/stockfish-COPYING.txt` |
+| GPLv3 license text | (n/a) | Included at `public/stockfish-COPYING.txt` |
 
 > **Important:** The Stockfish engine is licensed under the GNU General Public License v3. If you distribute a modified version of this application that includes the Stockfish binaries, the source of those modifications must also be made available under GPLv3. The application source itself is independently MIT-licensed. See `public/stockfish-COPYING.txt` and the [Stockfish.js project](https://github.com/nmrugg/stockfish.js) for full details.
 
-The app is not affiliated with or a copy of Apple Chess. It uses original styling and standard Unicode Staunton chess piece characters (♔ ♕ ♖ ♗ ♘ ♙ ♚ ♛ ♜ ♝ ♞ ♟).
+It uses original styling and standard Unicode Staunton chess piece characters (♔ ♕ ♖ ♗ ♘ ♙ ♚ ♛ ♜ ♝ ♞ ♟).
 
 <br/>
 
@@ -404,7 +404,7 @@ The app is not affiliated with or a copy of Apple Chess. It uses original stylin
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/my-change`
-3. Make your changes — keep CSS modifications inside the token system; avoid raw hex values outside `:root`
+3. Make your changes: keep CSS modifications inside the token system; avoid raw hex values outside `:root`
 4. Run `npm test` and ensure all tests pass
 5. Open a pull request against `main`
 
@@ -422,7 +422,7 @@ When touching `styles.css`, prefer adding new tokens to `:root` over hardcoding 
 
 <br/>
 
-*Woodland Chess — play with intent.*
+*Woodland Chess: play with intent.*
 
 <br/>
 
