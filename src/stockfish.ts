@@ -95,10 +95,18 @@ const settings: Record<Difficulty, { skill: number; time: number }> = {
 
 export class StockfishClient {
   private readonly worker: Worker
-  private ready = false
+  // Track readiness with a Promise so concurrent callers all wait on the same
+  // resolution and there is no race where 'readyok' arrives before a listener
+  // has been registered.
+  private readyPromise: Promise<void>
+  private resolveReady!: () => void
   private queue: Array<(line: string) => void> = []
 
   constructor() {
+    this.readyPromise = new Promise<void>(resolve => {
+      this.resolveReady = resolve
+    })
+
     const root = import.meta.env.BASE_URL
     this.worker = new Worker(
       `${root}stockfish-18-lite-single.js#${root}stockfish-18-lite-single.wasm`
@@ -116,7 +124,18 @@ export class StockfishClient {
   private send(command: string) { this.worker.postMessage(command) }
 
   private handle(line: string) {
-    if (line === 'uciok') { this.ready = true; this.send('isready') }
+    // When UCI handshake completes, request readiness confirmation
+    if (line === 'uciok') {
+      this.send('isready')
+      return
+    }
+    // When engine confirms it is ready, resolve the shared promise so all
+    // waiting bestMove() calls unblock simultaneously — no listener miss.
+    if (line === 'readyok') {
+      this.resolveReady()
+      return
+    }
+    // Dispatch to the first registered one-shot resolver (bestmove lines, etc.)
     const resolver = this.queue[0]
     if (resolver) resolver(line)
   }
@@ -132,7 +151,10 @@ export class StockfishClient {
 
   async bestMove(fen: string, difficulty: Difficulty): Promise<string | null> {
     const { skill, time } = settings[difficulty]
-    if (!this.ready) await this.until(line => line === 'readyok')
+    // Wait for 'readyok' via the shared Promise — safe to call multiple times
+    // because Promise resolution is idempotent and already-resolved Promises
+    // return immediately.
+    await this.readyPromise
     this.send(`setoption name Skill Level value ${skill}`)
     this.send('ucinewgame')
     this.send(`position fen ${fen}`)
