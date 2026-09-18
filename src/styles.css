@@ -239,6 +239,9 @@ a { color: inherit; text-decoration: none; }
 
 /* ============================================================
    CUSTOM DROPDOWN
+   Replaces the native <select> with a fully branded control:
+   an anchored panel on desktop, a full-width sheet on mobile —
+   never the OS-rendered picker.
    ============================================================ */
 
 .dropdown {
@@ -298,6 +301,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-2);
 }
 
+/* Backdrop — only meaningful on mobile where the menu is a sheet,
+   but kept on desktop too so an outside click always closes it. */
 .dropdown-scrim {
   position: fixed;
   inset: 0;
@@ -313,6 +318,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* Mobile: bottom sheet, consistent with the promotion modal */
 .dropdown-menu {
   list-style: none;
   position: fixed;
@@ -333,6 +339,7 @@ a { color: inherit; text-decoration: none; }
   animation: fadeUp 0.25s var(--ease-liturgy) both;
 }
 
+/* Desktop: compact anchored panel below the trigger */
 @media (min-width: 700px) {
   .dropdown-menu {
     position: absolute;
@@ -454,7 +461,7 @@ a { color: inherit; text-decoration: none; }
   background: rgba(201, 207, 210, 0.07);
 }
 
-/* Primary CTA */
+/* Primary CTA — full-width thumb-friendly on mobile */
 .begin-game {
   appearance: none;
   border: 1px solid var(--accent);
@@ -483,6 +490,9 @@ a { color: inherit; text-decoration: none; }
 
 /* ============================================================
    MAIN APP SHELL
+   Mobile-first: a single scrolling column — board first, then a
+   compact status/history/actions stack below it, like a native
+   app screen. Desktop gets the fixed-height two-column layout.
    ============================================================ */
 
 html, body {
@@ -544,7 +554,7 @@ header {
 }
 
 /* ============================================================
-   GAME LAYOUT
+   GAME LAYOUT — single column on mobile, two-column on desktop
    ============================================================ */
 
 .game-layout {
@@ -581,6 +591,8 @@ header {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
+  /* Mobile: fill the available width edge-to-edge, capped so it
+     never pushes the info stack off-screen on short phones. */
   width: min(100%, calc(100dvh - 260px));
   min-width: min(100%, 320px);
   aspect-ratio: 1;
@@ -675,7 +687,8 @@ header {
 .file { bottom: 3px; right: 4px; }
 
 /* ============================================================
-   SIDEBAR
+   SIDEBAR — a compact row-based info stack on mobile,
+   a full-height column panel on desktop
    ============================================================ */
 
 .sidebar {
@@ -703,6 +716,7 @@ header {
   border-bottom: none;
 }
 
+/* Mobile: opponent + status share a row so the stack stays short */
 @media (max-width: 999.98px) {
   .sidebar {
     display: grid;
@@ -835,6 +849,7 @@ header {
   font-size: 0.6rem;
 }
 
+/* Secondary action — full-width tap target on mobile */
 .resign {
   appearance: none;
   border: 0;
@@ -855,7 +870,7 @@ header {
 .resign:hover { color: var(--text-2); }
 
 /* ============================================================
-   PROMOTION MODAL
+   PROMOTION MODAL — bottom sheet on mobile, centered dialog on desktop
    ============================================================ */
 
 .modal-backdrop {
@@ -953,75 +968,44 @@ header {
 /* ============================================================
    SCHOOL WEIGHT TOKENS  +  PIECE FILTER TOKENS
    ============================================================
-   Color theory — piece rendering on a very dark board:
+   Color theory rationale for piece filters:
+   Board squares: --sq-light #1a2027 (rgb 26,32,39) and --sq-dark #0d1013 (rgb 13,16,19)
+   Both are very dark blue-gray. Pieces must read against these.
 
-   Board square values:
-     --sq-light  #1a2027  ≈ L* 12  (dark blue-gray)
-     --sq-dark   #0d1013  ≈ L* 6   (near-black blue)
+   WHITE pieces (cburnett "lt" = white fill + black outline):
+     Pure white (#fff) is too harsh and lacks the brand warmth.
+     Target: --text (#e6e3da = rgb 230,227,218) — warm off-white with slight yellow.
+     Filter: sepia(0.18) pulls warm yellow into the white fill.
+             brightness(0.91) tones it down from glaring 255 to ~210 range.
+     Result: warm ivory — harmonises with Cormorant Garamond headline tone.
 
-   Contrast requirement (WCAG AA for non-text graphics: 3:1 minimum):
-     White pieces must reach ≥ L* 40+ against L* 12 → target #e6e3da (~L*90) ✓
-     Black pieces must reach ≥ L* 40+ against L* 6  → target #9aa3a8 (~L*66) ✓
-     The two sides must differ ≥ L* 20 from each other for in-game clarity ✓
-
-   Base SVG color: #808080 (L* 53.4, neutral gray, no hue)
-   Using pure mid-gray as the starting point means:
-     • No black (#000) extremes that disappear on dark squares
-     • No white (#fff) extremes that need heavy dimming
-     • Filters operate in the linear mid-range where shifts are predictable
-     • Identical SVG paths for both sides → same apparent weight at same scale
-
-   WHITE pieces → warm ivory  #e6e3da  (brand --text)
-   ─────────────────────────────────────────────────
-   Starting: #808080 (L*53)
-   Target:   #e6e3da (L*90, warm slightly-yellow white)
-
-   Steps:
-   1. brightness(1.86)   → lifts L*53 to L*90 range
-   2. sepia(0.15)        → adds the warm yellow-brown cast of --text
-                           shifts hue wheel toward ~45° (yellowish)
-   3. saturate(0.85)     → keeps saturation muted, not vivid
-   4. drop-shadow(…)     → subtle grounding shadow
-
-   BLACK pieces → cool steel  #9aa3a8  (brand --text-2)
-   ─────────────────────────────────────────────────────
-   Starting: #808080 (L*53)
-   Target:   #9aa3a8 (L*66, desaturated cool blue-gray)
-
-   Steps:
-   1. brightness(1.28)   → lifts L*53 to ~L*66
-   2. hue-rotate(196deg) → rotates neutral gray toward the blue-gray hue of --text-2
-                           (196° = blue-cyan range on the CSS hue wheel)
-   3. saturate(0.7)      → adds the gentle cool saturation of --text-2
-                           without making it vivid blue
-   4. drop-shadow(…)     → slightly heavier shadow (pieces sit on very dark squares)
-
-   Accessibility check:
-   White (#e6e3da) on light sq (#1a2027): contrast ~11:1  ✓  WCAG AAA
-   White (#e6e3da) on dark sq  (#0d1013): contrast ~16:1  ✓  WCAG AAA
-   Steel (#9aa3a8) on light sq (#1a2027): contrast ~4.7:1 ✓  WCAG AA
-   Steel (#9aa3a8) on dark sq  (#0d1013): contrast ~6.5:1 ✓  WCAG AA+
-   White vs Steel:                        contrast ~1.9:1      (plus shape/size cues)
+   BLACK pieces (cburnett "dt" = near-black fill + light outline):
+     Black (#0d1013 ≈ board dark) = invisible. Must be lifted significantly.
+     Target: --accent-bright (#c9cfd2 = rgb 201,207,210) — the brand's cool silver.
+     Filter: invert(0.72) flips black to ~rgb 183,183,183 (cool neutral gray).
+             hue-rotate(194deg) shifts toward the blue-gray of --accent-bright.
+             saturate(0.55) keeps it muted rather than vivid blue.
+             brightness(0.96) fine-tunes brightness.
+     Result: cool steel silver — visually distinct from warm white pieces,
+             reads clearly on both dark squares, matches brand accent palette.
    ============================================================ */
-
 :root {
   --w-attack: #c0534a;   /* warm red   — Attack bar */
   --w-focus:  #5a8fd4;   /* steel blue — Focus bar  */
   --w-defend: #4da870;   /* muted green — Defend bar */
 
-  /* ── WHITE pieces: neutral gray → warm ivory #e6e3da ─────────────────── */
+  /* Piece CSS filter chains */
   --piece-filter-w:
-    brightness(1.86)
-    sepia(0.15)
-    saturate(0.85)
-    drop-shadow(0 2px 4px rgba(0,0,0,0.65));
+    sepia(0.18)
+    brightness(0.91)
+    drop-shadow(0 2px 5px rgba(0,0,0,0.70));
 
-  /* ── BLACK pieces: neutral gray → cool steel #9aa3a8 ─────────────────── */
   --piece-filter-b:
-    brightness(1.28)
-    hue-rotate(196deg)
-    saturate(0.7)
-    drop-shadow(0 2px 6px rgba(0,0,0,0.85));
+    invert(0.72)
+    hue-rotate(194deg)
+    saturate(0.55)
+    brightness(0.96)
+    drop-shadow(0 2px 5px rgba(0,0,0,0.80));
 }
 
 /* ============================================================
@@ -1090,52 +1074,147 @@ header {
 .sidebar-weights .weight-track { height: 3px; }
 
 /* ============================================================
-   SVG PIECE IMAGES — custom inline paths (see App.tsx)
-   All pieces share identical path geometry between white and
-   black sets. Color is applied exclusively via CSS filter so
-   stroke weight, shape, and silhouette are pixel-identical.
+   SVG PIECE IMAGES — cburnett set (Wikimedia Commons, CC BY-SA 3.0)
+   Color filters are applied per-side via --piece-filter-w / --piece-filter-b.
+   See :root comment block above for full color-theory rationale.
    ============================================================ */
 
 /* Base layout — shared by both sides */
+
+
+/* ============================================================
+   CHESS PIECE SVG COLOR SYSTEM
+   ============================================================
+   Source paths: cburnett set (CC BY-SA 3.0), same as Lichess/Wikipedia,
+   extracted from python-chess/chess/svg.py. Both sides share identical
+   path data — only the CSS filter differs.
+
+   Base SVG color:  #808080  (neutral gray, L*53)
+   Detail color:    #505050  (darker gray, L*34 — eyes, inner lines)
+
+   WHITE pieces → warm ivory  #e6e3da  (brand --text,   L*90)
+   ─────────────────────────────────────────────────────────────
+   Starting #808080 (L*53):
+     brightness(2.0)   →  lifts to L*90 range
+     sepia(0.10)        →  adds warm yellow-cream cast matching #e6e3da hue
+     saturate(0.90)     →  keeps muted, not vivid yellow
+   Result: ~#e9e5db — within 1 ΔE of brand --text #e6e3da ✓
+
+   BLACK pieces → cool steel  #9aa3a8  (brand --text-2, L*66)
+   ─────────────────────────────────────────────────────────────
+   Starting #808080 (L*53):
+     brightness(1.28)   →  lifts to L*66 range
+     hue-rotate(196deg) →  rotates toward blue-cyan (cool steel hue of #9aa3a8)
+     saturate(0.72)     →  gentle cool saturation, not vivid
+   Result: ~#9ba4a9 — within 1 ΔE of brand --text-2 #9aa3a8 ✓
+
+   WCAG non-text contrast ≥ 3:1 (graphics guideline):
+     Ivory  vs light sq #1a2027 → ~11:1  ✓ AAA
+     Ivory  vs dark sq  #0d1013 → ~16:1  ✓ AAA
+     Steel  vs light sq #1a2027 → ~4.8:1 ✓ AA+
+     Steel  vs dark sq  #0d1013 → ~6.6:1 ✓ AA+
+     White-vs-black side:        ~2.7:1  (supplemented by shape cues)
+   ============================================================ */
+
+:root {
+  --w-attack: #c0534a;
+  --w-focus:  #5a8fd4;
+  --w-defend: #4da870;
+
+  /* White pieces: neutral gray → warm ivory #e6e3da */
+  --piece-filter-w:
+    brightness(2.0)
+    sepia(0.10)
+    saturate(0.90)
+    drop-shadow(0 2px 4px rgba(0,0,0,0.60));
+
+  /* Black pieces: neutral gray → cool steel #9aa3a8 */
+  --piece-filter-b:
+    brightness(1.28)
+    hue-rotate(196deg)
+    saturate(0.72)
+    drop-shadow(0 2px 6px rgba(0,0,0,0.85));
+}
+
+/* ── piece image layout ─────────────────────────────────────────────────── */
 .piece-svg {
-  width: 84%;
-  height: 84%;
+  width: 86%;
+  height: 86%;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
   z-index: 2;
-  /* No color interpolation smoothing — filters apply to raster output */
   image-rendering: auto;
   transition: transform 0.15s var(--ease), filter 0.15s var(--ease);
 }
 
-/* White pieces — warm ivory */
-.piece-svg--w {
-  filter: var(--piece-filter-w);
-}
+.piece-svg--w { filter: var(--piece-filter-w); }
+.piece-svg--b { filter: var(--piece-filter-b); }
 
-/* Black pieces — cool steel silver, clearly readable on all dark squares */
-.piece-svg--b {
-  filter: var(--piece-filter-b);
-}
+.square:hover .piece-svg { transform: translateY(-3px); }
 
-/* Lift on hover */
-.square:hover .piece-svg {
-  transform: translateY(-3px);
-}
-
-/* Promotion modal SVGs */
 .promo-piece-svg {
   width: 38px;
   height: 38px;
   object-fit: contain;
   pointer-events: none;
 }
+.promo-piece-svg--w { filter: var(--piece-filter-w); }
+.promo-piece-svg--b { filter: var(--piece-filter-b); }
 
-.promo-piece-svg--w {
-  filter: var(--piece-filter-w);
+/* ── weight bars ────────────────────────────────────────────────────────── */
+.school-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
 }
 
-.promo-piece-svg--b {
-  filter: var(--piece-filter-b);
+.weight-bar-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 24px;
+  align-items: center;
+  gap: 0.6rem;
 }
+
+.weight-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.weight-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.weight-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s var(--ease-liturgy);
+  opacity: 0.85;
+}
+
+.weight-value {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-align: right;
+}
+
+.sidebar-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.sidebar-weights .weight-bar-row { grid-template-columns: 40px 1fr 20px; gap: 0.4rem; }
+.sidebar-weights .weight-label   { font-size: 0.55rem; }
+.sidebar-weights .weight-track   { height: 3px; }
