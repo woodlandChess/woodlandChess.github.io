@@ -190,7 +190,6 @@ function WeightBar({ label, value, color }: { label: string; value: number; colo
 // Material advantage shown as "+N" when ahead.
 //
 const PIECE_VALUE: Record<string, number> = { q:9, r:5, b:3, n:3, p:1 }
-const PIECE_ORDER = ['q','r','b','n','p']
 
 /** From a move history, return which piece types each side captured. */
 function computeCaptures(history: Move[]): { w: string[]; b: string[] } {
@@ -327,7 +326,7 @@ export function App() {
 
   // Captured pieces — derived from move history each render
   const caps      = useMemo(() => computeCaptures(history), [history])
-  const opponent  = player === 'w' ? 'b' : 'w'
+  const opponent  = (player === 'w' ? 'b' : 'w') as Color
   // Strip shown above board: pieces the opponent took from you (your colour, opponent captured)
   const topStrip  = { pieces: caps[opponent], color: player,   adv: materialAdvantage(caps, opponent) }
   // Strip shown below board: pieces you took from opponent (opponent colour, you captured)
