@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Move, type Square } from 'chess.js'
 import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
-
 // ── Chess piece SVGs ─────────────────────────────────────────────────────────
 //
 // Paths sourced from the cburnett set (Colin M.L. Burnett, CC BY-SA 3.0),
