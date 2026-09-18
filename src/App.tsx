@@ -182,6 +182,74 @@ function WeightBar({ label, value, color }: { label: string; value: number; colo
   )
 }
 
+// ── Captured pieces ───────────────────────────────────────────────────────────
+//
+// Chess.com style: small overlapping piece icons in a strip above/below the board.
+// Shows pieces captured BY a given side (i.e. opponent's lost pieces).
+// Sorted by value descending: q(9) r(5) b(3) n(3) p(1).
+// Material advantage shown as "+N" when ahead.
+//
+const PIECE_VALUE: Record<string, number> = { q:9, r:5, b:3, n:3, p:1 }
+const PIECE_ORDER = ['q','r','b','n','p']
+
+/** From a move history, return which piece types each side captured. */
+function computeCaptures(history: Move[]): { w: string[]; b: string[] } {
+  const caps: { w: string[]; b: string[] } = { w: [], b: [] }
+  for (const move of history) {
+    if (move.captured) {
+      // The side that moved captured a piece of the opposite colour
+      caps[move.color].push(move.captured)
+    }
+    // en-passant: captured flag is 'p' even without a piece on that square
+  }
+  // Sort each list by value desc
+  for (const side of ['w','b'] as Color[]) {
+    caps[side].sort((a,b) => (PIECE_VALUE[b] ?? 0) - (PIECE_VALUE[a] ?? 0))
+  }
+  return caps
+}
+
+/** Material advantage for `side`: positive means `side` is ahead. */
+function materialAdvantage(caps: { w: string[]; b: string[] }, side: Color): number {
+  const score = (list: string[]) => list.reduce((s,p) => s + (PIECE_VALUE[p] ?? 0), 0)
+  return side === 'w'
+    ? score(caps.w) - score(caps.b)
+    : score(caps.b) - score(caps.w)
+}
+
+/**
+ * A horizontal strip of small captured-piece icons.
+ * `pieces`  — list of piece type chars, already sorted
+ * `color`   — the colour of those pieces (to pick the right filter class)
+ * `advantage` — if > 0, shows "+N" after the icons
+ */
+function CapturedPieces({
+  pieces, color, advantage,
+}: { pieces: string[]; color: Color; advantage: number }) {
+  if (pieces.length === 0 && advantage <= 0) {
+    return <div className="captured-strip captured-strip--empty" aria-hidden="true" />
+  }
+  return (
+    <div className="captured-strip" aria-label={`Captured pieces: ${pieces.join(' ')}`}>
+      <div className="captured-icons">
+        {pieces.map((type, i) => (
+          <img
+            key={i}
+            className={`captured-icon captured-icon--${color}`}
+            src={PIECE_SVGS[color][type]}
+            alt={type}
+            draggable={false}
+            style={{ zIndex: i }}
+          />
+        ))}
+      </div>
+      {advantage > 0 && (
+        <span className="captured-advantage">+{advantage}</span>
+      )}
+    </div>
+  )
+}
+
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 type DropdownOption = { value: string; label: string; summary?: string }
 
@@ -256,6 +324,14 @@ export function App() {
   const legalTargets = selected ? game.moves({ square: selected, verbose: true }).map(m => m.to) : []
   const status       = gameStatus(game, player)
   const w            = schools[school].weights
+
+  // Captured pieces — derived from move history each render
+  const caps      = useMemo(() => computeCaptures(history), [history])
+  const opponent  = player === 'w' ? 'b' : 'w'
+  // Strip shown above board: pieces the opponent took from you (your colour, opponent captured)
+  const topStrip  = { pieces: caps[opponent], color: player,   adv: materialAdvantage(caps, opponent) }
+  // Strip shown below board: pieces you took from opponent (opponent colour, you captured)
+  const botStrip  = { pieces: caps[player],   color: opponent, adv: materialAdvantage(caps, player)  }
   const sw           = schoolWeights[school] ?? schoolWeights.Universal
   void sw
 
@@ -372,6 +448,12 @@ export function App() {
 
       <section className="game-layout">
         <div className="board-wrap">
+          {/* Opponent's captured pieces — shown above board (pieces they took from you) */}
+          <CapturedPieces
+            pieces={topStrip.pieces}
+            color={topStrip.color}
+            advantage={topStrip.adv}
+          />
           <div className="board" role="grid" aria-label="Chess board">
             {ranks.flatMap((rank, row) =>
               files.map((file, col) => {
@@ -405,6 +487,12 @@ export function App() {
               })
             )}
           </div>
+          {/* Your captured pieces — shown below board (pieces you took from opponent) */}
+          <CapturedPieces
+            pieces={botStrip.pieces}
+            color={botStrip.color}
+            advantage={botStrip.adv}
+          />
         </div>
 
         <aside className="sidebar">
