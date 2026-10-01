@@ -1218,3 +1218,89 @@ header {
 .sidebar-weights .weight-label   { font-size: 0.55rem; }
 .sidebar-weights .weight-track   { height: 3px; }
 
+
+/* ============================================================
+   MULTIPLAYER (LICHESS) UI
+   ============================================================ */
+
+/* Mode toggle — "Computer" / "Play online" segmented control on setup screen */
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.mode-toggle-btn {
+  appearance: none;
+  min-height: 42px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-3);
+  border-radius: var(--radius-card);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 300;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease), background 0.25s var(--ease);
+}
+
+.mode-toggle-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.mode-toggle-btn--active {
+  border-color: var(--accent-bright);
+  color: var(--text);
+  background: rgba(201, 207, 210, 0.07);
+}
+
+/* Time control picker on the "find an opponent" screen */
+.time-control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.time-control-btn {
+  appearance: none;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text);
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease), transform 0.2s var(--ease);
+}
+
+.time-control-btn:hover {
+  border-color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.time-control-btn:active { transform: scale(0.98); }
+
+/* Inline error text on the online screens */
+.online-error {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: #c0534a;
+  margin: -0.4rem 0 0.8rem;
+  line-height: 1.6;
+}
+
+/* Board lock overlay cue for a finished online game (board remains visible,
+   just non-interactive — buttons get disabled + slightly dimmed) */
+.board--locked .square {
+  cursor: default;
+  opacity: 0.92;
+}
+
+/* Spinner-less "searching" state keeps the existing fadeUp animation on the
+   setup-card; the kicker/heading text communicates the waiting state. */

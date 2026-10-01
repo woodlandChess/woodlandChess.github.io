@@ -2,171 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Move, type Square } from 'chess.js'
 import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
-// ── Chess piece SVGs ─────────────────────────────────────────────────────────
-//
-// Paths sourced from the cburnett set (Colin M.L. Burnett, CC BY-SA 3.0),
-// the same set used by Lichess, python-chess, and Wikipedia. Paths are
-// extracted from python-chess/chess/svg.py (the authoritative text-format
-// source) so every shape is pixel-faithful to the original.
-//
-// Design decisions for this dark-themed board:
-//
-//  1. SINGLE NEUTRAL BASE — all paths are recoloured to #808080 (L*53,
-//     neutral gray). Both sides share identical path data; colour comes
-//     entirely from CSS filter (see styles.css). This eliminates the
-//     stroke-weight mismatch that existed when white/black used separate
-//     original SVG files with different rendering conventions.
-//
-//  2. DETAIL COLOUR — inner lines, eyes, nostril (things that should read
-//     as recesses) are set to #505050 (L*34) so after the brightness filter
-//     they stay relatively darker than the body, preserving depth cues on
-//     both ivory-white and steel-gray pieces.
-//
-//  3. FILTER APPROACH (defined in styles.css):
-//       White pieces → warm ivory  #e6e3da  (brand --text, L*90)
-//                      brightness(2.0) sepia(0.10) saturate(0.9)
-//       Black pieces → cool steel  #9aa3a8  (brand --text-2, L*66)
-//                      brightness(1.28) hue-rotate(196deg) saturate(0.72)
-//
-// Accessibility (WCAG non-text contrast ≥ 3:1):
-//   Ivory  #e6e3da vs light sq #1a2027 → ~11:1  ✓ AAA
-//   Ivory  #e6e3da vs dark sq  #0d1013 → ~16:1  ✓ AAA
-//   Steel  #9aa3a8 vs light sq #1a2027 → ~4.8:1 ✓ AA+
-//   Steel  #9aa3a8 vs dark sq  #0d1013 → ~6.6:1 ✓ AA+
-// ─────────────────────────────────────────────────────────────────────────────
-
-const B = '#808080'   // body fill + stroke
-const D = '#505050'   // detail (eyes, inner lines) — stays relatively dark after filter
-
-// All pieces use a 45×45 viewBox, encoded as data URIs so no network calls
-// are needed and the browser can apply CSS filter directly.
-const svg = (body: string) =>
-  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45">${body}</svg>`
-  )}`
-
-const PIECE_SVGS: Record<Color, Record<string, string>> = {
-  w: {
-    // ── PAWN ────────────────────────────────────────────────────────────────
-    // cburnett white pawn path (Chess_plt45.svg), fill rebound to neutral
-    p: svg(`<g fill="${B}" stroke="${B}" stroke-width="1.5" stroke-linecap="round">
-      <path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/>
-    </g>`),
-
-    // ── KNIGHT ──────────────────────────────────────────────────────────────
-    // Exact cburnett knight paths from python-chess/chess/svg.py — the
-    // authoritative source used by Lichess and Wikipedia. The horse faces
-    // LEFT. Two filled regions (body + face/snout) plus eye + nostril dots.
-    n: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="${B}"/>
-      <path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="${B}"/>
-      <path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="${D}" stroke="${D}"/>
-      <path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="${D}" stroke="${D}"/>
-    </g>`),
-
-    // ── BISHOP ──────────────────────────────────────────────────────────────
-    b: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <g fill="${B}" stroke-linecap="butt">
-        <path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/>
-        <path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/>
-        <circle cx="22.5" cy="8" r="2.5"/>
-      </g>
-      <path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="${D}" stroke-linejoin="miter"/>
-    </g>`),
-
-    // ── ROOK ────────────────────────────────────────────────────────────────
-    r: svg(`<g fill="${B}" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/>
-      <path d="M34 14l-3 3H14l-3-3"/>
-      <path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/>
-      <path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/>
-      <path d="M11 14h23" fill="none" stroke-linejoin="miter"/>
-      <path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 17h17M11 14h23" fill="none" stroke="${D}" stroke-width="1"/>
-    </g>`),
-
-    // ── QUEEN ───────────────────────────────────────────────────────────────
-    q: svg(`<g fill="${B}" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <g fill="${B}" stroke="none">
-        <circle cx="6"    cy="12" r="2.75"/>
-        <circle cx="14"   cy="9"  r="2.75"/>
-        <circle cx="22.5" cy="8"  r="2.75"/>
-        <circle cx="31"   cy="9"  r="2.75"/>
-        <circle cx="39"   cy="12" r="2.75"/>
-      </g>
-      <path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26z" stroke-linecap="butt"/>
-      <path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/>
-      <path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke-linecap="butt"/>
-      <path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="${D}"/>
-    </g>`),
-
-    // ── KING ────────────────────────────────────────────────────────────────
-    k: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/>
-      <path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="${B}" stroke-linecap="butt" stroke-linejoin="miter"/>
-      <path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="${B}"/>
-      <path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="${D}"/>
-    </g>`),
-  },
-
-  // ── BLACK SIDE ─────────────────────────────────────────────────────────────
-  // Identical path data to white — colour difference comes from CSS filter only.
-  // This guarantees identical apparent stroke weight and silhouette at every size.
-  b: {
-    p: svg(`<g fill="${B}" stroke="${B}" stroke-width="1.5" stroke-linecap="round">
-      <path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/>
-    </g>`),
-
-    n: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="${B}"/>
-      <path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="${B}"/>
-      <path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="${D}" stroke="${D}"/>
-      <path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="${D}" stroke="${D}"/>
-    </g>`),
-
-    b: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <g fill="${B}" stroke-linecap="butt">
-        <path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/>
-        <path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/>
-        <circle cx="22.5" cy="8" r="2.5"/>
-      </g>
-      <path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="${D}" stroke-linejoin="miter"/>
-    </g>`),
-
-    r: svg(`<g fill="${B}" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/>
-      <path d="M34 14l-3 3H14l-3-3"/>
-      <path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/>
-      <path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/>
-      <path d="M11 14h23" fill="none" stroke-linejoin="miter"/>
-      <path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 17h17M11 14h23" fill="none" stroke="${D}" stroke-width="1"/>
-    </g>`),
-
-    q: svg(`<g fill="${B}" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <g fill="${B}" stroke="none">
-        <circle cx="6"    cy="12" r="2.75"/>
-        <circle cx="14"   cy="9"  r="2.75"/>
-        <circle cx="22.5" cy="8"  r="2.75"/>
-        <circle cx="31"   cy="9"  r="2.75"/>
-        <circle cx="39"   cy="12" r="2.75"/>
-      </g>
-      <path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26z" stroke-linecap="butt"/>
-      <path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/>
-      <path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke-linecap="butt"/>
-      <path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="${D}"/>
-    </g>`),
-
-    k: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/>
-      <path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="${B}" stroke-linecap="butt" stroke-linejoin="miter"/>
-      <path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="${B}"/>
-      <path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="${D}"/>
-    </g>`),
-  },
-}
-
-const files = ['a','b','c','d','e','f','g','h']
-const ranks = ['8','7','6','5','4','3','2','1']
-const squareName = (f: string, r: string) => `${f}${r}` as Square
+import { ChessBoard, PromotionModal } from './ChessBoard'
+import { OnlinePlay } from './OnlinePlay'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
 function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -240,6 +77,8 @@ function Dropdown({ label, value, options, onChange }: {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
+  const [mode, setMode] = useState<'ai' | 'online'>('ai')
+
   const gameRef   = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
   const [fen,              setFen]              = useState(gameRef.current.fen())
@@ -317,6 +156,13 @@ export function App() {
 
   const last = history.at(-1)
 
+  // ── ONLINE MODE ────────────────────────────────────────────────────────────
+  // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
+  // screens. Selecting "Back" there returns here with mode reset to 'ai'.
+  if (mode === 'online') {
+    return <OnlinePlay onBack={() => setMode('ai')} />
+  }
+
   // ── SETUP ──────────────────────────────────────────────────────────────────
   if (setupOpen) return (
     <main className="setup-shell">
@@ -325,6 +171,16 @@ export function App() {
           <span className="brand-mark">♞</span>
           <span className="brand-name">Woodland Chess</span>
         </div>
+
+        <div className="mode-toggle" role="tablist" aria-label="Opponent type">
+          <button type="button" role="tab" aria-selected={true} className="mode-toggle-btn mode-toggle-btn--active">
+            Computer
+          </button>
+          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => setMode('online')}>
+            Play online
+          </button>
+        </div>
+
         <div className="setup-heading">
           <span className="setup-kicker">New game</span>
           <h1 id="setup-title">Set your opponent</h1>
@@ -372,39 +228,15 @@ export function App() {
 
       <section className="game-layout">
         <div className="board-wrap">
-          <div className="board" role="grid" aria-label="Chess board">
-            {ranks.flatMap((rank, row) =>
-              files.map((file, col) => {
-                const square = squareName(file, rank)
-                const piece  = game.get(square)
-                const dark   = (row + col) % 2 === 1
-                const isLast = last?.from === square || last?.to === square
-                return (
-                  <button
-                    key={square}
-                    role="gridcell"
-                    aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
-                    className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : ''].filter(Boolean).join(' ')}
-                    onClick={() => clickSquare(square)}
-                  >
-                    {col === 0 && <small className="rank">{rank}</small>}
-                    {row === 7 && <small className="file">{file}</small>}
-                    {piece && (
-                      <img
-                        className={`piece-svg piece-svg--${piece.color}`}
-                        src={PIECE_SVGS[piece.color][piece.type]}
-                        alt={`${piece.color === 'w' ? 'white' : 'black'} ${piece.type}`}
-                        draggable={false}
-                      />
-                    )}
-                    {legalTargets.includes(square) && (
-                      <span className={piece ? 'capture' : 'target'} />
-                    )}
-                  </button>
-                )
-              })
-            )}
-          </div>
+          <ChessBoard
+            board={game.board()}
+            onSquareClick={clickSquare}
+            selected={selected}
+            legalTargets={legalTargets}
+            lastFrom={last?.from}
+            lastTo={last?.to}
+            orientation={player}
+          />
         </div>
 
         <aside className="sidebar">
@@ -447,22 +279,10 @@ export function App() {
       </section>
 
       {pendingPromotion && (
-        <div className="modal-backdrop">
-          <section className="promotion" role="dialog" aria-modal="true" aria-label="Choose promotion piece">
-            <h2>Promote pawn</h2>
-            <div className="promotion-pieces">
-              {(['q','r','b','n'] as const).map(type => (
-                <button key={type} onClick={() => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}>
-                  <img
-                    src={PIECE_SVGS[player][type]}
-                    alt={`${player === 'w' ? 'white' : 'black'} ${type}`}
-                    className={`promo-piece-svg promo-piece-svg--${player}`}
-                  />
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
+        <PromotionModal
+          color={player}
+          onPick={type => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}
+        />
       )}
     </main>
   )
