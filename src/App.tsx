@@ -4,6 +4,7 @@ import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 import { ChessBoard, PromotionModal } from './ChessBoard'
 import { OnlinePlay } from './OnlinePlay'
+import { PuzzleMode } from './puzzle/PuzzleMode'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
 function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -77,7 +78,7 @@ function Dropdown({ label, value, options, onChange }: {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
-  const [mode, setMode] = useState<'ai' | 'online'>('ai')
+  const [mode, setMode] = useState<'ai' | 'online' | 'puzzle'>('ai')
 
   const gameRef   = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
@@ -163,6 +164,10 @@ export function App() {
     return <OnlinePlay onBack={() => setMode('ai')} />
   }
 
+  if (mode === 'puzzle') {
+    return <PuzzleMode onBack={() => setMode('ai')} />
+  }
+
   // ── SETUP ──────────────────────────────────────────────────────────────────
   if (setupOpen) return (
     <main className="setup-shell">
@@ -178,6 +183,9 @@ export function App() {
           </button>
           <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => setMode('online')}>
             Play online
+          </button>
+          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => setMode('puzzle')}>
+            ♜ Puzzles
           </button>
         </div>
 
