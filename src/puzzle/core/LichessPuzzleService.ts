@@ -16,15 +16,27 @@ export function createLichessPuzzle(data: LichessPuzzleResponse): Puzzle {
   const game = new Chess();
   game.loadPgn(data.game.pgn);
   const history = game.history({ verbose: true });
-  const initialFen = data.puzzle.fen ?? history[data.puzzle.initialPly - 1]?.after ?? game.fen();
+  // Lichess initialPly counts the setup move itself; the puzzle starts after it.
+  const pgnFen = history[data.puzzle.initialPly]?.after ?? game.fen();
+  const candidateFens = [...new Set([pgnFen, data.puzzle.fen].filter((fen): fen is string => !!fen))];
   const turn = data.puzzle.initialPly % 2 === 0 ? 'w' : 'b';
-  const setupMove = history[data.puzzle.initialPly - 1];
+  const setupMove = history[data.puzzle.initialPly];
   if (!setupMove) throw new Error('Lichess puzzle is missing its setup move');
-  const solutionGame = new Chess(initialFen);
-  const solution = data.puzzle.solution.map((uci) => {
-    const move = solutionGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci[4] } : {}) });
-    return { from: move.from, to: move.to, notation: move.san, promotion: move.promotion?.toUpperCase() as Puzzle['solution'][number]['promotion'] };
-  });
+  let initialFen = '';
+  let solution: Puzzle['solution'] = [];
+  for (const candidateFen of candidateFens) {
+    try {
+      const solutionGame = new Chess(candidateFen);
+      const candidateSolution = data.puzzle.solution.map((uci) => {
+        const move = solutionGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci[4] } : {}) });
+        return { from: move.from, to: move.to, notation: move.san, promotion: move.promotion?.toUpperCase() as Puzzle['solution'][number]['promotion'] };
+      });
+      initialFen = candidateFen;
+      solution = candidateSolution;
+      break;
+    } catch { /* try the other API position representation */ }
+  }
+  if (!initialFen) throw new Error(`Lichess puzzle ${data.puzzle.id} has no legal solution position`);
   const setup = { from: setupMove.from, to: setupMove.to, notation: setupMove.san, promotion: setupMove.promotion?.toUpperCase() as Puzzle['solution'][number]['promotion'] };
   return {
     id: Number.parseInt(data.puzzle.id.slice(0, 8), 36) || Date.now(),
@@ -55,7 +67,7 @@ export async function fetchLichessPuzzle(daily = false): Promise<Puzzle> {
       } catch { /* refresh corrupt cache */ }
     }
   }
-  const response = await fetch(`${API_BASE}/puzzle/${daily ? 'daily' : 'random'}`, { headers: { Accept: 'application/json' } });
+  const response = await fetch(`${API_BASE}/puzzle/${daily ? 'daily' : 'next'}`, { headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`Lichess puzzle service returned ${response.status}`);
   const puzzle = createLichessPuzzle(await response.json() as LichessPuzzleResponse);
   localStorage.setItem(FALLBACK_CACHE_KEY, JSON.stringify(puzzle));
