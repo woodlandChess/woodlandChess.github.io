@@ -5,6 +5,10 @@ import {
   LichessClient, TIME_CONTROLS, type TimeControl, type LichessProfile,
 } from './lichess'
 import { ChessBoard, PromotionModal } from './ChessBoard'
+import type { ModeId } from './components/ModeNav'
+import { HomeFrame } from './components/HomeFrame'
+import { GameScreen, ConfirmButton } from './components/GameScreen'
+import { IconClock, IconOnline, IconShield } from './components/ModeIcons'
 
 type Phase = 'loading' | 'login' | 'idle' | 'seeking' | 'in-game' | 'finished'
 
@@ -40,7 +44,17 @@ function replayMoves(movesStr: string): Chess {
   return c
 }
 
-export function OnlinePlay({ onBack }: { onBack: () => void }) {
+/** Elapsed seconds while searching, formatted m:ss. */
+function SeekTimer() {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setSecs(n => n + 1), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  return <span className="seek-timer">{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</span>
+}
+
+export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavigate: (m: ModeId) => void }) {
   const [phase, setPhase]     = useState<Phase>('loading')
   const [profile, setProfile] = useState<LichessProfile | null>(null)
   const [error, setError]     = useState<string | null>(null)
@@ -260,165 +274,106 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
   // ── LOADING ────────────────────────────────────────────────────────────────
   if (phase === 'loading') {
     return (
-      <main className="setup-shell">
-        <section className="setup-card" aria-busy="true">
-          <div className="brand">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Woodland Chess</span>
+      <HomeFrame mode="online" onNavigate={onNavigate} compact busy
+        kicker="Online" title="Connecting…" titleId="online-title">
+        <div className="home-body">
+          <div className="online-wait" role="status">
+            <span className="spinner" aria-hidden="true" />
+            <p>Connecting to Lichess…</p>
           </div>
-          <p className="setup-copy">Connecting to Lichess…</p>
-        </section>
-      </main>
+        </div>
+      </HomeFrame>
     )
   }
 
   // ── LOGIN ──────────────────────────────────────────────────────────────────
   if (phase === 'login') {
     return (
-      <main className="setup-shell">
-        <section className="setup-card" aria-labelledby="online-title">
-          <div className="brand">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Woodland Chess</span>
-          </div>
-          <div className="setup-heading">
-            <span className="setup-kicker">Online</span>
-            <h1 id="online-title">Play a real opponent</h1>
-          </div>
-          <p className="setup-copy">
-            Woodland Chess uses your Lichess account to find you a live opponent and
-            relay moves through Lichess's Board API. We never see your password  - 
-            you'll authorize directly on lichess.org and come straight back here.
-          </p>
-          {error && <p className="online-error">{error}</p>}
-          <button className="begin-game" onClick={connect}>Connect with Lichess</button>
-          <button className="new-game" style={{ marginTop: '0.75rem' }} onClick={onBack}>Back</button>
-        </section>
-      </main>
+      <HomeFrame mode="online" onNavigate={onNavigate} compact titleId="online-title"
+        kicker="Online" title="Play a real opponent"
+        copy="Woodland Chess uses your Lichess account to find you a live opponent and relay moves through Lichess's Board API."
+        actions={<button type="button" className="begin-game" onClick={connect}>Connect with Lichess</button>}
+      >
+        <div className="home-body">
+          {error && <p className="online-error" role="alert">{error}</p>}
+          <ul className="feature-list">
+            <li><IconShield className="feature-icon" /><div><strong>Your password stays with Lichess</strong><span>We never see it. You authorize directly on lichess.org.</span></div></li>
+            <li><IconOnline className="feature-icon" /><div><strong>One redirect, then straight back</strong><span>Sign in once and you return here, ready to play.</span></div></li>
+            <li><IconClock className="feature-icon" /><div><strong>Live games, real opponents</strong><span>Choose a time control and get matched in seconds.</span></div></li>
+          </ul>
+        </div>
+      </HomeFrame>
     )
   }
 
   // ── IDLE (connected, picking time control) ────────────────────────────────
   if (phase === 'idle') {
     return (
-      <main className="setup-shell">
-        <section className="setup-card" aria-labelledby="online-title">
-          <div className="brand">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Woodland Chess</span>
-          </div>
-          <div className="setup-heading">
-            <span className="setup-kicker">Online</span>
-            <h1 id="online-title">Find an opponent</h1>
-          </div>
+      <HomeFrame mode="online" onNavigate={onNavigate} compact titleId="online-title"
+        kicker="Online" title="Find an opponent"
+        copy="Pick a time control to start a seek.">
+        <div className="home-body">
           {profile && (
-            <p className="setup-copy">
-              Connected as <strong>{profile.username}</strong>. Pick a time control to start a seek.
-            </p>
+            <p className="conn-chip"><i aria-hidden="true" />Connected as <strong>{profile.username}</strong></p>
           )}
-          {error && <p className="online-error">{error}</p>}
-          <div className="time-control-grid">
-            {TIME_CONTROLS.map(tc => (
-              <button key={tc.label} className="time-control-btn" onClick={() => findOpponent(tc)}>
-                {tc.label}
-              </button>
-            ))}
+          {error && <p className="online-error" role="alert">{error}</p>}
+          <div className="tc-grid" role="group" aria-label="Time control">
+            {TIME_CONTROLS.map(tc => {
+              const [clock, kind] = tc.label.split(' · ')
+              return (
+                <button key={tc.label} type="button" className="tc-btn" onClick={() => findOpponent(tc)}>
+                  <IconClock className="tc-icon" />
+                  <span className="tc-time">{clock}</span>
+                  <span className="tc-kind">{kind}</span>
+                </button>
+              )
+            })}
           </div>
-          <button className="new-game" style={{ marginTop: '1rem' }} onClick={onBack}>Back</button>
-        </section>
-      </main>
+        </div>
+      </HomeFrame>
     )
   }
 
   // ── SEEKING ────────────────────────────────────────────────────────────────
   if (phase === 'seeking') {
     return (
-      <main className="setup-shell">
-        <section className="setup-card" aria-busy="true">
-          <div className="brand">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Woodland Chess</span>
+      <HomeFrame mode="online" onNavigate={onNavigate} compact busy titleId="online-title"
+        kicker="Online" title="Searching for an opponent…"
+        copy="Hang tight — this usually takes a few seconds on Lichess."
+        actions={<button type="button" className="btn-ghost" onClick={cancelSeek}>Cancel search</button>}
+      >
+        <div className="home-body">
+          <div className="online-wait" role="status">
+            <span className="seek-orb" aria-hidden="true"><i /><i /><b>♞</b></span>
+            <SeekTimer />
           </div>
-          <div className="setup-heading">
-            <span className="setup-kicker">Online</span>
-            <h1>Searching for an opponent…</h1>
-          </div>
-          <p className="setup-copy">Hang tight - this usually takes a few seconds on Lichess.</p>
-          <button className="new-game" onClick={cancelSeek}>Cancel</button>
-        </section>
-      </main>
+        </div>
+      </HomeFrame>
     )
   }
 
   // ── IN-GAME / FINISHED ───────────────────────────────────────────────────
+  const inGame = phase === 'in-game'
   return (
-    <main className="app-shell">
-      <header>
-        <div className="brand">
-          <span className="brand-mark">♞</span>
-          <span className="brand-name">Woodland Chess</span>
-        </div>
-        <button className="new-game" onClick={onBack}>Exit</button>
-      </header>
-
-      <section className="game-layout">
-        <div className="board-wrap">
-          <ChessBoard
-            board={game.board()}
-            onSquareClick={clickSquare}
-            selected={selected}
-            legalTargets={legalTargets}
-            lastFrom={lastMove?.from}
-            lastTo={lastMove?.to}
-            orientation={liveGame?.myColor ?? 'w'}
-            interactive={phase === 'in-game'}
-          />
-        </div>
-
-        <aside className="sidebar">
-          <div className="sidebar-section">
-            <div className="opponent">
-              <div className="avatar">♟</div>
-              <div className="opponent-info">
-                <strong>{liveGame?.opponentName ?? 'Opponent'}</strong>
-                <span>{liveGame?.opponentRating ? `Rating ${liveGame.opponentRating}` : 'Lichess'}</span>
-              </div>
-            </div>
-          </div>
-          <div className="sidebar-section">
-            <span className="status-label">Position</span>
-            <div className="status" aria-live="polite">
-              {resultText ?? (myTurn ? 'Your move' : 'Waiting for opponent…')}
-            </div>
-          </div>
-          <div className="sidebar-section history-section">
-            <p className="history-head">Moves</p>
-            <div className="history" aria-label="Move history">
-              {(() => {
-                const hist = game.history()
-                return hist.length === 0
-                  ? <p>Opening position</p>
-                  : Array.from({ length: Math.ceil(hist.length / 2) }, (_, i) => (
-                      <div className="move-row" key={i}>
-                        <span>{i + 1}.</span>
-                        <span>{hist[i * 2]}</span>
-                        <span>{hist[i * 2 + 1] ?? ''}</span>
-                      </div>
-                    ))
-              })()}
-            </div>
-          </div>
-          {phase === 'in-game' ? (
-            <button className="resign" onClick={() => liveGame && clientRef.current?.resign(liveGame.id)}>
-              Resign
-            </button>
-          ) : (
-            <button className="resign" onClick={playAgain}>Find new opponent</button>
-          )}
-        </aside>
-      </section>
-
-      {pendingPromotion && liveGame && (
+    <GameScreen
+      exitLabel="Exit"
+      onExit={onBack}
+      opponent={{
+        name: liveGame?.opponentName ?? 'Opponent',
+        meta: liveGame?.opponentRating ? `Rating ${liveGame.opponentRating}` : 'Lichess',
+        glyph: '♟',
+      }}
+      status={resultText ?? (myTurn ? 'Your move' : 'Waiting for opponent…')}
+      tone={!inGame ? 'over' : myTurn ? 'turn' : 'wait'}
+      moves={game.history()}
+      notice={error}
+      actions={inGame ? (
+        <ConfirmButton className="btn-ghost btn-danger" label="Resign" confirmLabel="Tap again to resign"
+          onConfirm={() => liveGame && clientRef.current?.resign(liveGame.id)} />
+      ) : (
+        <button type="button" className="btn-ghost" onClick={playAgain}>Find new opponent</button>
+      )}
+      overlay={pendingPromotion && liveGame && (
         <PromotionModal
           color={liveGame.myColor}
           onPick={type => {
@@ -427,6 +382,17 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
           }}
         />
       )}
-    </main>
+    >
+      <ChessBoard
+        board={game.board()}
+        onSquareClick={clickSquare}
+        selected={selected}
+        legalTargets={legalTargets}
+        lastFrom={lastMove?.from}
+        lastTo={lastMove?.to}
+        orientation={liveGame?.myColor ?? 'w'}
+        interactive={inGame}
+      />
+    </GameScreen>
   )
 }

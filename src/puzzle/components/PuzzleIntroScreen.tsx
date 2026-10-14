@@ -1,68 +1,52 @@
 import type { GameEngine } from '../core/GameEngine';
-import { IconSound } from './icons';
+import { HomeFrame } from '../../components/HomeFrame';
+import type { ModeId } from '../../components/ModeNav';
+import { IconCalendar, IconOnline, IconPuzzle, IconVolume } from '../../components/ModeIcons';
 
 interface PuzzleIntroScreenProps {
   engine: GameEngine;
   soundEnabled: boolean;
-  onBack: () => void;
+  onNavigate: (mode: ModeId) => void;
   loadError?: string;
 }
 
-export function PuzzleIntroScreen({ engine, soundEnabled, onBack, loadError }: PuzzleIntroScreenProps) {
+export function PuzzleIntroScreen({ engine, soundEnabled, onNavigate, loadError }: PuzzleIntroScreenProps) {
   return (
-    <div className="puzzle-intro">
-      <div className="puzzle-intro-bg" aria-hidden="true" />
-
-      <div className="puzzle-intro-header">
-        <button type="button" className="back-btn" onClick={onBack}>
-          ← Back
-        </button>
+    <HomeFrame
+      mode="puzzle"
+      onNavigate={onNavigate}
+      compact
+      titleId="puzzle-title"
+      kicker="Tactics"
+      title={<><span className="title-upright">Check</span><em>mate</em></>}
+      copy="Practice tactical puzzles from the Lichess puzzle database, with ratings, themes, hints and a daily challenge."
+      headExtra={
         <button
           type="button"
           className="icon-btn"
           aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
+          aria-pressed={!soundEnabled}
           onClick={() => engine.toggleSound()}
         >
-          <IconSound muted={!soundEnabled} />
+          <IconVolume muted={!soundEnabled} />
         </button>
+      }
+      actions={
+        <>
+          <button type="button" className="btn-ghost" onClick={() => engine.startDaily()}>Daily challenge</button>
+          <button type="button" className="begin-game" onClick={() => engine.startRun()}>Begin playing</button>
+        </>
+      }
+    >
+      <div className="home-body">
+        {loadError && <p className="online-error" role="alert">{loadError}</p>}
+        <ul className="feature-list">
+          <li><IconOnline className="feature-icon" /><div><strong>Lichess puzzle database</strong><span>Real positions pulled straight from Lichess.</span></div></li>
+          <li><IconPuzzle className="feature-icon" /><div><strong>Rated tactics</strong><span>Every puzzle carries a rating, themes and optional hints.</span></div></li>
+          <li><IconCalendar className="feature-icon" /><div><strong>Daily challenge</strong><span>A fresh position to solve every day.</span></div></li>
+        </ul>
+        <p className="home-hint">A single position. A forced line. No room to improvise.</p>
       </div>
-
-      <div className="puzzle-intro-content">
-        <div className="puzzle-intro-eyebrow">Woodland Chess</div>
-        <h1 className="puzzle-intro-title">
-          ♜ Check<em>mate</em>
-        </h1>
-        <p className="puzzle-intro-sub">
-          Practice tactical puzzles from the Lichess puzzle database, with ratings, themes, hints and a daily challenge.
-        </p>
-        <div className="puzzle-intro-meta">
-          <span className="meta-pill">Lichess Puzzle Database</span>
-          <span className="meta-dot" />
-          <span className="meta-pill">Rated Tactics</span>
-          <span className="meta-dot" />
-          <span className="meta-pill">Daily Challenge</span>
-        </div>
-        {loadError && <p className="puzzle-load-error" role="alert">{loadError}</p>}
-        <div className="puzzle-intro-actions">
-          <button
-            type="button"
-            className="begin-game"
-          onClick={() => engine.startRun()}
-          >
-            Begin Playing
-          </button>
-          <button
-            type="button"
-            className="new-game"
-            onClick={() => engine.startDaily()}
-          >
-            Daily Challenge
-          </button>
-        </div>
-        <div className="puzzle-intro-hint">
-          a single position. a forced line. no room to improvise.
-        </div>
-      </div>
-    </div>
+    </HomeFrame>
   );
 }
