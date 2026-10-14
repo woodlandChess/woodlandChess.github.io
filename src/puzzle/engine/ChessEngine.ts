@@ -23,10 +23,10 @@ export class ChessEngine {
     return this.getLegalMoves(from.row, from.col).some((move) => move.row === to.row && move.col === to.col);
   }
 
-  applyMove(from: Coordinate, to: Coordinate, promotion = 'q'): { captured: boolean; notation: string; uci: string } {
+  applyMove(from: Coordinate, to: Coordinate, promotion?: string): { captured: boolean; notation: string; uci: string } {
     const fromSquare = ChessEngine.coordinateToSquare(from.row, from.col) as Square;
     const toSquare = ChessEngine.coordinateToSquare(to.row, to.col) as Square;
-    const move = this.game.move({ from: fromSquare, to: toSquare, promotion });
+    const move = this.game.move({ from: fromSquare, to: toSquare, ...(promotion ? { promotion } : {}) });
     return { captured: !!move.captured || move.flags.includes('e'), notation: move.san, uci: `${move.from}${move.to}${move.promotion ?? ''}` };
   }
 

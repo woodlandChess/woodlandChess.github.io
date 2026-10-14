@@ -242,13 +242,11 @@ export class GameEngine {
 
   private playOpponentSetupMove(): void {
     const puzzle = this.puzzles[this.index];
-    if (!puzzle || puzzle.solution.length < 2) return;
-    const fenTurn = puzzle.fen.split(' ')[1];
+    if (!puzzle || puzzle.solution.length < 1) return;
     const opponentColor = puzzle.turn === 'w' ? 'b' : 'w';
     const setupMove = puzzle.setupMove;
-    if (fenTurn !== opponentColor || !setupMove) return;
-    const setup = this.engine.applyMove(ChessEngine.squareToCoordinate(setupMove.from), ChessEngine.squareToCoordinate(setupMove.to), setupMove.promotion?.toLowerCase());
-    this.moveHistory = [{ index: 0, notation: setupMove.notation || setup.notation, side: 'opponent', sideLabel: opponentColor === 'w' ? 'White' : 'Black' }];
+    if (!setupMove) return;
+    this.moveHistory = [{ index: 0, notation: setupMove.notation, side: 'opponent', sideLabel: opponentColor === 'w' ? 'White' : 'Black' }];
     this.moveNum = 0;
   }
 
