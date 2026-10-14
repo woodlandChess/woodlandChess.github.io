@@ -19,7 +19,7 @@ export function createLichessPuzzle(data: LichessPuzzleResponse): Puzzle {
   // Lichess initialPly counts the setup move itself; the puzzle starts after it.
   const pgnFen = history[data.puzzle.initialPly]?.after ?? game.fen();
   const candidateFens = [...new Set([pgnFen, data.puzzle.fen].filter((fen): fen is string => !!fen))];
-  const turn = data.puzzle.initialPly % 2 === 0 ? 'w' : 'b';
+  // The selected start FEN is authoritative; API initialPly parity is unsafe.
   const setupMove = history[data.puzzle.initialPly];
   if (!setupMove) throw new Error('Lichess puzzle is missing its setup move');
   let initialFen = '';
@@ -37,6 +37,7 @@ export function createLichessPuzzle(data: LichessPuzzleResponse): Puzzle {
     } catch { /* try the other API position representation */ }
   }
   if (!initialFen) throw new Error(`Lichess puzzle ${data.puzzle.id} has no legal solution position`);
+  const turn = initialFen.split(' ')[1] as 'w' | 'b';
   const setup = { from: setupMove.from, to: setupMove.to, notation: setupMove.san, promotion: setupMove.promotion?.toUpperCase() as Puzzle['solution'][number]['promotion'] };
   return {
     id: Number.parseInt(data.puzzle.id.slice(0, 8), 36) || Date.now(),
