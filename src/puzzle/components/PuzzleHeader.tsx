@@ -8,7 +8,7 @@ interface PuzzleHeaderProps {
 }
 
 export function PuzzleHeader({ engine, snapshot, onBack }: PuzzleHeaderProps) {
-  const progressPct = (snapshot.index / snapshot.puzzles.length) * 100;
+  const progressPct = snapshot.mode === 'daily' ? 100 : ((snapshot.index % 20) / 20) * 100;
 
   return (
     <header className="hdr">

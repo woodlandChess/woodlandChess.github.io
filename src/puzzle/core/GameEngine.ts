@@ -1,9 +1,9 @@
 import { ChessEngine } from '../engine/ChessEngine';
-import { puzzleRepository } from './PuzzleRepository';
 import { scoreService } from './ScoreService';
 import { storageService } from './StorageService';
 import { soundService } from './SoundService';
 import { achievementService } from './AchievementService';
+import { fetchLichessPuzzle, fetchLichessPuzzles, getCachedPuzzleFallback } from './LichessPuzzleService';
 import type {
   Achievement,
   Cell,
@@ -18,6 +18,8 @@ export type ScreenName = 'intro' | 'game' | 'win';
 
 export interface GameSnapshot {
   screen: ScreenName;
+  loading: boolean;
+  loadError: string;
   mode: GameMode;
   puzzles: Puzzle[];
   index: number;
@@ -41,6 +43,11 @@ export interface GameSnapshot {
   dailyChallengeStreak: number;
   lastSolveDurationMs: number | null;
 }
+
+const EMPTY_PUZZLE: Puzzle = {
+  id: 0, title: '', subtitle: '', year: '', difficulty: 'easy', turn: 'w',
+  desc: '', hint: '', fen: '8/8/8/8/8/8/8/8 w - - 0 1', solution: [],
+};
 
 type Listener = () => void;
 
@@ -71,6 +78,9 @@ export class GameEngine {
   private solveStartedAt = 0;
   private lastSolveDurationMs: number | null = null;
   private pendingTimeout: number | null = null;
+  private loading = false;
+  private loadError = '';
+  private requestId = 0;
 
   constructor() {
     const progress = storageService.load();
@@ -78,8 +88,7 @@ export class GameEngine {
     this.bestStreak = progress.bestStreak;
     this.dailyChallengeStreak = progress.dailyChallengeStreak;
     soundService.setMuted(!this.soundEnabled);
-    this.puzzles = puzzleRepository.buildShuffledRun();
-    this.loadPuzzleAt(0, { resetScore: false });
+    this.puzzles = [];
   }
 
   private cachedSnapshot: GameSnapshot | null = null;
@@ -96,12 +105,15 @@ export class GameEngine {
 
   getSnapshot = (): GameSnapshot => {
     if (this.cachedSnapshot) return this.cachedSnapshot;
+    const fallbackPuzzle = this.puzzles[this.index] ?? EMPTY_PUZZLE;
     this.cachedSnapshot = {
       screen: this.screen,
+      loading: this.loading,
+      loadError: this.loadError,
       mode: this.mode,
       puzzles: this.puzzles,
       index: this.index,
-      puzzle: this.puzzles[this.index],
+      puzzle: fallbackPuzzle,
       board: this.boardMatrix(),
       selected: this.selected,
       legalDestinations: this.legalDestinations,
@@ -125,6 +137,7 @@ export class GameEngine {
   };
 
   private boardMatrix(): Cell[][] {
+    if (!this.engine) return Array.from({ length: 8 }, () => Array<Cell>(8).fill(null));
     const matrix: Cell[][] = [];
     for (let r = 0; r < 8; r += 1) {
       const row: Cell[] = [];
@@ -168,21 +181,80 @@ export class GameEngine {
 
   startRun(): void {
     this.mode = 'run';
-    this.puzzles = puzzleRepository.buildShuffledRun();
-    this.loadPuzzleAt(0, { resetScore: true });
     this.screen = 'game';
+    this.loading = true;
+    this.loadError = '';
     this.notify();
+    const requestId = ++this.requestId;
+    void fetchLichessPuzzles(1).then((puzzles) => {
+      if (requestId !== this.requestId) return;
+      this.puzzles = puzzles;
+      this.loadPuzzleAt(0, { resetScore: true });
+      this.loading = false;
+      this.playOpponentSetupMove();
+      this.notify();
+    }).catch(() => {
+      if (requestId !== this.requestId) return;
+      const cached = getCachedPuzzleFallback();
+      if (cached) {
+        this.puzzles = [cached];
+        this.loadPuzzleAt(0, { resetScore: true });
+        this.loading = false;
+        this.playOpponentSetupMove();
+      } else {
+        this.loading = false;
+        this.loadError = 'Could not load puzzles from Lichess. Check your connection and try again.';
+        this.screen = 'intro';
+      }
+      this.notify();
+    });
   }
 
   startDaily(): void {
     this.mode = 'daily';
-    this.puzzles = [puzzleRepository.getDailyChallenge()];
-    this.loadPuzzleAt(0, { resetScore: true });
     this.screen = 'game';
+    this.loading = true;
+    this.loadError = '';
     this.notify();
+    const requestId = ++this.requestId;
+    void fetchLichessPuzzle(true).then((puzzle) => {
+      if (requestId !== this.requestId) return;
+      this.puzzles = [puzzle];
+      this.loadPuzzleAt(0, { resetScore: true });
+      this.loading = false;
+      this.playOpponentSetupMove();
+      this.notify();
+    }).catch(() => {
+      if (requestId !== this.requestId) return;
+      const cached = getCachedPuzzleFallback();
+      this.loading = false;
+      if (cached) {
+        this.puzzles = [cached];
+        this.loadPuzzleAt(0, { resetScore: true });
+        this.playOpponentSetupMove();
+      } else {
+        this.loadError = 'Could not load the daily puzzle from Lichess. Check your connection and try again.';
+        this.screen = 'intro';
+      }
+      this.notify();
+    });
+  }
+
+  private playOpponentSetupMove(): void {
+    const puzzle = this.puzzles[this.index];
+    if (!puzzle || puzzle.solution.length < 2) return;
+    const fenTurn = puzzle.fen.split(' ')[1];
+    const opponentColor = puzzle.turn === 'w' ? 'b' : 'w';
+    const setupMove = puzzle.setupMove;
+    if (fenTurn !== opponentColor || !setupMove) return;
+    const setup = this.engine.applyMove(ChessEngine.squareToCoordinate(setupMove.from), ChessEngine.squareToCoordinate(setupMove.to), setupMove.promotion?.toLowerCase());
+    this.moveHistory = [{ index: 0, notation: setupMove.notation || setup.notation, side: 'opponent', sideLabel: opponentColor === 'w' ? 'White' : 'Black' }];
+    this.moveNum = 0;
   }
 
   goHome(): void {
+    this.requestId += 1;
+    this.loading = false;
     this.clearPendingTimeout();
     this.screen = 'intro';
     this.notify();
@@ -191,6 +263,7 @@ export class GameEngine {
   resetCurrentPuzzle(): void {
     this.clearPendingTimeout();
     this.loadPuzzleAt(this.index, { resetScore: false });
+    this.playOpponentSetupMove();
     this.notify();
   }
 
@@ -269,7 +342,7 @@ export class GameEngine {
 
   private executePlayerMove(from: Coordinate, to: Coordinate, notation: string): void {
     const puzzle = this.puzzles[this.index];
-    const { captured } = this.engine.applyMove(from, to);
+    const { captured } = this.engine.applyMove(from, to, puzzle.solution[this.moveNum].promotion?.toLowerCase());
     if (captured) soundService.playCapture();
     else soundService.playMove();
 
@@ -300,7 +373,7 @@ export class GameEngine {
     }
     const from = ChessEngine.squareToCoordinate(step.from);
     const to = ChessEngine.squareToCoordinate(step.to);
-    this.engine.applyMove(from, to);
+    this.engine.applyMove(from, to, step.promotion?.toLowerCase());
     this.moveHistory = [
       ...this.moveHistory,
       { index: this.moveHistory.length, notation: step.notation, side: 'opponent', sideLabel: puzzle.turn === 'w' ? 'Black' : 'White' },
@@ -341,7 +414,7 @@ export class GameEngine {
     this.feedback = { type: 'done', message: 'Checkmate. Puzzle solved.' };
     soundService.playCheckmate();
 
-    const allPuzzlesComplete = this.mode === 'run' && this.index >= this.puzzles.length - 1;
+    const allPuzzlesComplete = false;
     let dailyStreak = progress.dailyChallengeStreak;
     if (this.mode === 'daily') {
       const today = new Date().toISOString().slice(0, 10);
@@ -382,12 +455,29 @@ export class GameEngine {
   nextPuzzle(): void {
     this.clearPendingTimeout();
     if (this.mode === 'daily') { this.screen = 'win'; this.notify(); return; }
+    if (this.index === 0 && this.puzzles.length === 1) this.puzzles = [];
     if (this.index < this.puzzles.length - 1) {
       this.loadPuzzleAt(this.index + 1, { resetScore: false });
+      this.playOpponentSetupMove();
       this.notify();
     } else {
-      this.screen = 'win';
+      this.loading = true;
       this.notify();
+      const requestId = ++this.requestId;
+      void fetchLichessPuzzle(false).then((puzzle) => {
+        if (requestId !== this.requestId) return;
+        this.puzzles.push(puzzle);
+        this.loadPuzzleAt(this.puzzles.length - 1, { resetScore: false });
+        this.loading = false;
+        this.playOpponentSetupMove();
+        this.notify();
+      }).catch(() => {
+        if (requestId !== this.requestId) return;
+        this.loading = false;
+        this.feedback = { type: 'wrong', message: 'Could not load another puzzle. Try again shortly.' };
+        this.screen = 'game';
+        this.notify();
+      });
     }
   }
 

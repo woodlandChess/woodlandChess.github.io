@@ -5,9 +5,10 @@ interface PuzzleIntroScreenProps {
   engine: GameEngine;
   soundEnabled: boolean;
   onBack: () => void;
+  loadError?: string;
 }
 
-export function PuzzleIntroScreen({ engine, soundEnabled, onBack }: PuzzleIntroScreenProps) {
+export function PuzzleIntroScreen({ engine, soundEnabled, onBack, loadError }: PuzzleIntroScreenProps) {
   return (
     <div className="puzzle-intro">
       <div className="puzzle-intro-bg" aria-hidden="true" />
@@ -32,21 +33,21 @@ export function PuzzleIntroScreen({ engine, soundEnabled, onBack }: PuzzleIntroS
           ♜ Check<em>mate</em>
         </h1>
         <p className="puzzle-intro-sub">
-          Twelve classic mating patterns drawn from the history of the game.
-          Checkmate in two.
+          Practice tactical puzzles from the Lichess puzzle database, with ratings, themes, hints and a daily challenge.
         </p>
         <div className="puzzle-intro-meta">
-          <span className="meta-pill">12 Puzzles</span>
+          <span className="meta-pill">Lichess Puzzle Database</span>
           <span className="meta-dot" />
-          <span className="meta-pill">Classic Patterns</span>
+          <span className="meta-pill">Rated Tactics</span>
           <span className="meta-dot" />
-          <span className="meta-pill">Checkmate in 2</span>
+          <span className="meta-pill">Daily Challenge</span>
         </div>
+        {loadError && <p className="puzzle-load-error" role="alert">{loadError}</p>}
         <div className="puzzle-intro-actions">
           <button
             type="button"
             className="begin-game"
-            onClick={() => engine.startRun()}
+          onClick={() => engine.startRun()}
           >
             Begin Playing
           </button>
