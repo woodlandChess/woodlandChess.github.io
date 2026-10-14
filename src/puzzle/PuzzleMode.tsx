@@ -11,6 +11,7 @@ export function PuzzleMode({ onBack }: PuzzleModeProps) {
   const { engine, snapshot } = useGameEngine();
 
   if (snapshot.screen === 'game') {
+    if (snapshot.loading) return <div className="puzzle-loading" role="status">Loading puzzle from Lichess…</div>;
     return (
       <PuzzleGameScreen
         engine={engine}
@@ -34,6 +35,7 @@ export function PuzzleMode({ onBack }: PuzzleModeProps) {
     <PuzzleIntroScreen
       engine={engine}
       soundEnabled={snapshot.soundEnabled}
+      loadError={snapshot.loadError}
       onBack={onBack}
     />
   );

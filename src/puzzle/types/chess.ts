@@ -34,6 +34,7 @@ export interface Puzzle {
   hint: string;
   fen: string;
   solution: SolutionStep[];
+  setupMove?: SolutionStep;
 }
 
 export type FeedbackType = 'idle' | 'correct' | 'wrong' | 'legal-wrong' | 'done';

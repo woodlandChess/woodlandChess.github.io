@@ -1645,6 +1645,7 @@ header {
 .puzzle-shell .mate-overlay {
   position: absolute;
   inset: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1653,6 +1654,7 @@ header {
   pointer-events: none;
   transition: opacity 0.5s var(--ease);
 }
+.puzzle-shell .piece-svg { position: relative; z-index: 1; pointer-events: none; }
 .puzzle-shell .mate-overlay.show { opacity: 1; }
 .mate-overlay-inner { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .mate-overlay-icon { font-size: 2.6rem; color: var(--accent-bright); line-height: 1; }
