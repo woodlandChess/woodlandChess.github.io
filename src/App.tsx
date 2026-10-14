@@ -5,6 +5,7 @@ import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './st
 import { ChessBoard, PromotionModal } from './ChessBoard'
 import { OnlinePlay } from './OnlinePlay'
 import { PuzzleMode } from './puzzle/PuzzleMode'
+import { IconComputer, IconOnline, IconPuzzle } from './components/ModeIcons'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
 function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -76,9 +77,58 @@ function Dropdown({ label, value, options, onChange }: {
   )
 }
 
+// ── Segmented control (native radios: free arrow-key + screen-reader support) ──
+type SegOption<T extends string> = { value: T; label: string; swatch?: 'w' | 'b' | 'r' }
+
+function Segmented<T extends string>({ legend, name, value, options, onChange }: {
+  legend: string; name: string; value: T; options: SegOption<T>[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <fieldset className="field">
+      <legend className="field-label">{legend}</legend>
+      <div className="seg" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+        {options.map(o => (
+          <label key={o.value} className="seg-opt">
+            <input type="radio" name={name} value={o.value} checked={o.value === value}
+              onChange={() => onChange(o.value)} />
+            <span className="seg-face">
+              {o.swatch && <i className={`seg-swatch seg-swatch--${o.swatch}`} aria-hidden="true" />}
+              {o.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
+// ── Mode navigation ───────────────────────────────────────────────────────────
+type ModeId = 'ai' | 'online' | 'puzzle'
+const modeItems: { id: ModeId; label: string; Icon: typeof IconComputer }[] = [
+  { id: 'ai',     label: 'Computer',    Icon: IconComputer },
+  { id: 'online', label: 'Play online', Icon: IconOnline },
+  { id: 'puzzle', label: 'Puzzles',     Icon: IconPuzzle },
+]
+
+function ModeNav({ current, onSelect }: { current: ModeId; onSelect: (m: ModeId) => void }) {
+  return (
+    <nav className="mode-nav" aria-label="Game mode">
+      {modeItems.map(({ id, label, Icon }) => (
+        <button key={id} type="button" className="mode-nav-btn"
+          aria-current={id === current ? 'page' : undefined}
+          onClick={() => { if (id !== current) onSelect(id) }}>
+          <Icon className="mode-nav-icon" />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
-  type Mode = 'ai' | 'online' | 'puzzle'
+  type Mode = ModeId
   const modeFromPath = (path: string): Mode => path.replace(/\/$/, '') === '/puzzle' ? 'puzzle' : path.replace(/\/$/, '') === '/multiplayer' ? 'online' : 'ai'
   const pathForMode = (next: Mode) => next === 'puzzle' ? '/puzzle' : next === 'online' ? '/multiplayer' : '/ai'
   const [mode, setMode] = useState<Mode>(() => {
@@ -106,6 +156,7 @@ export function App() {
   const [difficulty,       setDifficulty]       = useState<Difficulty>('Classic')
   const [school,           setSchool]           = useState<ChessSchool>('Universal')
   const [player,           setPlayer]           = useState<Color>('w')
+  const [sideChoice,       setSideChoice]       = useState<Color | 'random'>('w')
   const [setupOpen,        setSetupOpen]        = useState(true)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
 
@@ -187,56 +238,69 @@ export function App() {
   }
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
+  const sideLabel = sideChoice === 'w' ? 'White' : sideChoice === 'b' ? 'Black' : 'Random side'
+  const beginGame = () => start(sideChoice === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideChoice)
+
   if (setupOpen) return (
-    <main className="setup-shell">
-      <section className="setup-card" aria-labelledby="setup-title">
-        <div className="brand">
-          <span className="brand-mark">♞</span>
-          <span className="brand-name">Woodland Chess</span>
+    <main className="setup-shell setup-shell--home">
+      <section className="setup-card setup-card--home" aria-labelledby="setup-title">
+        <div className="home-head">
+          <div className="brand">
+            <span className="brand-mark">♞</span>
+            <span className="brand-name">Woodland Chess</span>
+          </div>
+          <ModeNav current="ai" onSelect={navigateMode} />
         </div>
 
-        <div className="mode-toggle" role="tablist" aria-label="Opponent type">
-          <button type="button" role="tab" aria-selected={true} className="mode-toggle-btn mode-toggle-btn--active">
-            Computer
-          </button>
-          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => navigateMode('online')}>
-            Play online
-          </button>
-          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => navigateMode('puzzle')}>
-            ♜ Puzzles
-          </button>
-        </div>
-
-        <div className="setup-heading">
+        <div className="home-intro">
           <span className="setup-kicker">New game</span>
           <h1 id="setup-title">Set your opponent</h1>
+          <p className="setup-copy">Choose a playing school and strength before the board opens.</p>
         </div>
-        <p className="setup-copy">Choose a playing school and strength before the board opens.</p>
-        <Dropdown
-          label="Chess school"
-          value={school}
-          onChange={v => setSchool(v as ChessSchool)}
-          options={Object.entries(schools).map(([id, p]) => ({ value: id, label: p.label, summary: p.summary }))}
-        />
-        <div className="school-weights">
-          <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
-          <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
-          <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
-        </div>
-        <Dropdown
-          label="Difficulty"
-          value={difficulty}
-          onChange={v => setDifficulty(v as Difficulty)}
-          options={['Relaxed', 'Classic', 'Expert'].map(d => ({ value: d, label: d }))}
-        />
-        <fieldset className="color-picker">
-          <legend>Play as</legend>
-          <div className="color-picker-btns">
-            <button type="button" aria-pressed={player === 'w'} onClick={() => setPlayer('w')}>♔ White</button>
-            <button type="button" aria-pressed={player === 'b'} onClick={() => setPlayer('b')}>♚ Black</button>
+
+        <div className="home-grid">
+          <div className="home-panel">
+            <Dropdown
+              label="Chess school"
+              value={school}
+              onChange={v => setSchool(v as ChessSchool)}
+              options={Object.entries(schools).map(([id, p]) => ({ value: id, label: p.label, summary: p.summary }))}
+            />
+            <div className="school-weights" aria-label="School profile">
+              <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
+              <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
+              <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
+            </div>
           </div>
-        </fieldset>
-        <button className="begin-game" onClick={() => start(player)}>Begin game</button>
+
+          <div className="home-panel">
+            <Segmented<Difficulty>
+              legend="Difficulty" name="difficulty" value={difficulty} onChange={setDifficulty}
+              options={[
+                { value: 'Relaxed', label: 'Relaxed' },
+                { value: 'Classic', label: 'Classic' },
+                { value: 'Expert',  label: 'Expert' },
+              ]}
+            />
+            <Segmented<Color | 'random'>
+              legend="Play as" name="side" value={sideChoice} onChange={setSideChoice}
+              options={[
+                { value: 'w',      label: 'White',  swatch: 'w' },
+                { value: 'random', label: 'Random', swatch: 'r' },
+                { value: 'b',      label: 'Black',  swatch: 'b' },
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className="home-actions">
+          <p className="home-summary" aria-live="polite">
+            <span>{schools[school].label}</span><i aria-hidden="true" />
+            <span>{difficulty}</span><i aria-hidden="true" />
+            <span>{sideLabel}</span>
+          </p>
+          <button type="button" className="begin-game" onClick={beginGame}>Begin game</button>
+        </div>
       </section>
     </main>
   )
