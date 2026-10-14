@@ -2,12 +2,14 @@ import { useGameEngine } from './hooks/useGameEngine';
 import { PuzzleIntroScreen } from './components/PuzzleIntroScreen';
 import { PuzzleGameScreen } from './components/PuzzleGameScreen';
 import { PuzzleWinScreen } from './components/PuzzleWinScreen';
+import type { ModeId } from '../components/ModeNav';
 
 interface PuzzleModeProps {
   onBack: () => void;
+  onNavigate: (mode: ModeId) => void;
 }
 
-export function PuzzleMode({ onBack }: PuzzleModeProps) {
+export function PuzzleMode({ onBack, onNavigate }: PuzzleModeProps) {
   const { engine, snapshot } = useGameEngine();
 
   if (snapshot.screen === 'game') {
@@ -36,7 +38,7 @@ export function PuzzleMode({ onBack }: PuzzleModeProps) {
       engine={engine}
       soundEnabled={snapshot.soundEnabled}
       loadError={snapshot.loadError}
-      onBack={onBack}
+      onNavigate={onNavigate}
     />
   );
 }

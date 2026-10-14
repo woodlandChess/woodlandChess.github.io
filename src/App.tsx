@@ -5,7 +5,9 @@ import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './st
 import { ChessBoard, PromotionModal } from './ChessBoard'
 import { OnlinePlay } from './OnlinePlay'
 import { PuzzleMode } from './puzzle/PuzzleMode'
-import { IconComputer, IconOnline, IconPuzzle } from './components/ModeIcons'
+import type { ModeId } from './components/ModeNav'
+import { HomeFrame } from './components/HomeFrame'
+import { GameScreen } from './components/GameScreen'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
 function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -100,29 +102,6 @@ function Segmented<T extends string>({ legend, name, value, options, onChange }:
         ))}
       </div>
     </fieldset>
-  )
-}
-
-// ── Mode navigation ───────────────────────────────────────────────────────────
-type ModeId = 'ai' | 'online' | 'puzzle'
-const modeItems: { id: ModeId; label: string; Icon: typeof IconComputer }[] = [
-  { id: 'ai',     label: 'Computer',    Icon: IconComputer },
-  { id: 'online', label: 'Play online', Icon: IconOnline },
-  { id: 'puzzle', label: 'Puzzles',     Icon: IconPuzzle },
-]
-
-function ModeNav({ current, onSelect }: { current: ModeId; onSelect: (m: ModeId) => void }) {
-  return (
-    <nav className="mode-nav" aria-label="Game mode">
-      {modeItems.map(({ id, label, Icon }) => (
-        <button key={id} type="button" className="mode-nav-btn"
-          aria-current={id === current ? 'page' : undefined}
-          onClick={() => { if (id !== current) onSelect(id) }}>
-          <Icon className="mode-nav-icon" />
-          <span>{label}</span>
-        </button>
-      ))}
-    </nav>
   )
 }
 
@@ -230,11 +209,11 @@ export function App() {
   // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
   // screens. Selecting "Back" there returns here with mode reset to 'ai'.
   if (mode === 'online') {
-    return <OnlinePlay onBack={() => navigateMode('ai')} />
+    return <OnlinePlay onBack={() => navigateMode('ai')} onNavigate={navigateMode} />
   }
 
   if (mode === 'puzzle') {
-    return <PuzzleMode onBack={() => navigateMode('ai')} />
+    return <PuzzleMode onBack={() => navigateMode('ai')} onNavigate={navigateMode} />
   }
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
@@ -242,138 +221,100 @@ export function App() {
   const beginGame = () => start(sideChoice === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideChoice)
 
   if (setupOpen) return (
-    <main className="setup-shell setup-shell--home">
-      <section className="setup-card setup-card--home" aria-labelledby="setup-title">
-        <div className="home-head">
-          <div className="brand">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Woodland Chess</span>
-          </div>
-          <ModeNav current="ai" onSelect={navigateMode} />
-        </div>
-
-        <div className="home-intro">
-          <span className="setup-kicker">New game</span>
-          <h1 id="setup-title">Set your opponent</h1>
-          <p className="setup-copy">Choose a playing school and strength before the board opens.</p>
-        </div>
-
-        <div className="home-grid">
-          <div className="home-panel">
-            <Dropdown
-              label="Chess school"
-              value={school}
-              onChange={v => setSchool(v as ChessSchool)}
-              options={Object.entries(schools).map(([id, p]) => ({ value: id, label: p.label, summary: p.summary }))}
-            />
-            <div className="school-weights" aria-label="School profile">
-              <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
-              <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
-              <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
-            </div>
-          </div>
-
-          <div className="home-panel">
-            <Segmented<Difficulty>
-              legend="Difficulty" name="difficulty" value={difficulty} onChange={setDifficulty}
-              options={[
-                { value: 'Relaxed', label: 'Relaxed' },
-                { value: 'Classic', label: 'Classic' },
-                { value: 'Expert',  label: 'Expert' },
-              ]}
-            />
-            <Segmented<Color | 'random'>
-              legend="Play as" name="side" value={sideChoice} onChange={setSideChoice}
-              options={[
-                { value: 'w',      label: 'White',  swatch: 'w' },
-                { value: 'random', label: 'Random', swatch: 'r' },
-                { value: 'b',      label: 'Black',  swatch: 'b' },
-              ]}
-            />
-          </div>
-        </div>
-
-        <div className="home-actions">
+    <HomeFrame
+      mode="ai"
+      onNavigate={navigateMode}
+      kicker="New game"
+      title="Set your opponent"
+      copy="Choose a playing school and strength before the board opens."
+      actions={
+        <>
           <p className="home-summary" aria-live="polite">
             <span>{schools[school].label}</span><i aria-hidden="true" />
             <span>{difficulty}</span><i aria-hidden="true" />
             <span>{sideLabel}</span>
           </p>
           <button type="button" className="begin-game" onClick={beginGame}>Begin game</button>
-        </div>
-      </section>
-    </main>
-  )
-
-  // ── GAME ───────────────────────────────────────────────────────────────────
-  return (
-    <main className="app-shell">
-      <header>
-        <div className="brand">
-          <span className="brand-mark">♞</span>
-          <span className="brand-name">Woodland Chess</span>
-        </div>
-        <button className="new-game" onClick={() => setSetupOpen(true)}>New game</button>
-      </header>
-
-      <section className="game-layout">
-        <div className="board-wrap">
-          <ChessBoard
-            board={game.board()}
-            onSquareClick={clickSquare}
-            selected={selected}
-            legalTargets={legalTargets}
-            lastFrom={last?.from}
-            lastTo={last?.to}
-            orientation={player}
+        </>
+      }
+    >
+      <div className="home-grid">
+        <div className="home-panel">
+          <Dropdown
+            label="Chess school"
+            value={school}
+            onChange={v => setSchool(v as ChessSchool)}
+            options={Object.entries(schools).map(([id, p]) => ({ value: id, label: p.label, summary: p.summary }))}
           />
-        </div>
-
-        <aside className="sidebar">
-          <div className="sidebar-section">
-            <div className="opponent">
-              <div className="avatar">♛</div>
-              <div className="opponent-info">
-                <strong>Computer</strong>
-                <span>{schools[school].label} · {difficulty}</span>
-              </div>
-            </div>
-          </div>
-          <div className="sidebar-section sidebar-weights">
-            <span className="status-label">School profile</span>
+          <div className="school-weights" aria-label="School profile">
             <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
             <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
             <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
           </div>
-          <div className="sidebar-section">
-            <span className="status-label">Position</span>
-            <div className="status" aria-live="polite">{status}</div>
-          </div>
-          <div className="sidebar-section history-section">
-            <p className="history-head">Moves</p>
-            <div className="history" aria-label="Move history">
-              {history.length === 0
-                ? <p>Opening position</p>
-                : Array.from({ length: Math.ceil(history.length / 2) }, (_, i) => (
-                    <div className="move-row" key={i}>
-                      <span>{i + 1}.</span>
-                      <span>{history[i * 2]?.san}</span>
-                      <span>{history[i * 2 + 1]?.san ?? ''}</span>
-                    </div>
-                  ))
-              }
-            </div>
-          </div>
-          <button className="resign" onClick={() => setSetupOpen(true)}>Change setup</button>
-        </aside>
-      </section>
+        </div>
 
-      {pendingPromotion && (
+        <div className="home-panel">
+          <Segmented<Difficulty>
+            legend="Difficulty" name="difficulty" value={difficulty} onChange={setDifficulty}
+            options={[
+              { value: 'Relaxed', label: 'Relaxed' },
+              { value: 'Classic', label: 'Classic' },
+              { value: 'Expert',  label: 'Expert' },
+            ]}
+          />
+          <Segmented<Color | 'random'>
+            legend="Play as" name="side" value={sideChoice} onChange={setSideChoice}
+            options={[
+              { value: 'w',      label: 'White',  swatch: 'w' },
+              { value: 'random', label: 'Random', swatch: 'r' },
+              { value: 'b',      label: 'Black',  swatch: 'b' },
+            ]}
+          />
+        </div>
+      </div>
+    </HomeFrame>
+  )
+
+  // ── GAME ───────────────────────────────────────────────────────────────────
+  const tone = game.isGameOver() ? 'over' : game.turn() === player ? 'turn' : 'wait'
+  return (
+    <GameScreen
+      exitLabel="New game"
+      onExit={() => setSetupOpen(true)}
+      opponent={{ name: 'Computer', meta: `${schools[school].label} · ${difficulty}`, glyph: '♛' }}
+      status={status}
+      tone={tone}
+      moves={history.map(m => m.san)}
+      profileLabel="School profile"
+      profile={
+        <>
+          <WeightBar label="Attack" value={w.attack} color="var(--w-attack)" />
+          <WeightBar label="Focus"  value={w.focus}  color="var(--w-focus)"  />
+          <WeightBar label="Defend" value={w.defend} color="var(--w-defend)" />
+        </>
+      }
+      actions={
+        <>
+          <button type="button" className="btn-ghost" onClick={() => start(player)}>Restart</button>
+          <button type="button" className="btn-ghost" onClick={() => setSetupOpen(true)}>Change setup</button>
+        </>
+      }
+      overlay={pendingPromotion && (
         <PromotionModal
           color={player}
           onPick={type => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}
         />
       )}
-    </main>
+    >
+      <ChessBoard
+        board={game.board()}
+        onSquareClick={clickSquare}
+        selected={selected}
+        legalTargets={legalTargets}
+        lastFrom={last?.from}
+        lastTo={last?.to}
+        orientation={player}
+      />
+    </GameScreen>
   )
 }
