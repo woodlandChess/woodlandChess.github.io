@@ -5,7 +5,7 @@ type BoardSquares = ReturnType<Chess['board']>
 
 /**
  * Shared chessboard grid, used by both the vs-Computer mode and the Lichess
- * multiplayer mode. Purely presentational — callers own all game state and
+ * multiplayer mode. Purely presentational - callers own all game state and
  * pass in a `board` snapshot (from `chess.board()`) plus interaction state.
  *
  * `orientation` flips which side is shown at the bottom, for playing as

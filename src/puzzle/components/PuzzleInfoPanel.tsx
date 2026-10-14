@@ -20,7 +20,7 @@ export function PuzzleInfoPanel({ engine, snapshot }: PuzzleInfoPanelProps) {
       <div className={`game-badge ${puzzle.difficulty}`}>
         {puzzle.difficulty.charAt(0).toUpperCase() + puzzle.difficulty.slice(1)}
       </div>
-      {puzzle.year && puzzle.year.trim().length > 1 && <div className="puzzle-year">{puzzle.year}</div>}
+        {puzzle.year && puzzle.year.trim().length > 1 && <div className="puzzle-year">{puzzle.year}</div>}
       <h2 className="puzzle-title">{puzzle.title}</h2>
       <div className="puzzle-subtitle">{puzzle.subtitle}</div>
       <p className="puzzle-desc">{puzzle.desc}</p>
@@ -70,7 +70,7 @@ export function PuzzleInfoPanel({ engine, snapshot }: PuzzleInfoPanelProps) {
         </div>
         <div className="stat-sep" />
         <div className="stat-item">
-          <span className="stat-n">{snapshot.bestStreak || '—'}</span>
+          <span className="stat-n">{snapshot.bestStreak || ' - '}</span>
           <span className="stat-l">Best</span>
         </div>
       </div>

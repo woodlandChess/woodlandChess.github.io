@@ -12,7 +12,7 @@ describe('evaluate', () => {
     expect(Math.abs(b)).toBeLessThan(200)
   })
 
-  it('detects checkmate — returns large positive for winner', () => {
+  it('detects checkmate - returns large positive for winner', () => {
     // Fool's mate: Black wins
     const g = new Chess()
     g.move('f3'); g.move('e5')

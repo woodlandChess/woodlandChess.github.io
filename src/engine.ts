@@ -242,7 +242,7 @@ export function chooseMove(
 }
 
 export function gameStatus(game: Chess, player: Color): string {
-  if (game.isCheckmate()) return game.turn() === player ? 'Checkmate — computer wins' : 'Checkmate — you win'
+  if (game.isCheckmate()) return game.turn() === player ? 'Checkmate - computer wins' : 'Checkmate - you win'
   if (game.isStalemate()) return 'Draw: stalemate'
   if (game.isThreefoldRepetition()) return 'Draw: repetition'
   if (game.isInsufficientMaterial()) return 'Draw: insufficient material'
