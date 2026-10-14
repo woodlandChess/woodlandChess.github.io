@@ -26,7 +26,9 @@ export class ChessEngine {
   applyMove(from: Coordinate, to: Coordinate, promotion?: string): { captured: boolean; notation: string; uci: string } {
     const fromSquare = ChessEngine.coordinateToSquare(from.row, from.col) as Square;
     const toSquare = ChessEngine.coordinateToSquare(to.row, to.col) as Square;
-    const move = this.game.move({ from: fromSquare, to: toSquare, ...(promotion ? { promotion } : {}) });
+    const piece = this.game.get(fromSquare);
+    const chosenPromotion = promotion ?? (piece?.type === 'p' && (toSquare.endsWith('8') || toSquare.endsWith('1')) ? 'q' : undefined);
+    const move = this.game.move({ from: fromSquare, to: toSquare, ...(chosenPromotion ? { promotion: chosenPromotion } : {}) });
     return { captured: !!move.captured || move.flags.includes('e'), notation: move.san, uci: `${move.from}${move.to}${move.promotion ?? ''}` };
   }
 
