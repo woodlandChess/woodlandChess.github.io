@@ -268,7 +268,12 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
 
   const game          = useMemo(() => new Chess(fen), [fen])
   const legalTargets  = selected ? game.moves({ square: selected, verbose: true }).map(m => m.to) : []
-  const lastMove      = game.history({ verbose: true }).at(-1)
+  // `game` is rebuilt from the FEN, which carries no move list - so history
+  // must come from the replayed game in chessRef. Every update to chessRef is
+  // followed by setFen(), so keying on `fen` keeps this in sync.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const moveHistory   = useMemo(() => chessRef.current.history({ verbose: true }), [fen])
+  const lastMove      = moveHistory.at(-1)
   const myTurn        = !!liveGame && game.turn() === liveGame.myColor
 
   // ── LOADING ────────────────────────────────────────────────────────────────
@@ -365,7 +370,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       }}
       status={resultText ?? (myTurn ? 'Your move' : 'Waiting for opponent…')}
       tone={!inGame ? 'over' : myTurn ? 'turn' : 'wait'}
-      moves={game.history()}
+      moves={moveHistory.map(m => m.san)}
       notice={error}
       actions={inGame ? (
         <ConfirmButton className="btn-ghost btn-danger" label="Resign" confirmLabel="Tap again to resign"
