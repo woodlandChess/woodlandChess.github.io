@@ -1,5 +1,5 @@
 /* ============================================================
-   Woodland Chess — Design System
+   Woodland Chess - Design System
    Inherits from Abyssal Liturgy (hassanireza.github.io)
    Mobile-first: base rules target phones; larger screens are
    progressively enhanced via min-width media queries.
@@ -125,7 +125,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================================
-   SETUP SCREEN — mobile-first (full-bleed sheet on phones)
+   SETUP SCREEN - mobile-first (full-bleed sheet on phones)
    ============================================================ */
 
 .setup-shell {
@@ -163,7 +163,7 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
 }
 
-/* Brand lockup — shared between setup and header */
+/* Brand lockup - shared between setup and header */
 .brand {
   display: flex;
   align-items: center;
@@ -188,7 +188,7 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.01em;
 }
 
-/* Setup eyebrow + heading — tight unit, spaced away from siblings */
+/* Setup eyebrow + heading - tight unit, spaced away from siblings */
 .setup-heading {
   margin: 1.2rem 0 0.9rem;
 }
@@ -222,7 +222,7 @@ a { color: inherit; text-decoration: none; }
   margin-bottom: 1.1rem;
 }
 
-/* Form fields — 44px+ tall for comfortable thumb targets */
+/* Form fields - 44px+ tall for comfortable thumb targets */
 .school-summary {
   font-family: var(--font-body);
   font-size: 0.76rem;
@@ -238,7 +238,7 @@ a { color: inherit; text-decoration: none; }
 /* ============================================================
    CUSTOM DROPDOWN
    Replaces the native <select> with a fully branded control:
-   an anchored panel on desktop, a full-width sheet on mobile —
+   an anchored panel on desktop, a full-width sheet on mobile  - 
    never the OS-rendered picker.
    ============================================================ */
 
@@ -299,7 +299,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-2);
 }
 
-/* Backdrop — only meaningful on mobile where the menu is a sheet,
+/* Backdrop - only meaningful on mobile where the menu is a sheet,
    but kept on desktop too so an outside click always closes it. */
 .dropdown-scrim {
   position: fixed;
@@ -459,7 +459,7 @@ a { color: inherit; text-decoration: none; }
   background: rgba(201, 207, 210, 0.07);
 }
 
-/* Primary CTA — full-width thumb-friendly on mobile */
+/* Primary CTA - full-width thumb-friendly on mobile */
 .begin-game {
   appearance: none;
   border: 1px solid var(--accent);
@@ -488,7 +488,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ============================================================
    MAIN APP SHELL
-   Mobile-first: a single scrolling column — board first, then a
+   Mobile-first: a single scrolling column - board first, then a
    compact status/history/actions stack below it, like a native
    app screen. Desktop gets the fixed-height two-column layout.
    ============================================================ */
@@ -552,7 +552,7 @@ header {
 }
 
 /* ============================================================
-   GAME LAYOUT — single column on mobile, two-column on desktop
+   GAME LAYOUT - single column on mobile, two-column on desktop
    ============================================================ */
 
 .game-layout {
@@ -685,7 +685,7 @@ header {
 .file { bottom: 3px; right: 4px; }
 
 /* ============================================================
-   SIDEBAR — a compact row-based info stack on mobile,
+   SIDEBAR - a compact row-based info stack on mobile,
    a full-height column panel on desktop
    ============================================================ */
 
@@ -847,7 +847,7 @@ header {
   font-size: 0.6rem;
 }
 
-/* Secondary action — full-width tap target on mobile */
+/* Secondary action - full-width tap target on mobile */
 .resign {
   appearance: none;
   border: 0;
@@ -868,7 +868,7 @@ header {
 .resign:hover { color: var(--text-2); }
 
 /* ============================================================
-   PROMOTION MODAL — bottom sheet on mobile, centered dialog on desktop
+   PROMOTION MODAL - bottom sheet on mobile, centered dialog on desktop
    ============================================================ */
 
 .modal-backdrop {
@@ -972,25 +972,25 @@ header {
 
    WHITE pieces (cburnett "lt" = white fill + black outline):
      Pure white (#fff) is too harsh and lacks the brand warmth.
-     Target: --text (#e6e3da = rgb 230,227,218) — warm off-white with slight yellow.
+     Target: --text (#e6e3da = rgb 230,227,218) - warm off-white with slight yellow.
      Filter: sepia(0.18) pulls warm yellow into the white fill.
              brightness(0.91) tones it down from glaring 255 to ~210 range.
-     Result: warm ivory — harmonises with Cormorant Garamond headline tone.
+     Result: warm ivory - harmonises with Cormorant Garamond headline tone.
 
    BLACK pieces (cburnett "dt" = near-black fill + light outline):
      Black (#0d1013 ≈ board dark) = invisible. Must be lifted significantly.
-     Target: --accent-bright (#c9cfd2 = rgb 201,207,210) — the brand's cool silver.
+     Target: --accent-bright (#c9cfd2 = rgb 201,207,210) - the brand's cool silver.
      Filter: invert(0.72) flips black to ~rgb 183,183,183 (cool neutral gray).
              hue-rotate(194deg) shifts toward the blue-gray of --accent-bright.
              saturate(0.55) keeps it muted rather than vivid blue.
              brightness(0.96) fine-tunes brightness.
-     Result: cool steel silver — visually distinct from warm white pieces,
+     Result: cool steel silver - visually distinct from warm white pieces,
              reads clearly on both dark squares, matches brand accent palette.
    ============================================================ */
 :root {
-  --w-attack: #c0534a;   /* warm red   — Attack bar */
-  --w-focus:  #5a8fd4;   /* steel blue — Focus bar  */
-  --w-defend: #4da870;   /* muted green — Defend bar */
+  --w-attack: #c0534a;   /* warm red   - Attack bar */
+  --w-focus:  #5a8fd4;   /* steel blue - Focus bar  */
+  --w-defend: #4da870;   /* muted green - Defend bar */
 
   /* Piece CSS filter chains */
   --piece-filter-w:
@@ -1056,7 +1056,7 @@ header {
   text-align: right;
 }
 
-/* Sidebar variant — compact */
+/* Sidebar variant - compact */
 .sidebar-weights {
   display: flex;
   flex-direction: column;
@@ -1072,12 +1072,12 @@ header {
 .sidebar-weights .weight-track { height: 3px; }
 
 /* ============================================================
-   SVG PIECE IMAGES — cburnett set (Wikimedia Commons, CC BY-SA 3.0)
+   SVG PIECE IMAGES - cburnett set (Wikimedia Commons, CC BY-SA 3.0)
    Color filters are applied per-side via --piece-filter-w / --piece-filter-b.
    See :root comment block above for full color-theory rationale.
    ============================================================ */
 
-/* Base layout — shared by both sides */
+/* Base layout - shared by both sides */
 
 
 /* ============================================================
@@ -1085,10 +1085,10 @@ header {
    ============================================================
    Source paths: cburnett set (CC BY-SA 3.0), same as Lichess/Wikipedia,
    extracted from python-chess/chess/svg.py. Both sides share identical
-   path data — only the CSS filter differs.
+   path data - only the CSS filter differs.
 
    Base SVG color:  #808080  (neutral gray, L*53)
-   Detail color:    #505050  (darker gray, L*34 — eyes, inner lines)
+   Detail color:    #505050  (darker gray, L*34 - eyes, inner lines)
 
    WHITE pieces → warm ivory  #e6e3da  (brand --text,   L*90)
    ─────────────────────────────────────────────────────────────
@@ -1096,7 +1096,7 @@ header {
      brightness(2.0)   →  lifts to L*90 range
      sepia(0.10)        →  adds warm yellow-cream cast matching #e6e3da hue
      saturate(0.90)     →  keeps muted, not vivid yellow
-   Result: ~#e9e5db — within 1 ΔE of brand --text #e6e3da ✓
+   Result: ~#e9e5db - within 1 ΔE of brand --text #e6e3da ✓
 
    BLACK pieces → cool steel  #9aa3a8  (brand --text-2, L*66)
    ─────────────────────────────────────────────────────────────
@@ -1104,7 +1104,7 @@ header {
      brightness(1.28)   →  lifts to L*66 range
      hue-rotate(196deg) →  rotates toward blue-cyan (cool steel hue of #9aa3a8)
      saturate(0.72)     →  gentle cool saturation, not vivid
-   Result: ~#9ba4a9 — within 1 ΔE of brand --text-2 #9aa3a8 ✓
+   Result: ~#9ba4a9 - within 1 ΔE of brand --text-2 #9aa3a8 ✓
 
    WCAG non-text contrast ≥ 3:1 (graphics guideline):
      Ivory  vs light sq #1a2027 → ~11:1  ✓ AAA
@@ -1222,7 +1222,7 @@ header {
    MULTIPLAYER (LICHESS) UI
    ============================================================ */
 
-/* Mode toggle — "Computer" / "Play online" segmented control on setup screen */
+/* Mode toggle - "Computer" / "Play online" segmented control on setup screen */
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1296,7 +1296,7 @@ header {
 }
 
 /* Board lock overlay cue for a finished online game (board remains visible,
-   just non-interactive — buttons get disabled + slightly dimmed) */
+   just non-interactive - buttons get disabled + slightly dimmed) */
 .board--locked .square {
   cursor: default;
   opacity: 0.92;

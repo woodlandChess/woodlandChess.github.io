@@ -78,7 +78,25 @@ function Dropdown({ label, value, options, onChange }: {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
-  const [mode, setMode] = useState<'ai' | 'online' | 'puzzle'>('ai')
+  type Mode = 'ai' | 'online' | 'puzzle'
+  const modeFromPath = (path: string): Mode => path.replace(/\/$/, '') === '/puzzle' ? 'puzzle' : path.replace(/\/$/, '') === '/multiplayer' ? 'online' : 'ai'
+  const pathForMode = (next: Mode) => next === 'puzzle' ? '/puzzle' : next === 'online' ? '/multiplayer' : '/ai'
+  const [mode, setMode] = useState<Mode>(() => {
+    if (new URLSearchParams(window.location.search).has('code') && sessionStorage.getItem('woodland-chess:oauth-return-path') === '/multiplayer') return 'online'
+    return modeFromPath(window.location.pathname)
+  })
+
+  useEffect(() => {
+    if (window.location.pathname === '/' && !window.location.search) window.history.replaceState({}, '', '/ai')
+    const onPopState = () => setMode(modeFromPath(window.location.pathname))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const navigateMode = (next: Mode) => {
+    window.history.pushState({}, '', pathForMode(next))
+    setMode(next)
+  }
 
   const gameRef   = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
@@ -161,11 +179,11 @@ export function App() {
   // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
   // screens. Selecting "Back" there returns here with mode reset to 'ai'.
   if (mode === 'online') {
-    return <OnlinePlay onBack={() => setMode('ai')} />
+    return <OnlinePlay onBack={() => navigateMode('ai')} />
   }
 
   if (mode === 'puzzle') {
-    return <PuzzleMode onBack={() => setMode('ai')} />
+    return <PuzzleMode onBack={() => navigateMode('ai')} />
   }
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
@@ -181,10 +199,10 @@ export function App() {
           <button type="button" role="tab" aria-selected={true} className="mode-toggle-btn mode-toggle-btn--active">
             Computer
           </button>
-          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => setMode('online')}>
+          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => navigateMode('online')}>
             Play online
           </button>
-          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => setMode('puzzle')}>
+          <button type="button" role="tab" aria-selected={false} className="mode-toggle-btn" onClick={() => navigateMode('puzzle')}>
             ♜ Puzzles
           </button>
         </div>

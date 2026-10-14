@@ -9,13 +9,13 @@ import type { Color, Square } from 'chess.js'
 //
 // Design decisions for this dark-themed board:
 //
-//  1. SINGLE NEUTRAL BASE — all paths are recoloured to #808080 (L*53,
+//  1. SINGLE NEUTRAL BASE - all paths are recoloured to #808080 (L*53,
 //     neutral gray). Both sides share identical path data; colour comes
 //     entirely from CSS filter (see styles.css). This eliminates the
 //     stroke-weight mismatch that existed when white/black used separate
 //     original SVG files with different rendering conventions.
 //
-//  2. DETAIL COLOUR — inner lines, eyes, nostril (things that should read
+//  2. DETAIL COLOUR - inner lines, eyes, nostril (things that should read
 //     as recesses) are set to #505050 (L*34) so after the brightness filter
 //     they stay relatively darker than the body, preserving depth cues on
 //     both ivory-white and steel-gray pieces.
@@ -34,7 +34,7 @@ import type { Color, Square } from 'chess.js'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const B = '#808080'   // body fill + stroke
-const D = '#505050'   // detail (eyes, inner lines) — stays relatively dark after filter
+const D = '#505050'   // detail (eyes, inner lines) - stays relatively dark after filter
 
 // All pieces use a 45×45 viewBox, encoded as data URIs so no network calls
 // are needed and the browser can apply CSS filter directly.
@@ -52,7 +52,7 @@ export const PIECE_SVGS: Record<Color, Record<string, string>> = {
     </g>`),
 
     // ── KNIGHT ──────────────────────────────────────────────────────────────
-    // Exact cburnett knight paths from python-chess/chess/svg.py — the
+    // Exact cburnett knight paths from python-chess/chess/svg.py - the
     // authoritative source used by Lichess and Wikipedia. The horse faces
     // LEFT. Two filled regions (body + face/snout) plus eye + nostril dots.
     n: svg(`<g fill="none" fill-rule="evenodd" stroke="${B}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -107,7 +107,7 @@ export const PIECE_SVGS: Record<Color, Record<string, string>> = {
   },
 
   // ── BLACK SIDE ─────────────────────────────────────────────────────────────
-  // Identical path data to white — colour difference comes from CSS filter only.
+  // Identical path data to white - colour difference comes from CSS filter only.
   // This guarantees identical apparent stroke weight and silhouette at every size.
   b: {
     p: svg(`<g fill="${B}" stroke="${B}" stroke-width="1.5" stroke-linecap="round">

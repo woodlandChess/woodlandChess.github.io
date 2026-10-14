@@ -42,7 +42,7 @@ const settings: Record<Difficulty, { skill: number; time: number }> = {
 
 export class StockfishClient {
   private readonly worker: Worker
-  // Shared Promise — resolves once on 'readyok', safe to await multiple times.
+  // Shared Promise - resolves once on 'readyok', safe to await multiple times.
   // Fixes the race condition where Universal mode called bestMove() before
   // the listener queue had registered a handler for 'readyok'.
   private readyPromise: Promise<void>
@@ -82,7 +82,7 @@ export class StockfishClient {
 
   async bestMove(fen: string, difficulty: Difficulty): Promise<string | null> {
     const { skill, time } = settings[difficulty]
-    // await the shared Promise — already-resolved Promises return immediately
+    // await the shared Promise - already-resolved Promises return immediately
     // so concurrent calls and re-calls are all safe.
     await this.readyPromise
     this.send(`setoption name Skill Level value ${skill}`)

@@ -8,7 +8,7 @@
 // no backend server. See https://lichess.org/api#tag/OAuth
 //
 // Scope used:
-//   board:play — play games via the Board API (seek, move, resign, abort)
+//   board:play - play games via the Board API (seek, move, resign, abort)
 //
 // Docs: https://lichess.org/api#tag/Board
 
@@ -88,6 +88,7 @@ function storeToken(access_token: string, expires_in: number): LichessToken {
 // ── Login flow ───────────────────────────────────────────────────────────────
 /** Redirects the browser to Lichess to authorize this app. */
 export async function startLogin() {
+  sessionStorage.setItem('woodland-chess:oauth-return-path', window.location.pathname)
   const verifier  = randomString(64)
   const challenge = await sha256Challenge(verifier)
   const state     = randomString(24)
@@ -121,9 +122,12 @@ export async function handleAuthRedirect(): Promise<LichessToken | null> {
   const verifier       = sessionStorage.getItem(SS_VERIFIER_KEY)
   sessionStorage.removeItem(SS_STATE_KEY)
   sessionStorage.removeItem(SS_VERIFIER_KEY)
+  const returnPath = sessionStorage.getItem('woodland-chess:oauth-return-path')
+  sessionStorage.removeItem('woodland-chess:oauth-return-path')
 
   // Always clean the URL, even on failure, so a refresh doesn't re-trigger this.
-  window.history.replaceState({}, '', window.location.origin + window.location.pathname)
+  window.history.replaceState({}, '', window.location.origin + (returnPath || window.location.pathname))
+  window.dispatchEvent(new PopStateEvent('popstate'))
 
   if (!verifier || state !== expectedState) return null
 
@@ -189,7 +193,7 @@ async function* readNDJSON(res: Response, signal?: AbortSignal): AsyncGenerator<
       }
     }
   } catch {
-    /* stream aborted/closed — normal on cleanup */
+    /* stream aborted/closed - normal on cleanup */
   }
 }
 
@@ -218,7 +222,7 @@ export class LichessClient {
   /**
    * Creates a real-time seek (an open challenge against any opponent at the
    * given time control). The HTTP request stays open until Lichess matches
-   * it or it's cancelled — we don't read its body; a `gameStart` event
+   * it or it's cancelled - we don't read its body; a `gameStart` event
    * arrives on the account event stream once matched. Abort `signal` to
    * cancel the search.
    */

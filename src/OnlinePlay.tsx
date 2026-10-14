@@ -16,7 +16,7 @@ interface LiveGame {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  mate: 'Checkmate', resign: 'Resignation', stalemate: 'Draw — stalemate',
+  mate: 'Checkmate', resign: 'Resignation', stalemate: 'Draw - stalemate',
   timeout: 'Opponent left', draw: 'Draw', outoftime: 'Time out',
   aborted: 'Game aborted', cheat: 'Game voided', variantEnd: 'Game over',
   noStart: 'Game aborted', unknownFinish: 'Game over',
@@ -56,6 +56,9 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
   const eventAbortRef = useRef<AbortController | null>(null)
   const gameAbortRef   = useRef<AbortController | null>(null)
   const seekAbortRef   = useRef<AbortController | null>(null)
+  const pendingMoveRef = useRef<string | null>(null)
+  const confirmedMovesRef = useRef('')
+  const optimisticPlyRef = useRef(0)
 
   // ── Init: process OAuth redirect (if any), then try a stored token ───────
   useEffect(() => {
@@ -101,7 +104,7 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
             joinGame(client, evt.game.gameId, color)
           }
         }
-      } catch { /* closed on unmount — fine */ }
+      } catch { /* closed on unmount - fine */ }
     })()
   }
 
@@ -117,6 +120,9 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
     setPendingPromotion(null)
     chessRef.current = new Chess()
     setFen(chessRef.current.fen())
+    pendingMoveRef.current = null
+    confirmedMovesRef.current = ''
+    optimisticPlyRef.current = 0
 
     ;(async () => {
       try {
@@ -136,7 +142,19 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
               finish(evt.state.status, evt.state.winner, myColor)
             }
           } else if (evt.type === 'gameState') {
-            const c = replayMoves(evt.moves ?? '')
+            const moves = evt.moves ?? ''
+            const moveList = moves.trim() ? moves.trim().split(/\s+/) : []
+            if (pendingMoveRef.current) {
+              if (moveList.includes(pendingMoveRef.current)) {
+                pendingMoveRef.current = null
+              } else if (moveList.length < optimisticPlyRef.current) {
+                continue
+              } else {
+                pendingMoveRef.current = null
+              }
+            }
+            const c = replayMoves(moves)
+            confirmedMovesRef.current = moves
             chessRef.current = c
             setFen(c.fen())
             setSelected(null)
@@ -145,7 +163,7 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
             }
           }
         }
-      } catch { /* aborted or closed — fine */ }
+      } catch { /* aborted or closed - fine */ }
     })()
   }
 
@@ -153,7 +171,7 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
     let text = STATUS_LABEL[status] ?? 'Game over'
     if (winner) {
       const iWon = winner === (myColor === 'w' ? 'white' : 'black')
-      text += iWon ? ' — you win' : ' — you lose'
+      text += iWon ? ' - you win' : ' - you lose'
     }
     setResultText(text)
     setPhase('finished')
@@ -175,11 +193,11 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
     seekAbortRef.current = ac
     try {
       await client.seek(tc, ac.signal)
-      // Resolves when matched or cancelled — if we're still "seeking" here,
+      // Resolves when matched or cancelled - if we're still "seeking" here,
       // the seek closed without a gameStart event reaching us yet; the
       // event listener will flip the phase once it does.
     } catch {
-      /* aborted by cancelSeek(), or matched — both fine */
+      /* aborted by cancelSeek(), or matched - both fine */
     }
   }
 
@@ -197,8 +215,23 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
   function sendMove(from: Square, to: Square, promotion?: string) {
     if (!liveGame) return
     const uci = `${from}${to}${promotion ?? ''}`
-    clientRef.current?.move(liveGame.id, uci).catch(() => setError('Move rejected — board may be out of sync.'))
+    if (pendingMoveRef.current) return
+    try {
+      chessRef.current.move({ from, to, ...(promotion ? { promotion } : {}) })
+    } catch {
+      return
+    }
+    pendingMoveRef.current = uci
+    optimisticPlyRef.current = chessRef.current.history().length
+    setFen(chessRef.current.fen())
     setSelected(null)
+    clientRef.current?.move(liveGame.id, uci).catch(() => {
+      pendingMoveRef.current = null
+      const confirmed = replayMoves(confirmedMovesRef.current)
+      chessRef.current = confirmed
+      setFen(confirmed.fen())
+      setError('Move rejected by Lichess. The board has been resynchronized.')
+    })
   }
 
   function clickSquare(square: Square) {
@@ -254,7 +287,7 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
           </div>
           <p className="setup-copy">
             Woodland Chess uses your Lichess account to find you a live opponent and
-            relay moves through Lichess's Board API. We never see your password —
+            relay moves through Lichess's Board API. We never see your password  - 
             you'll authorize directly on lichess.org and come straight back here.
           </p>
           {error && <p className="online-error">{error}</p>}
@@ -310,7 +343,7 @@ export function OnlinePlay({ onBack }: { onBack: () => void }) {
             <span className="setup-kicker">Online</span>
             <h1>Searching for an opponent…</h1>
           </div>
-          <p className="setup-copy">Hang tight — this usually takes a few seconds on Lichess.</p>
+          <p className="setup-copy">Hang tight - this usually takes a few seconds on Lichess.</p>
           <button className="new-game" onClick={cancelSeek}>Cancel</button>
         </section>
       </main>
