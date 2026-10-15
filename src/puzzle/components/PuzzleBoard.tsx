@@ -10,6 +10,13 @@ interface PuzzleBoardProps {
   onSelectSquare: (row: number, col: number) => void;
 }
 
+/**
+ * Puzzle board. Renders the exact same markup and classes as the shared
+ * ChessBoard (Computer / Online) - .board > button.square with in-square
+ * rank/file labels, .target / .capture move markers - so all three modes
+ * look and behave identically. Only puzzle-specific extras live here:
+ * hint highlight, wrong-move shake and the checkmate overlay.
+ */
 export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
   const [shake, setShake] = useState(false);
 
@@ -30,72 +37,60 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
     snapshot.hintSquare?.row === r && snapshot.hintSquare?.col === c;
 
   return (
-    <div className="board-frame">
-      <div className="board-labels-rank" aria-hidden="true">
-        {RANK_LABELS.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
-      </div>
-      <div className="board-wrap">
-        <div
-          className={`board${shake ? ' shake' : ''}`}
-          role="grid"
-          aria-label="Chess puzzle board"
-        >
-          {Array.from({ length: 8 }).map((_, r) =>
-            Array.from({ length: 8 }).map((__, c) => {
-              const cell = snapshot.board[r][c];
-              const isLight = (r + c) % 2 === 0;
-              const classes = [
-                'sq',
-                isLight ? 'light' : 'dark',
-                cell ? 'has-piece' : '',
-                isSelected(r, c) ? 'selected' : '',
-                isPossible(r, c) ? 'possible' : '',
-                isHint(r, c) ? 'hint-sq' : '',
-              ]
-                .filter(Boolean)
-                .join(' ');
+    <div className="board-wrap">
+      <div
+        className={`board${shake ? ' shake' : ''}`}
+        role="grid"
+        aria-label="Chess puzzle board"
+      >
+        {Array.from({ length: 8 }).map((_, r) =>
+          Array.from({ length: 8 }).map((__, c) => {
+            const cell = snapshot.board[r][c];
+            const dark = (r + c) % 2 === 1;
+            const squareName = `${FILE_LABELS[c]}${RANK_LABELS[r]}`;
+            const classes = [
+              'square',
+              dark ? 'dark' : 'light',
+              isSelected(r, c) ? 'selected' : '',
+              isHint(r, c) ? 'hint-sq' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
 
-              const squareName = `${FILE_LABELS[c]}${RANK_LABELS[r]}`;
-
-              return (
-                <div
-                  key={`${r}-${c}`}
-                  className={classes}
-                  role="gridcell"
-                  aria-label={
-                    cell
-                      ? `${squareName}, ${cell.color === 'w' ? 'white' : 'black'} ${cell.type}`
-                      : squareName
-                  }
-                  tabIndex={-1}
-                  onClick={() => onSelectSquare(r, c)}
-                >
-                  {cell && (
-                    <img
-                      className={`piece-svg piece-svg--${cell.color}`}
-                      src={PIECE_SVGS[cell.color][cell.type.toLowerCase()]}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-              );
-            }),
-          )}
-        </div>
-        <div className={`mate-overlay${snapshot.puzzleDone ? ' show' : ''}`}>
-          <div className="mate-overlay-inner">
-            <div className="mate-overlay-icon">&#9812;</div>
-            <div className="mate-overlay-text">Checkmate</div>
-          </div>
-        </div>
+            return (
+              <button
+                key={squareName}
+                type="button"
+                role="gridcell"
+                className={classes}
+                aria-label={
+                  cell
+                    ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`
+                    : squareName
+                }
+                onClick={() => onSelectSquare(r, c)}
+              >
+                {c === 0 && <small className="rank">{RANK_LABELS[r]}</small>}
+                {r === 7 && <small className="file">{FILE_LABELS[c]}</small>}
+                {cell && (
+                  <img
+                    className={`piece-svg piece-svg--${cell.color}`}
+                    src={PIECE_SVGS[cell.color][cell.type.toLowerCase()]}
+                    alt={`${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`}
+                    draggable={false}
+                  />
+                )}
+                {isPossible(r, c) && <span className={cell ? 'capture' : 'target'} />}
+              </button>
+            );
+          }),
+        )}
       </div>
-      <div className="board-labels-file" aria-hidden="true">
-        {FILE_LABELS.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
+      <div className={`mate-overlay${snapshot.puzzleDone ? ' show' : ''}`}>
+        <div className="mate-overlay-inner">
+          <div className="mate-overlay-icon">&#9812;</div>
+          <div className="mate-overlay-text">Checkmate</div>
+        </div>
       </div>
     </div>
   );
