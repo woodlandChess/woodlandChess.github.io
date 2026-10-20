@@ -89,3 +89,42 @@ export function IconVolume({ muted, ...props }: SVGProps<SVGSVGElement> & { mute
     </svg>
   )
 }
+
+/** Bullet — a round, for the fastest games. */
+export function IconBullet(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9 20.5v-9c0-3 1.3-5.6 3-7.5 1.7 1.9 3 4.5 3 7.5v9H9z" />
+      <path d="M9 15.5h6" />
+    </svg>
+  )
+}
+
+/** Blitz — a lightning bolt. */
+export function IconBlitz(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M13.5 3.5L6.5 13.5H11l-.5 7 7-10H13l.5-7z" />
+    </svg>
+  )
+}
+
+/** Rapid — a stopwatch. */
+export function IconRapid(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="13.5" r="7" />
+      <path d="M10 3.5h4M12 3.5v3M12 10v3.5l2 1.2M18.2 7.3l1.1-1.1" />
+    </svg>
+  )
+}
+
+/** Classical — a sandglass. */
+export function IconClassical(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 4h10M7 20h10" />
+      <path d="M8 4c0 4 4 5 4 8s-4 4-4 8M16 4c0 4-4 5-4 8s4 4 4 8" />
+    </svg>
+  )
+}

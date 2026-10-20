@@ -157,25 +157,50 @@ export function logout() {
 }
 
 // ── Board API client ────────────────────────────────────────────────────────
+export interface LichessPerf {
+  rating: number
+  /** Rated games played in this speed. */
+  games?: number
+  /** Rating change over the last dozen games. */
+  prog?: number
+  /** True while the rating is still provisional (few games played). */
+  prov?: boolean
+}
+
 export interface LichessProfile {
   id: string
   username: string
   title?: string
-  perfs?: Record<string, { rating: number }>
+  perfs?: Record<string, LichessPerf>
 }
 
-export type TimeControl = { label: string; time: number; increment: number; perf: 'bullet' | 'blitz' | 'rapid' | 'classical' }
+export type Perf = 'bullet' | 'blitz' | 'rapid' | 'classical'
+
+export type TimeControl = { id: string; label: string; time: number; increment: number; perf: Perf }
+
+export const PERF_ORDER: Perf[] = ['bullet', 'blitz', 'rapid', 'classical']
+
+/** Menu copy for each speed. Ranges follow Lichess's own definitions. */
+export const PERF_META: Record<Perf, { label: string; blurb: string }> = {
+  bullet:    { label: 'Bullet',    blurb: 'Lightning games under 3 minutes' },
+  blitz:     { label: 'Blitz',     blurb: 'Fast games, 3 to 8 minutes' },
+  rapid:     { label: 'Rapid',     blurb: 'Time to think, 8 to 25 minutes' },
+  classical: { label: 'Classical', blurb: 'Long, deep games over 25 minutes' },
+}
+
+const tc = (time: number, increment: number, perf: Perf): TimeControl =>
+  ({ id: `${time}+${increment}`, label: `${time}+${increment} · ${PERF_META[perf].label}`, time, increment, perf })
+
 export const TIME_CONTROLS: TimeControl[] = [
-  { label: '1+0 · Bullet',  time: 1,  increment: 0,  perf: 'bullet' },
-  { label: '2+1 · Bullet',  time: 2,  increment: 1,  perf: 'bullet' },
-  { label: '3+0 · Blitz',   time: 3,  increment: 0,  perf: 'blitz' },
-  { label: '3+2 · Blitz',   time: 3,  increment: 2,  perf: 'blitz' },
-  { label: '5+0 · Blitz',   time: 5,  increment: 0,  perf: 'blitz' },
-  { label: '5+3 · Blitz',   time: 5,  increment: 3,  perf: 'blitz' },
-  { label: '10+0 · Rapid',  time: 10, increment: 0,  perf: 'rapid' },
-  { label: '15+10 · Rapid', time: 15, increment: 10, perf: 'rapid' },
-  { label: '30+0 · Classical', time: 30, increment: 0, perf: 'classical' },
+  tc(1, 0, 'bullet'), tc(2, 1, 'bullet'),
+  tc(3, 0, 'blitz'),  tc(3, 2, 'blitz'), tc(5, 0, 'blitz'), tc(5, 3, 'blitz'),
+  tc(10, 0, 'rapid'), tc(15, 10, 'rapid'),
+  tc(30, 0, 'classical'),
 ]
+
+export function timeControlsFor(perf: Perf): TimeControl[] {
+  return TIME_CONTROLS.filter(t => t.perf === perf)
+}
 
 /** Parses a fetch Response body as a newline-delimited JSON stream. */
 async function* readNDJSON(res: Response, signal?: AbortSignal): AsyncGenerator<any> {
@@ -231,19 +256,29 @@ export class LichessClient {
    * arrives on the account event stream once matched. Abort `signal` to
    * cancel the search.
    */
-  seek(tc: TimeControl, signal?: AbortSignal): Promise<Response> {
+  async seek(tc: TimeControl, signal?: AbortSignal, rated = true): Promise<void> {
     const body = new URLSearchParams({
-      rated: 'true',
+      rated: String(rated),
       time: String(tc.time),
       increment: String(tc.increment),
       variant: 'standard',
     })
-    return fetch(`${API_BASE}/api/board/seek`, {
+    const res = await fetch(`${API_BASE}/api/board/seek`, {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'application/x-www-form-urlencoded' }),
       body,
       signal,
     })
+    // A rejected seek (bad token scope, already seeking, rate limit...) used to
+    // leave the UI "searching" forever. Surface it instead.
+    if (!res.ok) {
+      let detail = ''
+      try { detail = (await res.json())?.error ?? '' } catch { /* body wasn't JSON */ }
+      throw new Error(detail || `Lichess refused the search (${res.status}).`)
+    }
+    // Success keeps the connection open until matched; drain it so the request
+    // finishes cleanly when Lichess closes it.
+    try { await res.text() } catch { /* aborted - normal */ }
   }
 
   streamGame(gameId: string, signal?: AbortSignal) {
@@ -264,6 +299,12 @@ export class LichessClient {
 
   async resign(gameId: string) {
     await fetch(`${API_BASE}/api/board/game/${gameId}/resign`, { method: 'POST', headers: this.headers() })
+  }
+
+  /** Offer a draw, or answer one the opponent made (`yes` accepts, `no` declines). */
+  async draw(gameId: string, answer: 'yes' | 'no') {
+    const res = await fetch(`${API_BASE}/api/board/game/${gameId}/draw/${answer}`, { method: 'POST', headers: this.headers() })
+    if (!res.ok) throw new Error('Draw request failed')
   }
 
   async abort(gameId: string) {
