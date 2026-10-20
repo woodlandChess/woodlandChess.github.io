@@ -3,6 +3,9 @@ import { PIECE_SVGS, files, ranks, squareName } from './pieces'
 
 type BoardSquares = ReturnType<Chess['board']>
 
+/** One highlighted move. `color` is the side that played it, so the highlight matches the pieces. */
+export interface TrailMove { from: Square; to: Square; color: Color }
+
 /**
  * Shared chessboard grid, used by both the vs-Computer mode and the Lichess
  * multiplayer mode. Purely presentational - callers own all game state and
@@ -13,7 +16,7 @@ type BoardSquares = ReturnType<Chess['board']>
  * both row and column order preserves checkerboard parity.
  */
 export function ChessBoard({
-  board, onSquareClick, selected, legalTargets, lastFrom, lastTo,
+  board, onSquareClick, selected, legalTargets, lastFrom, lastTo, trail,
   orientation = 'w', interactive = true,
 }: {
   board: BoardSquares
@@ -22,11 +25,23 @@ export function ChessBoard({
   legalTargets: Square[]
   lastFrom?: Square
   lastTo?: Square
+  /**
+   * The last move of each side, newest first. Squares are tinted by who moved
+   * (ivory for White, steel for Black) with a stronger destination, so both
+   * players' latest moves stay readable at a glance. Overrides lastFrom/lastTo.
+   */
+  trail?: TrailMove[]
   orientation?: Color
   interactive?: boolean
 }) {
   const rowOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const colOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
+
+  const marks = new Map<Square, string>()
+  for (const m of trail ?? []) {          // newest first, so the newest claims a shared square
+    if (!marks.has(m.from)) marks.set(m.from, `trail trail-${m.color}-from`)
+    if (!marks.has(m.to))   marks.set(m.to,   `trail trail-${m.color}-to`)
+  }
 
   return (
     <div className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board">
@@ -35,7 +50,7 @@ export function ChessBoard({
           const square = squareName(files[col], ranks[row])
           const piece  = board[row][col]
           const dark   = (row + col) % 2 === 1
-          const isLast = lastFrom === square || lastTo === square
+          const isLast = !trail && (lastFrom === square || lastTo === square)
           return (
             <button
               key={square}
@@ -43,7 +58,7 @@ export function ChessBoard({
               type="button"
               disabled={!interactive}
               aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
-              className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : ''].filter(Boolean).join(' ')}
+              className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? ''].filter(Boolean).join(' ')}
               onClick={() => interactive && onSquareClick(square)}
             >
               {screenCol === 0 && <small className="rank">{ranks[row]}</small>}

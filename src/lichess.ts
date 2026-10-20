@@ -167,6 +167,8 @@ export interface LichessPerf {
   prov?: boolean
 }
 
+export interface SideRating { rating?: number; diff?: number }
+
 export interface LichessProfile {
   id: string
   username: string
@@ -299,6 +301,25 @@ export class LichessClient {
 
   async resign(gameId: string) {
     await fetch(`${API_BASE}/api/board/game/${gameId}/resign`, { method: 'POST', headers: this.headers() })
+  }
+
+  /**
+   * Both players' ratings for a finished game. Lichess reports the rating the
+   * player had when the game STARTED plus `ratingDiff`, so the new rating is
+   * `rating + diff`. `diff` is undefined for casual / unrated games, and for a
+   * moment after a rated game ends while Lichess settles the ratings.
+   * Public endpoint, so no auth header (keeps it a simple, preflight-free request).
+   */
+  async getGameRatings(gameId: string): Promise<{ white: SideRating; black: SideRating }> {
+    const res = await fetch(`${API_BASE}/game/export/${gameId}?moves=false&tags=false&clocks=false&evals=false&opening=false`,
+      { headers: { Accept: 'application/json' } })
+    if (!res.ok) throw new Error('Could not load game result')
+    const g = await res.json()
+    const side = (p: any): SideRating => ({
+      rating: typeof p?.rating === 'number' ? p.rating : undefined,
+      diff: typeof p?.ratingDiff === 'number' ? p.ratingDiff : undefined,
+    })
+    return { white: side(g.players?.white), black: side(g.players?.black) }
   }
 
   /** Offer a draw, or answer one the opponent made (`yes` accepts, `no` declines). */

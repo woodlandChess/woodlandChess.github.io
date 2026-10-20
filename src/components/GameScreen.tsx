@@ -9,7 +9,23 @@ export interface ClockView {
   active: boolean
 }
 
-interface Player { name: string; meta: string; glyph: string }
+/** Rating after a finished rated game: `after` = new rating, `diff` = change. */
+export interface RatingChange { after: number; diff: number }
+
+interface Player { name: string; meta: string; glyph: string; ratingChange?: RatingChange | null }
+
+/** Live `matchMedia` flag, so layout-dependent behaviour follows rotation and resizing. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const on = () => setMatches(mq.matches)
+    on()
+    mq.addEventListener?.('change', on)
+    return () => mq.removeEventListener?.('change', on)
+  }, [query])
+  return matches
+}
 
 interface GameScreenProps {
   exitLabel: string
@@ -81,7 +97,16 @@ function PlayerStrip({ player, clock, className }: { player: Player; clock?: Clo
       <div className="gm-avatar" aria-hidden="true">{player.glyph}</div>
       <div className="gm-opp-info">
         <strong>{player.name}</strong>
-        <span>{player.meta}</span>
+        <span className="gm-opp-meta">
+          {player.ratingChange ? (
+            <>
+              Rating <b>{player.ratingChange.after}</b>
+              <em className={`gm-delta gm-delta--${player.ratingChange.diff > 0 ? 'up' : player.ratingChange.diff < 0 ? 'down' : 'flat'}`}>
+                {player.ratingChange.diff > 0 ? '+' : player.ratingChange.diff < 0 ? '−' : '±'}{Math.abs(player.ratingChange.diff)}
+              </em>
+            </>
+          ) : player.meta}
+        </span>
       </div>
       {clock && <GameClock view={clock} label={player.name} />}
     </div>
@@ -90,24 +115,28 @@ function PlayerStrip({ player, clock, className }: { player: Player; clock?: Clo
 
 // ── Move list ─────────────────────────────────────────────────────────────────
 /**
- * Scrolls its own box (never the page) so the newest move stays visible while
- * you are following the live game, and the move you are reviewing stays in
- * view while you step back through it.
+ * Newest move first on desktop/tablet-landscape (a vertical list: the latest move
+ * is always at the top, no scrolling needed; scroll only to look back). On phones
+ * it is a sideways ticker in playing order that rests on the newest move.
+ * It only ever scrolls its own box - never the page - and it leaves you alone if
+ * you have scrolled away to read old moves.
  */
 function MoveList({ moves, selectedPly, onSelectPly }: { moves: string[]; selectedPly?: number; onSelectPly?: (ply: number) => void }) {
   const ref = useRef<HTMLOListElement>(null)
+  const newestFirst = useMediaQuery('(min-width: 1000px)')
   const following = selectedPly === undefined || selectedPly >= moves.length
-  const followingRef = useRef(following)
-  followingRef.current = following
+  const wasFollowing = useRef(true)
+
+  const toNewest = () => {
+    const el = ref.current
+    if (!el) return
+    if (newestFirst) el.scrollTop = 0
+    else el.scrollLeft = el.scrollWidth
+  }
 
   const reveal = () => {
     const el = ref.current
     if (!el) return
-    if (followingRef.current) {
-      el.scrollTop = el.scrollHeight
-      el.scrollLeft = el.scrollWidth
-      return
-    }
     const active = el.querySelector<HTMLElement>('[data-active="true"]')
     if (!active) return
     const c = el.getBoundingClientRect()
@@ -119,24 +148,38 @@ function MoveList({ moves, selectedPly, onSelectPly }: { moves: string[]; select
     else if (a.right > c.right - pad) el.scrollLeft += a.right - (c.right - pad)
   }
 
-  // Run before paint so there is never a frame showing the top of the list.
+  // Before paint, so there is never a frame showing the wrong end of the list.
   useLayoutEffect(() => {
-    reveal()
-    // Fonts / grid sizing can settle a frame later (esp. on first mount with a full move list).
-    const raf = requestAnimationFrame(reveal)
+    const el = ref.current
+    if (!el) return
+    // What this update should do with the scroll position:
+    //   'reveal'  stepping back through the game: keep the viewed move on screen
+    //   'newest'  back on the live position, or the ticker is resting on the newest move
+    //   'stay'    vertical list at the top stays put; if you scrolled away you keep your place
+    let action: 'reveal' | 'newest' | 'stay' = 'stay'
+    if (!following) action = 'reveal'
+    else if (!wasFollowing.current) action = 'newest'
+    else if (!newestFirst && (el.scrollLeft === 0 || el.scrollWidth - el.clientWidth - el.scrollLeft < 80)) action = 'newest'
+    wasFollowing.current = following
+
+    const run = () => { if (action === 'reveal') reveal(); else if (action === 'newest') toNewest() }
+    run()
+    // Fonts / grid sizing can settle a frame later (first mount with a long game).
+    const raf = requestAnimationFrame(run)
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moves.length, selectedPly])
+  }, [moves.length, selectedPly, newestFirst])
 
-  // Re-stick to the newest move when the box is resized (rotation, keyboard, window resize).
+  // Layout can settle after first paint (fonts, rotation): rest on the newest move again.
   useEffect(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => reveal())
+    let first = true
+    const ro = new ResizeObserver(() => { if (first) { first = false; return } if (following) toNewest() })
     ro.observe(el)
     return () => ro.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moves.length > 0])
+  }, [moves.length > 0, following, newestFirst])
 
   const rows = Math.ceil(moves.length / 2)
   if (!rows) return <p className="gm-empty">Opening position</p>
@@ -153,9 +196,12 @@ function MoveList({ moves, selectedPly, onSelectPly }: { moves: string[]; select
     >{san ?? ''}</button>
   )
 
+  const order = Array.from({ length: rows }, (_, i) => i)
+  if (newestFirst) order.reverse()
+
   return (
     <ol className="gm-moves" ref={ref} aria-label="Move history">
-      {Array.from({ length: rows }, (_, i) => (
+      {order.map(i => (
         <li className="gm-move-row" key={i}>
           <span className="gm-move-no">{i + 1}.</span>
           {cell(i * 2 + 1, moves[i * 2])}
@@ -195,7 +241,15 @@ export function GameScreen({
   status, statusMeta, tone, moves, profile, profileLabel = 'Profile',
   notice, extra, actions, children, overlay, selectedPly, onSelectPly, material,
 }: GameScreenProps) {
-  const [wide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1000px)').matches)
+  const wide = useMediaQuery('(min-width: 1000px)')
+
+  // The game is exactly one viewport tall; lock the document so no page scrollbar
+  // can appear (e.g. a 1px mismatch while a mobile browser's address bar collapses).
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('is-game')
+    return () => root.classList.remove('is-game')
+  }, [])
 
   return (
     <main className="gm">
@@ -232,9 +286,9 @@ export function GameScreen({
           <MoveList moves={moves} selectedPly={selectedPly} onSelectPly={onSelectPly} />
           {onSelectPly && (
             <div className="gm-review">
-              <button type="button" aria-label="Previous move" disabled={!selectedPly} onClick={() => onSelectPly(Math.max(0, (selectedPly ?? 0) - 1))}>← Previous</button>
-              <span>{selectedPly ?? moves.length} / {moves.length}</span>
-              <button type="button" aria-label="Next move" disabled={(selectedPly ?? moves.length) >= moves.length} onClick={() => onSelectPly(Math.min(moves.length, (selectedPly ?? moves.length) + 1))}>Next →</button>
+              <button type="button" className="gm-review-prev" aria-label="Previous move" disabled={!selectedPly} onClick={() => onSelectPly(Math.max(0, (selectedPly ?? 0) - 1))}><span aria-hidden="true">←</span><span className="gm-review-txt"> Previous</span></button>
+              <span className="gm-review-count">{selectedPly ?? moves.length} / {moves.length}</span>
+              <button type="button" className="gm-review-next" aria-label="Next move" disabled={(selectedPly ?? moves.length) >= moves.length} onClick={() => onSelectPly(Math.min(moves.length, (selectedPly ?? moves.length) + 1))}><span className="gm-review-txt">Next </span><span aria-hidden="true">→</span></button>
             </div>
           )}
         </div>

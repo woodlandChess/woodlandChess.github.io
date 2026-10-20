@@ -5,10 +5,10 @@ import {
   LichessClient, PERF_META, PERF_ORDER, TIME_CONTROLS, timeControlsFor,
   type Perf, type TimeControl, type LichessProfile,
 } from './lichess'
-import { ChessBoard, PromotionModal } from './ChessBoard'
+import { ChessBoard, PromotionModal, type TrailMove } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
-import { GameScreen, ConfirmButton, type ClockView } from './components/GameScreen'
+import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
 import {
   IconBlitz, IconBullet, IconClassical, IconClock, IconOnline, IconRapid, IconShield,
 } from './components/ModeIcons'
@@ -120,6 +120,10 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   // Clock snapshot lives in a ref: it changes on every server event but only the
   // <GameClock> components need to tick, not the whole screen.
   const clockRef = useRef<ClockState | null>(null)
+  // Rating after a finished rated game, for both players.
+  const [ratingChanges, setRatingChanges] = useState<{ me?: RatingChange; opp?: RatingChange } | null>(null)
+  const ratingTokenRef = useRef(0)           // invalidates an in-flight lookup when a new game starts
+  const gameMetaRef = useRef<{ id: string; rated: boolean; myColor: Color } | null>(null)
 
   const eventAbortRef = useRef<AbortController | null>(null)
   const gameAbortRef   = useRef<AbortController | null>(null)
@@ -202,6 +206,9 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     setSelected(null)
     setPendingPromotion(null)
     setDrawOffer('none')
+    setRatingChanges(null)
+    ratingTokenRef.current++
+    gameMetaRef.current = { id: gameId, rated: false, myColor }
     setError(null)
     chessRef.current = new Chess()
     setFen(chessRef.current.fen())
@@ -231,6 +238,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               const tc = evt.clock && typeof evt.clock.initial === 'number'
                 ? `${formatTimeControl(evt.clock.initial, evt.clock.increment ?? 0)}${evt.speed ? ` · ${cap(evt.speed)}` : ''}`
                 : 'Untimed'
+              if (gameMetaRef.current) gameMetaRef.current.rated = !!evt.rated
               const moves = evt.state?.moves ?? ''
               const c = replayMoves(moves)
               const finished = !!evt.state?.status && !['started', 'created'].includes(evt.state.status)
@@ -295,6 +303,28 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     gameAbortRef.current?.abort()
     // Pull fresh ratings so the menu is up to date when the player comes back to it.
     clientRef.current?.getProfile().then(setProfile).catch(() => { /* keep the old numbers */ })
+    // Rated games that actually got going: show both players' new ratings.
+    const meta = gameMetaRef.current
+    if (meta?.rated && !['aborted', 'noStart'].includes(status)) void loadRatingChanges(meta.id, myColor)
+  }
+
+  /** Lichess settles ratings a moment after the game ends, so retry briefly. */
+  async function loadRatingChanges(gameId: string, myColor: Color) {
+    const token = ++ratingTokenRef.current
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (token !== ratingTokenRef.current) return
+      try {
+        const r = await clientRef.current?.getGameRatings(gameId)
+        if (r && token === ratingTokenRef.current) {
+          const mk = (side: { rating?: number; diff?: number }): RatingChange | undefined =>
+            side.rating !== undefined && side.diff !== undefined ? { after: side.rating + side.diff, diff: side.diff } : undefined
+          const me = mk(myColor === 'w' ? r.white : r.black)
+          const opp = mk(myColor === 'w' ? r.black : r.white)
+          if (me || opp) { setRatingChanges({ me, opp }); return }
+        }
+      } catch { /* try again */ }
+      await sleep(1200)
+    }
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -353,6 +383,8 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   function playAgain() {
     setLiveGame(null)
     setResultText(null)
+    setRatingChanges(null)
+    ratingTokenRef.current++
     clockRef.current = null
     setPhase('idle')
     clientRef.current?.getProfile().then(setProfile).catch(() => { /* keep the old numbers */ })
@@ -434,7 +466,11 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     moveHistory.slice(0, viewedPly).forEach(m => c.move(m))
     return c
   }, [moveHistory, viewedPly])
-  const lastMove = viewedPly > 0 ? moveHistory[viewedPly - 1] : undefined
+  // Last move of each side as of the position on screen (follows review), newest first.
+  const trail = useMemo<TrailMove[]>(
+    () => moveHistory.slice(Math.max(0, viewedPly - 2), viewedPly).reverse().map(m => ({ from: m.from, to: m.to, color: m.color })),
+    [moveHistory, viewedPly],
+  )
   const material = useMemo(() => {
     const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
     const totals = { w: 0, b: 0 }
@@ -620,9 +656,10 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
 
   // ── IN-GAME / FINISHED ───────────────────────────────────────────────────
   const inGame = phase === 'in-game'
+  // Short, single-line copy: the status card must never change height between turns.
   const myStatus = myTurn
-    ? (plies < 2 ? 'Your move — the game aborts if you wait too long' : 'Your move')
-    : 'Waiting for opponent…'
+    ? (plies < 2 ? 'Your move · move soon' : 'Your move')
+    : 'Opponent’s move'
   return (
     <GameScreen
       exitLabel="Exit"
@@ -632,12 +669,14 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         name: liveGame?.opponentName ?? 'Opponent',
         meta: liveGame?.opponentRating ? `Lichess rating ${liveGame.opponentRating}` : 'Rated Lichess game',
         glyph: '♟',
+        ratingChange: ratingChanges?.opp,
       }}
       opponentClock={liveGame ? clockFor(liveGame.myColor === 'w' ? 'b' : 'w') : null}
       self={liveGame ? {
         name: liveGame.myName,
         meta: liveGame.myRating ? `Lichess rating ${liveGame.myRating}` : 'You',
         glyph: '♙',
+        ratingChange: ratingChanges?.me,
       } : undefined}
       selfClock={liveGame ? clockFor(liveGame.myColor) : null}
       status={resultText ?? myStatus}
@@ -687,8 +726,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         onSquareClick={clickSquare}
         selected={selected}
         legalTargets={legalTargets}
-        lastFrom={lastMove?.from}
-        lastTo={lastMove?.to}
+        trail={trail}
         orientation={liveGame?.myColor ?? 'w'}
         interactive={inGame && reviewPly === null}
       />
