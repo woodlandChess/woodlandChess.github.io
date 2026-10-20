@@ -203,7 +203,7 @@ export function App() {
     return () => window.clearTimeout(timer)
   }, [fen, player, difficulty, school, pendingPromotion, setupOpen])
 
-  const last = history.at(-1)
+  const trail = history.slice(-2).reverse().map(m => ({ from: m.from, to: m.to, color: m.color }))
 
   // ── ONLINE MODE ────────────────────────────────────────────────────────────
   // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
@@ -311,8 +311,7 @@ export function App() {
         onSquareClick={clickSquare}
         selected={selected}
         legalTargets={legalTargets}
-        lastFrom={last?.from}
-        lastTo={last?.to}
+        trail={trail}
         orientation={player}
       />
     </GameScreen>
