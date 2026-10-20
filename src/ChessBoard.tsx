@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { Chess, Color, Square } from 'chess.js'
 import { PIECE_SVGS, files, ranks, squareName } from './pieces'
 import { useBoardFlip, type PieceGrid } from './boardAnimation'
@@ -38,6 +39,40 @@ export function ChessBoard({
   const rowOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const colOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const animationRef = useBoardFlip(board as PieceGrid, orientation)
+  const dragRef = useRef<{ from: Square; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null)
+
+  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (!interactive || event.button !== 0) return
+    const squareEl = (event.target as HTMLElement).closest<HTMLElement>('[data-square]')
+    const from = squareEl?.dataset.square as Square | undefined
+    if (!squareEl || !from) return
+    const row = 8 - Number(from[1]), col = from.charCodeAt(0) - 97
+    const piece = board[row]?.[col]
+    if (!piece) return
+    const image = squareEl.querySelector<HTMLImageElement>('.piece-svg')
+    if (!image) return
+    dragRef.current = { from, pointerId: event.pointerId, image, origin: image.getBoundingClientRect(), pointerX: event.clientX, pointerY: event.clientY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId || Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) < 6) return
+    event.preventDefault()
+    const dx = event.clientX - drag.pointerX, dy = event.clientY - drag.pointerY
+    Object.assign(drag.image.style, { position: 'fixed', left: `${drag.origin.left + dx}px`, top: `${drag.origin.top + dy}px`, width: `${drag.origin.width}px`, height: `${drag.origin.height}px`, zIndex: '10000', pointerEvents: 'none', transition: 'none', transform: 'scale(1.08)' })
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    const image = drag.image
+    const wasDragged = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6
+    const target = wasDragged ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square as Square | undefined : undefined
+    Object.assign(image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' })
+    if (target && target !== drag.from) { onSquareClick(drag.from); onSquareClick(target) }
+  }
 
   const marks = new Map<Square, string>()
   for (const m of trail ?? []) {          // newest first, so the newest claims a shared square
@@ -46,7 +81,7 @@ export function ChessBoard({
   }
 
   return (
-    <div ref={animationRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board">
+    <div ref={animationRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
       {rowOrder.flatMap((row, screenRow) =>
         colOrder.map((col, screenCol) => {
           const square = squareName(files[col], ranks[row])

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GameSnapshot } from '../core/GameEngine';
 import { PIECE_SVGS } from '../../pieces';
 import { useBoardFlip, type PieceGrid } from '../../boardAnimation';
@@ -21,6 +21,46 @@ interface PuzzleBoardProps {
 export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
   const [shake, setShake] = useState(false);
   const animationRef = useBoardFlip(snapshot.board as PieceGrid, 'w');
+  const dragRef = useRef<{ from: string; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null);
+
+  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || snapshot.puzzleDone || snapshot.awaitingOpponent) return;
+    const squareEl = (event.target as HTMLElement).closest<HTMLElement>('[data-square]');
+    const from = squareEl?.dataset.square;
+    if (!squareEl || !from) return;
+    const row = 8 - Number(from[1]);
+    const col = from.charCodeAt(0) - 97;
+    const piece = snapshot.board[row]?.[col];
+    if (!piece || piece.color !== snapshot.puzzle.turn) return;
+    const image = squareEl.querySelector<HTMLImageElement>('.piece-svg');
+    if (!image) return;
+    dragRef.current = { from, pointerId: event.pointerId, image, origin: image.getBoundingClientRect(), pointerX: event.clientX, pointerY: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) < 6) return;
+    event.preventDefault();
+    const dx = event.clientX - drag.pointerX;
+    const dy = event.clientY - drag.pointerY;
+    Object.assign(drag.image.style, { position: 'fixed', left: `${drag.origin.left + dx}px`, top: `${drag.origin.top + dy}px`, width: `${drag.origin.width}px`, height: `${drag.origin.height}px`, zIndex: '10000', pointerEvents: 'none', transition: 'none', transform: 'scale(1.08)' });
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    const moved = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6;
+    const target = moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square : undefined;
+    Object.assign(drag.image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' });
+    if (!target || target === drag.from) return;
+    const parse = (s: string) => ({ row: 8 - Number(s[1]), col: s.charCodeAt(0) - 97 });
+    const from = parse(drag.from);
+    const to = parse(target);
+    onSelectSquare(from.row, from.col);
+    window.setTimeout(() => onSelectSquare(to.row, to.col), 0);
+  }
 
   useEffect(() => {
     if (snapshot.feedback.type === 'wrong') {
@@ -45,6 +85,10 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
         className={`board${shake ? ' shake' : ''}`}
         role="grid"
         aria-label="Chess puzzle board"
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         {Array.from({ length: 8 }).map((_, r) =>
           Array.from({ length: 8 }).map((__, c) => {

@@ -620,6 +620,10 @@ header {
   touch-action: manipulation;
 }
 
+/* Pointer-driven piece dragging works with mouse, pen, and touch without the
+   browser interpreting an in-progress board gesture as page panning. */
+.board .square { touch-action: none; }
+
 @media (min-width: 1000px) {
   .board {
     width: min(100%, calc(100dvh - 120px));
