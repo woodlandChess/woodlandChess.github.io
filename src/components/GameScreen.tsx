@@ -9,6 +9,9 @@ interface GameScreenProps {
   status: string
   tone: GameTone
   moves: string[]
+  selectedPly?: number
+  onSelectPly?: (ply: number) => void
+  material?: { white: number; black: number }
   /** Optional profile block (e.g. school weights). Collapsible on phones. */
   profile?: ReactNode
   profileLabel?: string
@@ -20,14 +23,13 @@ interface GameScreenProps {
   overlay?: ReactNode
 }
 
-function MoveList({ moves }: { moves: string[] }) {
+function MoveList({ moves, selectedPly, onSelectPly }: { moves: string[]; selectedPly?: number; onSelectPly?: (ply: number) => void }) {
   const ref = useRef<HTMLOListElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
-    el.scrollLeft = el.scrollWidth
-  }, [moves.length])
+    if (selectedPly === undefined) { el.scrollTop = el.scrollHeight; el.scrollLeft = el.scrollWidth }
+  }, [moves.length, selectedPly])
 
   const rows = Math.ceil(moves.length / 2)
   if (!rows) return <p className="gm-empty">Opening position</p>
@@ -37,8 +39,8 @@ function MoveList({ moves }: { moves: string[] }) {
       {Array.from({ length: rows }, (_, i) => (
         <li className="gm-move-row" key={i}>
           <span className="gm-move-no">{i + 1}.</span>
-          <span className={`gm-move${moves.length - 1 === i * 2 ? ' is-last' : ''}`}>{moves[i * 2]}</span>
-          <span className={`gm-move${moves.length - 1 === i * 2 + 1 ? ' is-last' : ''}`}>{moves[i * 2 + 1] ?? ''}</span>
+          <button type="button" onClick={() => onSelectPly?.(i * 2 + 1)} className={`gm-move${(selectedPly ?? moves.length) === i * 2 + 1 ? ' is-last' : ''}`}>{moves[i * 2]}</button>
+          <button type="button" disabled={!moves[i * 2 + 1]} onClick={() => onSelectPly?.(i * 2 + 2)} className={`gm-move${(selectedPly ?? moves.length) === i * 2 + 2 ? ' is-last' : ''}`}>{moves[i * 2 + 1] ?? ''}</button>
         </li>
       ))}
     </ol>
@@ -70,7 +72,7 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, className = '' }
  */
 export function GameScreen({
   exitLabel, onExit, opponent, status, tone, moves, profile, profileLabel = 'Profile',
-  notice, actions, children, overlay,
+  notice, actions, children, overlay, selectedPly, onSelectPly, material,
 }: GameScreenProps) {
   const [wide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1000px)').matches)
 
@@ -105,8 +107,9 @@ export function GameScreen({
         </div>
 
         <div className="gm-card gm-history">
-          <p className="gm-label">Moves</p>
-          <MoveList moves={moves} />
+          <div className="gm-history-top"><p className="gm-label">Moves</p>{material && <div className="gm-material" aria-label="Material score"><span>White <b>{material.white}</b></span><span>Black <b>{material.black}</b></span><span>Balance <b>{material.white - material.black > 0 ? '+' : ''}{material.white - material.black}</b></span></div>}</div>
+          <MoveList moves={moves} selectedPly={selectedPly} onSelectPly={onSelectPly} />
+          {onSelectPly && <div className="gm-review"><button type="button" disabled={!selectedPly} onClick={() => onSelectPly(Math.max(0, (selectedPly ?? 0) - 1))}>← Previous</button><span>{selectedPly ?? moves.length} / {moves.length}</span><button type="button" disabled={(selectedPly ?? moves.length) >= moves.length} onClick={() => onSelectPly(Math.min(moves.length, (selectedPly ?? moves.length) + 1))}>Next →</button></div>}
         </div>
 
         {profile && (

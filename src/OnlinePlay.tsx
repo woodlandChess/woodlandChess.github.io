@@ -66,6 +66,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
   const [liveGame, setLiveGame]     = useState<LiveGame | null>(null)
   const [resultText, setResultText] = useState<string | null>(null)
+  const [reviewPly, setReviewPly] = useState<number | null>(null)
 
   const eventAbortRef = useRef<AbortController | null>(null)
   const gameAbortRef   = useRef<AbortController | null>(null)
@@ -130,6 +131,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
 
     setPhase('in-game')
     setResultText(null)
+    setReviewPly(null)
     setSelected(null)
     setPendingPromotion(null)
     chessRef.current = new Chess()
@@ -152,6 +154,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
             const c = replayMoves(evt.state?.moves ?? '')
             chessRef.current = c
             setFen(c.fen())
+            setReviewPly(null)
             if (evt.state?.status && !['started', 'created'].includes(evt.state.status)) {
               finish(evt.state.status, evt.state.winner, myColor)
             }
@@ -171,6 +174,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
             confirmedMovesRef.current = moves
             chessRef.current = c
             setFen(c.fen())
+            setReviewPly(null)
             setSelected(null)
             if (evt.status && evt.status !== 'started') {
               finish(evt.status, evt.winner, myColor)
@@ -273,7 +277,19 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   // followed by setFen(), so keying on `fen` keeps this in sync.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const moveHistory   = useMemo(() => chessRef.current.history({ verbose: true }), [fen])
-  const lastMove      = moveHistory.at(-1)
+  const viewedPly = reviewPly ?? moveHistory.length
+  const viewedGame = useMemo(() => {
+    const c = new Chess()
+    moveHistory.slice(0, viewedPly).forEach(m => c.move(m))
+    return c
+  }, [moveHistory, viewedPly])
+  const lastMove = viewedPly > 0 ? moveHistory[viewedPly - 1] : undefined
+  const material = useMemo(() => {
+    const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
+    const totals = { w: 0, b: 0 }
+    viewedGame.board().flat().forEach(piece => { if (piece) totals[piece.color] += values[piece.type] ?? 0 })
+    return { white: totals.w, black: totals.b }
+  }, [viewedGame])
   const myTurn        = !!liveGame && game.turn() === liveGame.myColor
 
   // ── LOADING ────────────────────────────────────────────────────────────────
@@ -382,6 +398,9 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       status={resultText ?? (myTurn ? 'Your move' : 'Waiting for opponent…')}
       tone={!inGame ? 'over' : myTurn ? 'turn' : 'wait'}
       moves={moveHistory.map(m => m.san)}
+      selectedPly={viewedPly}
+      onSelectPly={ply => setReviewPly(ply === moveHistory.length ? null : ply)}
+      material={material}
       notice={error}
       actions={inGame ? (
         <ConfirmButton className="btn-ghost btn-danger" label="Resign" confirmLabel="Tap again to resign"
@@ -400,14 +419,14 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       )}
     >
       <ChessBoard
-        board={game.board()}
+        board={viewedGame.board()}
         onSquareClick={clickSquare}
         selected={selected}
         legalTargets={legalTargets}
         lastFrom={lastMove?.from}
         lastTo={lastMove?.to}
         orientation={liveGame?.myColor ?? 'w'}
-        interactive={inGame}
+        interactive={inGame && reviewPly === null}
       />
     </GameScreen>
   )
