@@ -231,13 +231,12 @@ export class LichessClient {
    * arrives on the account event stream once matched. Abort `signal` to
    * cancel the search.
    */
-  seek(tc: TimeControl, signal?: AbortSignal, rated = true, ratingRange = 300): Promise<Response> {
+  seek(tc: TimeControl, signal?: AbortSignal): Promise<Response> {
     const body = new URLSearchParams({
-      rated: String(rated),
+      rated: 'true',
       time: String(tc.time),
       increment: String(tc.increment),
       variant: 'standard',
-      ratingRange: String(ratingRange),
     })
     return fetch(`${API_BASE}/api/board/seek`, {
       method: 'POST',
