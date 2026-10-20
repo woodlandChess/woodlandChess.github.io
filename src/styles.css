@@ -1891,6 +1891,17 @@ header {
 }
 .conn-chip strong { font-weight: 400; color: var(--text); }
 .conn-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--pz-good); box-shadow: 0 0 0 3px rgba(77, 168, 112, 0.15); }
+.online-account { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.online-link { border: 0; background: transparent; color: var(--accent-bright); font: inherit; cursor: pointer; }
+.rating-panel { padding: 1rem; margin: 0.2rem 0 1rem; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.rating-panel > div:first-child { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; }
+.rating-panel strong { color: var(--text); font-size: 0.9rem; font-weight: 500; }
+.rating-panel span { color: var(--text-3); font-size: 0.7rem; }
+.rating-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-top: 0.75rem; }
+.rating-pills span { display: flex; flex-direction: column; padding: 0.45rem; border-radius: 6px; background: var(--bg-2); text-transform: capitalize; }
+.rating-pills b { color: var(--text); font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; }
+.range-control { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.8rem; color: var(--text-2); font-size: 0.82rem; }
+.range-control select { min-height: 40px; padding: 0 0.7rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--bg-3); font: inherit; }
 
 /* Time-control cards */
 .tc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }

@@ -164,12 +164,17 @@ export interface LichessProfile {
   perfs?: Record<string, { rating: number }>
 }
 
-export type TimeControl = { label: string; time: number; increment: number }
+export type TimeControl = { label: string; time: number; increment: number; perf: 'bullet' | 'blitz' | 'rapid' | 'classical' }
 export const TIME_CONTROLS: TimeControl[] = [
-  { label: '3+0 · Blitz',   time: 3,  increment: 0  },
-  { label: '5+0 · Blitz',   time: 5,  increment: 0  },
-  { label: '10+0 · Rapid',  time: 10, increment: 0  },
-  { label: '15+10 · Rapid', time: 15, increment: 10 },
+  { label: '1+0 · Bullet',  time: 1,  increment: 0,  perf: 'bullet' },
+  { label: '2+1 · Bullet',  time: 2,  increment: 1,  perf: 'bullet' },
+  { label: '3+0 · Blitz',   time: 3,  increment: 0,  perf: 'blitz' },
+  { label: '3+2 · Blitz',   time: 3,  increment: 2,  perf: 'blitz' },
+  { label: '5+0 · Blitz',   time: 5,  increment: 0,  perf: 'blitz' },
+  { label: '5+3 · Blitz',   time: 5,  increment: 3,  perf: 'blitz' },
+  { label: '10+0 · Rapid',  time: 10, increment: 0,  perf: 'rapid' },
+  { label: '15+10 · Rapid', time: 15, increment: 10, perf: 'rapid' },
+  { label: '30+0 · Classical', time: 30, increment: 0, perf: 'classical' },
 ]
 
 /** Parses a fetch Response body as a newline-delimited JSON stream. */
@@ -226,12 +231,13 @@ export class LichessClient {
    * arrives on the account event stream once matched. Abort `signal` to
    * cancel the search.
    */
-  seek(tc: TimeControl, signal?: AbortSignal): Promise<Response> {
+  seek(tc: TimeControl, signal?: AbortSignal, rated = true, ratingRange = 300): Promise<Response> {
     const body = new URLSearchParams({
-      rated: 'false',
+      rated: String(rated),
       time: String(tc.time),
       increment: String(tc.increment),
       variant: 'standard',
+      ratingRange: String(ratingRange),
     })
     return fetch(`${API_BASE}/api/board/seek`, {
       method: 'POST',
