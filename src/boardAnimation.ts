@@ -61,10 +61,15 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       if (!fromSquare || !toSquare || !image) continue
       const a = fromSquare.getBoundingClientRect(), b = toSquare.getBoundingClientRect()
       const sprite = image.cloneNode(true) as HTMLImageElement
-      Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '5' })
+      Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '9999', transition: 'none', transform: `translate3d(${a.left - b.left}px, ${a.top - b.top}px, 0)` })
       sprite.setAttribute('aria-hidden', 'true'); sprite.alt = ''
       document.body.append(sprite)
-      cleanup.push(animateSpring(sprite, a.left - b.left, a.top - b.top))
+      // Hide the destination piece during flight, then reveal it when the
+      // overlay sprite lands. Store/restore the inline value on cleanup.
+      const previousVisibility = image.style.visibility
+      image.style.visibility = 'hidden'
+      const springCleanup = animateSpring(sprite, a.left - b.left, a.top - b.top)
+      cleanup.push(() => { springCleanup(); image.style.visibility = previousVisibility })
     }
     return () => cleanup.forEach(fn => fn())
   }, [board, orientation])
