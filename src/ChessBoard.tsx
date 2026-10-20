@@ -1,5 +1,6 @@
 import type { Chess, Color, Square } from 'chess.js'
 import { PIECE_SVGS, files, ranks, squareName } from './pieces'
+import { useBoardFlip, type PieceGrid } from './boardAnimation'
 
 type BoardSquares = ReturnType<Chess['board']>
 
@@ -36,6 +37,7 @@ export function ChessBoard({
 }) {
   const rowOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const colOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
+  const animationRef = useBoardFlip(board as PieceGrid, orientation)
 
   const marks = new Map<Square, string>()
   for (const m of trail ?? []) {          // newest first, so the newest claims a shared square
@@ -44,7 +46,7 @@ export function ChessBoard({
   }
 
   return (
-    <div className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board">
+    <div ref={animationRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board">
       {rowOrder.flatMap((row, screenRow) =>
         colOrder.map((col, screenCol) => {
           const square = squareName(files[col], ranks[row])
@@ -59,6 +61,7 @@ export function ChessBoard({
               disabled={!interactive}
               aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
               className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? ''].filter(Boolean).join(' ')}
+              data-square={square}
               onClick={() => interactive && onSquareClick(square)}
             >
               {screenCol === 0 && <small className="rank">{ranks[row]}</small>}
@@ -66,6 +69,7 @@ export function ChessBoard({
               {piece && (
                 <img
                   className={`piece-svg piece-svg--${piece.color}`}
+                  data-piece={`${piece.color}${piece.type}`}
                   src={PIECE_SVGS[piece.color][piece.type]}
                   alt={`${piece.color === 'w' ? 'white' : 'black'} ${piece.type}`}
                   draggable={false}

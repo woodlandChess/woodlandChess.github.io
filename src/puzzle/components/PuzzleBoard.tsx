@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GameSnapshot } from '../core/GameEngine';
 import { PIECE_SVGS } from '../../pieces';
+import { useBoardFlip, type PieceGrid } from '../../boardAnimation';
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -19,6 +20,7 @@ interface PuzzleBoardProps {
  */
 export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
   const [shake, setShake] = useState(false);
+  const animationRef = useBoardFlip(snapshot.board as PieceGrid, 'w');
 
   useEffect(() => {
     if (snapshot.feedback.type === 'wrong') {
@@ -39,6 +41,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
   return (
     <div className="board-wrap">
       <div
+        ref={animationRef}
         className={`board${shake ? ' shake' : ''}`}
         role="grid"
         aria-label="Chess puzzle board"
@@ -63,6 +66,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
                 type="button"
                 role="gridcell"
                 className={classes}
+                data-square={squareName}
                 aria-label={
                   cell
                     ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`
@@ -75,6 +79,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
                 {cell && (
                   <img
                     className={`piece-svg piece-svg--${cell.color}`}
+                    data-piece={`${cell.color}${cell.type.toLowerCase()}`}
                     src={PIECE_SVGS[cell.color][cell.type.toLowerCase()]}
                     alt={`${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`}
                     draggable={false}
