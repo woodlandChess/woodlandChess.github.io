@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { BrandMark } from './BrandMark'
 import { ModeNav, type ModeId } from './ModeNav'
 
 interface HomeFrameProps {
@@ -37,7 +38,7 @@ export function HomeFrame({
         <div className="home-head">
           <div className="home-top">
             <div className="brand">
-              <span className="brand-mark">♞</span>
+              <BrandMark />
               <span className="brand-name">Woodland Chess</span>
             </div>
             {headExtra}
