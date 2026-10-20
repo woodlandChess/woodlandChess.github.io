@@ -3,6 +3,7 @@ import { Chess, type Color, type Move, type Square } from 'chess.js'
 import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 import { ChessBoard, PromotionModal } from './ChessBoard'
+import { captureBoardPositions } from './boardAnimation'
 import { OnlinePlay } from './OnlinePlay'
 import { PuzzleMode } from './puzzle/PuzzleMode'
 import type { ModeId } from './components/ModeNav'
@@ -132,6 +133,7 @@ export function App() {
   const gameRef   = useRef(new Chess())
   const engineRef = useRef<StockfishClient | null>(null)
   const [fen,              setFen]              = useState(gameRef.current.fen())
+  const boardDomRef = useRef<HTMLDivElement>(null)
   const [history,          setHistory]          = useState<Move[]>([])
   const [selected,         setSelected]         = useState<Square | null>(null)
   const [difficulty,       setDifficulty]       = useState<Difficulty>('Classic')
@@ -160,6 +162,8 @@ export function App() {
   const sync = () => {
     const g = gameRef.current
     const h = g.history({ verbose: true })
+    captureBoardPositions(boardDomRef.current)
+    captureBoardPositions(boardDomRef.current)
     setFen(g.fen())
     setHistory(h)
     setSelected(null)
@@ -358,6 +362,7 @@ export function App() {
       )}
     >
       <ChessBoard
+        boardRef={boardDomRef}
         board={game.board()}
         onSquareClick={clickSquare}
         selected={selected}

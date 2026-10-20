@@ -3,10 +3,22 @@ import { useLayoutEffect, useRef } from 'react'
 export interface AnimatedPiece { color: string; type: string }
 export type PieceGrid = (AnimatedPiece | null)[][]
 type SpringOptions = { stiffness?: number; damping?: number; mass?: number }
+type SquareMap = Map<string, DOMRect>
+const pendingPositions = new WeakMap<HTMLElement, SquareMap>()
+
+/** Call immediately before committing a new board snapshot to React. */
+export function captureBoardPositions(root: HTMLElement | null) {
+  if (!root) return
+  const positions: SquareMap = new Map()
+  root.querySelectorAll<HTMLElement>('[data-square]').forEach(square => {
+    if (square.dataset.square) positions.set(square.dataset.square, square.getBoundingClientRect())
+  })
+  pendingPositions.set(root, positions)
+}
 
 /** Damped spring integrator for FLIP overlay sprites. */
 export function animateSpring(element: HTMLElement, fromX: number, fromY: number, options: SpringOptions = {}): () => void {
-  const stiffness = options.stiffness ?? 420, damping = options.damping ?? 34, mass = options.mass ?? 1
+  const stiffness = options.stiffness ?? 300, damping = options.damping ?? 28, mass = options.mass ?? 1
   let x = fromX, y = fromY, vx = 0, vy = 0, previous = performance.now(), frame = 0, cancelled = false
   const finish = () => { element.style.transform = ''; element.remove() }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || (Math.abs(x) < 0.5 && Math.abs(y) < 0.5)) { finish(); return finish }
@@ -32,6 +44,8 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
     const root = rootRef.current, old = previous.current
     previous.current = { board, orientation }
     if (!root || !old || old.orientation !== orientation || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const captured = pendingPositions.get(root)
+    pendingPositions.delete(root)
     const oldPieces = new Map<string, string[]>(), newPieces = new Map<string, string[]>()
     old.board.forEach((row, r) => row.forEach((piece, c) => {
       if (!piece) return
@@ -57,17 +71,23 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
     for (const { from, to } of moves) {
       const fromSquare = root.querySelector<HTMLElement>(`[data-square="${from}"]`)
       const toSquare = root.querySelector<HTMLElement>(`[data-square="${to}"]`)
-      const image = fromSquare?.querySelector<HTMLImageElement>('.piece-svg')
-      if (!fromSquare || !toSquare || !image) continue
-      const a = fromSquare.getBoundingClientRect(), b = toSquare.getBoundingClientRect()
+      if (!fromSquare || !toSquare) continue
+      const a = captured?.get(from) ?? fromSquare.getBoundingClientRect(), b = toSquare.getBoundingClientRect()
+      const fromImage = fromSquare.querySelector<HTMLImageElement>('.piece-svg')
+      const toImage = toSquare.querySelector<HTMLImageElement>('.piece-svg')
+      const image = toImage ?? fromImage
+      if (!image) continue
       const sprite = image.cloneNode(true) as HTMLImageElement
-      Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '9999', transition: 'none', transform: `translate3d(${a.left - b.left}px, ${a.top - b.top}px, 0)` })
+      Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '9999', transition: 'none' })
       sprite.setAttribute('aria-hidden', 'true'); sprite.alt = ''
       document.body.append(sprite)
       // Hide the destination piece during flight, then reveal it when the
       // overlay sprite lands. Store/restore the inline value on cleanup.
       const previousVisibility = image.style.visibility
       image.style.visibility = 'hidden'
+      sprite.style.transform = `translate3d(${a.left - b.left}px, ${a.top - b.top}px, 0)`
+      // Commit the inverse transform before the spring writes its first frame.
+      void sprite.getBoundingClientRect()
       const springCleanup = animateSpring(sprite, a.left - b.left, a.top - b.top)
       cleanup.push(() => { springCleanup(); image.style.visibility = previousVisibility })
     }

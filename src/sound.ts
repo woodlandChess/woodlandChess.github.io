@@ -189,10 +189,14 @@ const vary = (amount = 0.06) => 1 + (Math.random() * 2 - 1) * amount
 
 /** One piece set down. `weight` shifts it lower and heavier (king/rook feel). */
 function place(c: AudioContext, t: number, gain = 1, weight = 1) {
-  const f = 205 * vary(0.07) * weight
-  body(c, t, f, f * 0.55, 0.15, 0.5 * gain * vary(0.08))
-  body(c, t, f * 0.5, f * 0.38, 0.24, 0.3 * gain, { type: 'sine', lp: 900, wet: 0.3 })
-  knock(c, t, 1500 * vary(0.1), 0.035, 0.2 * gain)
+  const f = 148 * vary(0.06) * weight
+  // A woody broadband contact first, followed by a restrained low body
+  // resonance. Keep the tonal part quiet so moves read as wood on felt,
+  // rather than a rounded synthetic beep.
+  knock(c, t, 980 * vary(0.08), 0.055, 0.31 * gain)
+  knock(c, t + 0.008, 410 * vary(0.07), 0.085, 0.19 * gain)
+  body(c, t + 0.003, f, f * 0.58, 0.13, 0.24 * gain * vary(0.06), { type: 'triangle', lp: 1150, wet: 0.16 })
+  body(c, t + 0.012, f * 0.53, f * 0.4, 0.2, 0.2 * gain, { type: 'sine', lp: 620, wet: 0.22 })
 }
 
 const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {

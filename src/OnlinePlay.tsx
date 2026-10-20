@@ -6,6 +6,7 @@ import {
   type Perf, type TimeControl, type LichessProfile,
 } from './lichess'
 import { ChessBoard, PromotionModal, type TrailMove } from './ChessBoard'
+import { captureBoardPositions } from './boardAnimation'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
@@ -114,6 +115,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const clientRef = useRef<LichessClient | null>(null)
   const chessRef  = useRef(new Chess())
   const [fen, setFen]           = useState(chessRef.current.fen())
+  const boardDomRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<Square | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
   const [liveGame, setLiveGame]     = useState<LiveGame | null>(null)
@@ -336,6 +338,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               })
               confirmedMovesRef.current = moves
               chessRef.current = c
+              captureBoardPositions(boardDomRef.current)
               setFen(c.fen())
               setReviewPly(null)
               if (finished) finish(evt.state.status, evt.state.winner, myColor)
@@ -363,6 +366,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               applyDraw(evt, myColor)
               confirmedMovesRef.current = moves
               chessRef.current = c
+              captureBoardPositions(boardDomRef.current)
               setFen(c.fen())
               setReviewPly(null)
               setSelected(null)
@@ -577,6 +581,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       const frozen = freeze(clockRef.current, performance.now())
       clockRef.current = { ...frozen, running: runningSide(optimisticPlyRef.current, false) }
     }
+    captureBoardPositions(boardDomRef.current)
     setFen(chessRef.current.fen())
     setSelected(null)
     clientRef.current?.move(liveGame.id, uci).catch(() => {
@@ -585,6 +590,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       if (clockRef.current) clockRef.current = { ...clockRef.current, running: runningSide(confirmed.history().length, false), at: performance.now() }
       chessRef.current = confirmed
       soundedPlyRef.current = confirmed.history().length
+      captureBoardPositions(boardDomRef.current)
       setFen(confirmed.fen())
       setError('Move rejected by Lichess. The board has been resynchronized.')
     })
@@ -907,6 +913,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       )}
     >
       <ChessBoard
+        boardRef={boardDomRef}
         board={viewedGame.board()}
         onSquareClick={clickSquare}
         selected={selected}

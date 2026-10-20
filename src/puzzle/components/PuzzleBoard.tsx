@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameSnapshot } from '../core/GameEngine';
 import { PIECE_SVGS } from '../../pieces';
-import { useBoardFlip, type PieceGrid } from '../../boardAnimation';
+import { captureBoardPositions, useBoardFlip, type PieceGrid } from '../../boardAnimation';
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -58,6 +58,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
     const parse = (s: string) => ({ row: 8 - Number(s[1]), col: s.charCodeAt(0) - 97 });
     const from = parse(drag.from);
     const to = parse(target);
+    captureBoardPositions(animationRef.current);
     onSelectSquare(from.row, from.col);
     window.setTimeout(() => onSelectSquare(to.row, to.col), 0);
   }
@@ -116,7 +117,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
                     ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`
                     : squareName
                 }
-                onClick={() => onSelectSquare(r, c)}
+                onClick={() => { captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
               >
                 {c === 0 && <small className="rank">{RANK_LABELS[r]}</small>}
                 {r === 7 && <small className="file">{FILE_LABELS[c]}</small>}

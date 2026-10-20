@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type { Chess, Color, Square } from 'chess.js'
 import { PIECE_SVGS, files, ranks, squareName } from './pieces'
-import { useBoardFlip, type PieceGrid } from './boardAnimation'
+import { captureBoardPositions, useBoardFlip, type PieceGrid } from './boardAnimation'
 
 type BoardSquares = ReturnType<Chess['board']>
 
@@ -19,7 +19,7 @@ export interface TrailMove { from: Square; to: Square; color: Color }
  */
 export function ChessBoard({
   board, onSquareClick, selected, legalTargets, lastFrom, lastTo, trail,
-  orientation = 'w', interactive = true,
+  orientation = 'w', interactive = true, beforeBoardChange, boardRef,
 }: {
   board: BoardSquares
   onSquareClick: (square: Square) => void
@@ -35,11 +35,15 @@ export function ChessBoard({
   trail?: TrailMove[]
   orientation?: Color
   interactive?: boolean
+  beforeBoardChange?: () => void
+  boardRef?: React.RefObject<HTMLDivElement | null>
 }) {
   const rowOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const colOrder = orientation === 'w' ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0]
   const animationRef = useBoardFlip(board as PieceGrid, orientation)
+  const setBoardRef = (node: HTMLDivElement | null) => { animationRef.current = node; if (boardRef) boardRef.current = node }
   const dragRef = useRef<{ from: Square; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null)
+  const beforeChange = () => { captureBoardPositions(animationRef.current); beforeBoardChange?.() }
 
   function startDrag(event: React.PointerEvent<HTMLDivElement>) {
     if (!interactive || event.button !== 0) return
@@ -71,7 +75,7 @@ export function ChessBoard({
     const wasDragged = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6
     const target = wasDragged ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square as Square | undefined : undefined
     Object.assign(image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' })
-    if (target && target !== drag.from) { onSquareClick(drag.from); onSquareClick(target) }
+    if (target && target !== drag.from) { beforeChange(); onSquareClick(drag.from); onSquareClick(target) }
   }
 
   const marks = new Map<Square, string>()
@@ -81,7 +85,7 @@ export function ChessBoard({
   }
 
   return (
-    <div ref={animationRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+    <div ref={setBoardRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
       {rowOrder.flatMap((row, screenRow) =>
         colOrder.map((col, screenCol) => {
           const square = squareName(files[col], ranks[row])
@@ -97,7 +101,7 @@ export function ChessBoard({
               aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
               className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? ''].filter(Boolean).join(' ')}
               data-square={square}
-              onClick={() => interactive && onSquareClick(square)}
+              onClick={() => { if (interactive) { beforeChange(); onSquareClick(square) } }}
             >
               {screenCol === 0 && <small className="rank">{ranks[row]}</small>}
               {screenRow === 7 && <small className="file">{files[col]}</small>}
