@@ -73,23 +73,18 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       const toSquare = root.querySelector<HTMLElement>(`[data-square="${to}"]`)
       if (!fromSquare || !toSquare) continue
       const a = captured?.get(from) ?? fromSquare.getBoundingClientRect(), b = toSquare.getBoundingClientRect()
-      const fromImage = fromSquare.querySelector<HTMLImageElement>('.piece-svg')
       const toImage = toSquare.querySelector<HTMLImageElement>('.piece-svg')
-      const image = toImage ?? fromImage
+      const image = toImage
       if (!image) continue
       const sprite = image.cloneNode(true) as HTMLImageElement
       Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '9999', transition: 'none' })
       sprite.setAttribute('aria-hidden', 'true'); sprite.alt = ''
       document.body.append(sprite)
-      // Hide the destination piece during flight, then reveal it when the
-      // overlay sprite lands. Store/restore the inline value on cleanup.
-      const previousVisibility = image.style.visibility
-      image.style.visibility = 'hidden'
       sprite.style.transform = `translate3d(${a.left - b.left}px, ${a.top - b.top}px, 0)`
       // Commit the inverse transform before the spring writes its first frame.
       void sprite.getBoundingClientRect()
       const springCleanup = animateSpring(sprite, a.left - b.left, a.top - b.top)
-      cleanup.push(() => { springCleanup(); image.style.visibility = previousVisibility })
+      cleanup.push(springCleanup)
     }
     return () => cleanup.forEach(fn => fn())
   }, [board, orientation])
