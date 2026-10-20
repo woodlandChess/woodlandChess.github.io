@@ -58,7 +58,6 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const [phase, setPhase]     = useState<Phase>('loading')
   const [profile, setProfile] = useState<LichessProfile | null>(null)
   const [error, setError]     = useState<string | null>(null)
-  const [ratingRange, setRatingRange] = useState(300)
 
   const clientRef = useRef<LichessClient | null>(null)
   const chessRef  = useRef(new Chess())
@@ -207,7 +206,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     const ac = new AbortController()
     seekAbortRef.current = ac
     try {
-      await client.seek(tc, ac.signal, true, ratingRange)
+      await client.seek(tc, ac.signal)
       // Resolves when matched or cancelled - if we're still "seeking" here,
       // the seek closed without a gameStart event reaching us yet; the
       // event listener will flip the phase once it does.
@@ -334,13 +333,6 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               ))}
             </div>
           </div>
-          <label className="range-control">Opponent rating range
-            <select value={ratingRange} onChange={e => setRatingRange(Number(e.target.value))}>
-              <option value={100}>±100 points</option><option value={200}>±200 points</option>
-              <option value={300}>±300 points</option><option value={500}>±500 points</option>
-              <option value={1000}>Any rating</option>
-            </select>
-          </label>
           <div className="tc-grid" role="group" aria-label="Time control">
             {TIME_CONTROLS.map(tc => {
               const [clock, kind] = tc.label.split(' · ')
