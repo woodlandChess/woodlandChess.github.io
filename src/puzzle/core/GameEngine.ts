@@ -2,6 +2,7 @@ import { ChessEngine } from '../engine/ChessEngine';
 import { scoreService } from './ScoreService';
 import { storageService } from './StorageService';
 import { soundService } from './SoundService';
+import { sound } from '../../sound';
 import { achievementService } from './AchievementService';
 import { fetchLichessPuzzle, fetchLichessPuzzles, getCachedPuzzleFallback } from './LichessPuzzleService';
 import type {
@@ -84,10 +85,10 @@ export class GameEngine {
 
   constructor() {
     const progress = storageService.load();
-    this.soundEnabled = progress.soundEnabled;
+    // One shared preference for the whole app (set from any mode's sound toggle).
+    this.soundEnabled = sound.isEnabled();
     this.bestStreak = progress.bestStreak;
     this.dailyChallengeStreak = progress.dailyChallengeStreak;
-    soundService.setMuted(!this.soundEnabled);
     this.puzzles = [];
   }
 
@@ -267,7 +268,7 @@ export class GameEngine {
 
   toggleSound(): void {
     this.soundEnabled = !this.soundEnabled;
-    soundService.setMuted(!this.soundEnabled);
+    soundService.setMuted(!this.soundEnabled);    // setting it to "on" plays a soft confirmation tap
     storageService.update({ soundEnabled: this.soundEnabled });
     this.notify();
   }

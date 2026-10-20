@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Square } from 'chess.js'
 import {
-  getStoredToken, startLogin, handleAuthRedirect, logout,
+  getStoredToken, startLogin, handleAuthRedirect, logout, canChallenge, MissingScopeError,
   LichessClient, PERF_META, PERF_ORDER, TIME_CONTROLS, timeControlsFor,
   type Perf, type TimeControl, type LichessProfile,
 } from './lichess'
@@ -10,6 +10,8 @@ import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
 import { BrandMark } from './components/BrandMark'
+import { GameResultDialog, type RematchState } from './components/GameResultDialog'
+import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 import {
   IconBlitz, IconBullet, IconClassical, IconClock, IconOnline, IconRapid, IconShield,
 } from './components/ModeIcons'
@@ -27,6 +29,9 @@ interface LiveGame {
   myRating?: number
   opponentName: string
   opponentRating?: number
+  /** Lichess id of the opponent (undefined for the AI) - needed for Rematch. */
+  opponentId?: string
+  rated: boolean
   /** e.g. "10+0 · Rapid · Rated" */
   info?: string
 }
@@ -125,6 +130,25 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const [ratingChanges, setRatingChanges] = useState<{ me?: RatingChange; opp?: RatingChange } | null>(null)
   const ratingTokenRef = useRef(0)           // invalidates an in-flight lookup when a new game starts
   const gameMetaRef = useRef<{ id: string; rated: boolean; myColor: Color } | null>(null)
+  const [ratingsFailed, setRatingsFailed] = useState(false)
+
+  // End-of-game: result dialog + rematch
+  const [result, setResult] = useState<{ outcome: Outcome; reason: string } | null>(null)
+  const [resultOpen, setResultOpen] = useState(false)
+  const [rematch, setRematch] = useState<RematchState>('idle')
+  const [rematchMessage, setRematchMessage] = useState<string | null>(null)
+  const [incomingRematch, setIncomingRematch] = useState<string | null>(null)   // challenge id
+  const rematchIdRef = useRef<string | null>(null)
+  const timersRef = useRef<number[]>([])                 // dialog / sound / rematch-expiry timers
+  const opponentIdRef = useRef<string | undefined>(undefined)
+  const gameTcRef = useRef<{ time: number; increment: number; tc?: TimeControl; rated: boolean } | null>(null)
+
+  // Sounds: never play a move twice (our own move is sounded optimistically).
+  const soundedPlyRef = useRef(0)
+  const firstFullRef = useRef(true)
+  const drawOfferRef = useRef<DrawState>('none')
+  const phaseRef = useRef<Phase>('loading')
+  phaseRef.current = phase
 
   const eventAbortRef = useRef<AbortController | null>(null)
   const gameAbortRef   = useRef<AbortController | null>(null)
@@ -160,6 +184,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       eventAbortRef.current?.abort()
       gameAbortRef.current?.abort()
       seekAbortRef.current?.abort()
+      timersRef.current.forEach(t => window.clearTimeout(t))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -175,6 +200,22 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
             seekAbortRef.current?.abort()
             const color: Color = evt.game.color === 'white' ? 'w' : 'b'
             joinGame(client, evt.game.gameId, color)
+          } else if (evt.type === 'challenge') {
+            // The opponent offering a rematch right after a game.
+            const ch = evt.challenge
+            if (phaseRef.current === 'finished' && ch?.id && ch.challenger?.id && ch.challenger.id === opponentIdRef.current) {
+              setIncomingRematch(String(ch.id))
+              setResultOpen(true)
+              sound.play('notify')
+            }
+          } else if (evt.type === 'challengeDeclined') {
+            if (evt.challenge?.id && evt.challenge.id === rematchIdRef.current) setRematch('declined')
+          } else if (evt.type === 'challengeCanceled') {
+            const id = evt.challenge?.id
+            if (id) {
+              setIncomingRematch(cur => (cur === id ? null : cur))
+              if (id === rematchIdRef.current) setRematch('idle')
+            }
           }
         }
       } catch { /* closed on unmount - fine */ }
@@ -190,10 +231,24 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     clockRef.current = { w: state.wtime, b: state.btime, at: performance.now(), running: runningSide(plies, finished) }
   }
 
+  function updateDraw(next: DrawState) {
+    if (next === 'theirs' && drawOfferRef.current !== 'theirs') sound.play('notify')
+    drawOfferRef.current = next
+    setDrawOffer(next)
+  }
+
   function applyDraw(state: any, myColor: Color) {
     const theirs = myColor === 'w' ? state?.bdraw : state?.wdraw
     const mine   = myColor === 'w' ? state?.wdraw : state?.bdraw
-    setDrawOffer(theirs ? 'theirs' : mine ? 'mine' : 'none')
+    updateDraw(theirs ? 'theirs' : mine ? 'mine' : 'none')
+  }
+
+  function clearTimers() {
+    timersRef.current.forEach(t => window.clearTimeout(t))
+    timersRef.current = []
+  }
+  function later(ms: number, fn: () => void) {
+    timersRef.current.push(window.setTimeout(fn, ms))
   }
 
   function joinGame(client: LichessClient, gameId: string, myColor: Color) {
@@ -206,10 +261,20 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     setReviewPly(null)
     setSelected(null)
     setPendingPromotion(null)
-    setDrawOffer('none')
+    updateDraw('none')
     setRatingChanges(null)
+    setRatingsFailed(false)
     ratingTokenRef.current++
     gameMetaRef.current = { id: gameId, rated: false, myColor }
+    clearTimers()
+    setResult(null)
+    setResultOpen(false)
+    setRematch('idle')
+    setRematchMessage(null)
+    setIncomingRematch(null)
+    rematchIdRef.current = null
+    soundedPlyRef.current = 0
+    firstFullRef.current = true
     setError(null)
     chessRef.current = new Chess()
     setFen(chessRef.current.fen())
@@ -240,9 +305,22 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
                 ? `${formatTimeControl(evt.clock.initial, evt.clock.increment ?? 0)}${evt.speed ? ` · ${cap(evt.speed)}` : ''}`
                 : 'Untimed'
               if (gameMetaRef.current) gameMetaRef.current.rated = !!evt.rated
+              opponentIdRef.current = typeof opp?.id === 'string' ? opp.id : undefined
+              const hasClock = evt.clock && typeof evt.clock.initial === 'number'
+              gameTcRef.current = hasClock ? {
+                time: evt.clock.initial / 60000,
+                increment: (evt.clock.increment ?? 0) / 1000,
+                tc: TIME_CONTROLS.find(t => t.time * 60000 === evt.clock.initial && t.increment * 1000 === (evt.clock.increment ?? 0)),
+                rated: !!evt.rated,
+              } : null
               const moves = evt.state?.moves ?? ''
               const c = replayMoves(moves)
               const finished = !!evt.state?.status && !['started', 'created'].includes(evt.state.status)
+              soundedPlyRef.current = c.history().length
+              if (firstFullRef.current) {
+                firstFullRef.current = false
+                if (!finished && c.history().length < 2) sound.play('start')
+              }
               applyClock(evt.state, c.history().length, finished)
               applyDraw(evt.state, myColor)
               setLiveGame({
@@ -252,6 +330,8 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
                 myRating: me?.rating,
                 opponentName: label(opp, 'Opponent'),
                 opponentRating: opp?.rating,
+                opponentId: opponentIdRef.current,
+                rated: !!evt.rated,
                 info: `${tc} · ${evt.rated ? 'Rated' : 'Casual'}`,
               })
               confirmedMovesRef.current = moves
@@ -272,6 +352,12 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
                 }
               }
               const c = replayMoves(moves)
+              const plyCount = c.history().length
+              if (plyCount > soundedPlyRef.current) {          // the opponent's move (ours was sounded when played)
+                const last = c.history({ verbose: true }).at(-1)
+                if (last) sound.play(soundForMove(last))
+                soundedPlyRef.current = plyCount
+              }
               const finished = !!evt.status && evt.status !== 'started'
               applyClock(evt, c.history().length, finished)
               applyDraw(evt, myColor)
@@ -298,9 +384,17 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       text += iWon ? ' - you win' : ' - you lose'
     }
     if (clockRef.current) clockRef.current = freeze(clockRef.current, performance.now())
-    setDrawOffer('none')
+    updateDraw('none')
     setResultText(text)
     setPhase('finished')
+
+    // Result: a short beat to take in the final position, then the chime and the dialog.
+    const iWon = winner ? winner === (myColor === 'w' ? 'white' : 'black') : false
+    const outcome: Outcome = winner ? (iWon ? 'win' : 'loss') : ['aborted', 'noStart'].includes(status) ? 'aborted' : 'draw'
+    setResult({ outcome, reason: STATUS_LABEL[status] ?? 'Game over' })
+    const chime = soundForOutcome(outcome)
+    if (chime) later(450, () => sound.play(chime))
+    later(750, () => setResultOpen(true))
     gameAbortRef.current?.abort()
     // Pull fresh ratings so the menu is up to date when the player comes back to it.
     clientRef.current?.getProfile().then(setProfile).catch(() => { /* keep the old numbers */ })
@@ -326,6 +420,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       } catch { /* try again */ }
       await sleep(1200)
     }
+    if (token === ratingTokenRef.current) setRatingsFailed(true)
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -382,6 +477,10 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   }
 
   function playAgain() {
+    clearTimers()
+    setResultOpen(false)
+    setResult(null)
+    setRatingsFailed(false)
     setLiveGame(null)
     setResultText(null)
     setRatingChanges(null)
@@ -391,19 +490,70 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     clientRef.current?.getProfile().then(setProfile).catch(() => { /* keep the old numbers */ })
   }
 
+  /** "New opponent": straight back into the queue with the same time control and rating mode. */
+  function newGame() {
+    const meta = gameTcRef.current
+    const tc = meta?.tc ?? selectedTc
+    const rated = meta ? meta.rated : prefs.rated
+    playAgain()
+    void findOpponent(tc, rated)
+  }
+
+  function startRematch() {
+    const client = clientRef.current
+    const meta = gameTcRef.current
+    const oppId = opponentIdRef.current
+    if (!client || !meta || !oppId || !liveGame) return
+    if (!canChallenge()) { setRematch('needs-permission'); return }   // older login: needs one more permission
+    setRematch('sending')
+    setRematchMessage(null)
+    client.challenge(oppId, { time: meta.time, increment: meta.increment }, meta.rated, liveGame.myColor === 'w' ? 'black' : 'white')
+      .then(id => {
+        rematchIdRef.current = id
+        setRematch('waiting')
+        // Lichess lets an unanswered challenge lapse; stop waiting a little after that.
+        later(35000, () => setRematch(r => (r === 'waiting' ? 'declined' : r)))
+      })
+      .catch(e => {
+        if (e instanceof MissingScopeError) setRematch('needs-permission')
+        else { setRematch('error'); setRematchMessage(e instanceof Error ? e.message : 'Could not send the rematch.') }
+      })
+  }
+
+  function cancelRematch() {
+    const id = rematchIdRef.current
+    rematchIdRef.current = null
+    setRematch('idle')
+    if (id) clientRef.current?.challengeAction(id, 'cancel').catch(() => { /* already gone */ })
+  }
+
+  function acceptRematch() {
+    if (!incomingRematch) return
+    clientRef.current?.challengeAction(incomingRematch, 'accept').catch(e => {
+      setIncomingRematch(null)
+      if (e instanceof MissingScopeError) setRematch('needs-permission')
+      else { setRematch('error'); setRematchMessage('That rematch is no longer available.') }
+    })      // success arrives as a gameStart event → joinGame
+  }
+
+  function declineRematch() {
+    if (incomingRematch) clientRef.current?.challengeAction(incomingRematch, 'decline').catch(() => { /* ignore */ })
+    setIncomingRematch(null)
+  }
+
   function respondToDraw(answer: 'yes' | 'no') {
     if (!liveGame) return
-    if (answer === 'no') setDrawOffer('none')
+    if (answer === 'no') updateDraw('none')
     clientRef.current?.draw(liveGame.id, answer)
-      .then(() => { if (answer === 'yes') setDrawOffer('none') })
+      .then(() => { if (answer === 'yes') updateDraw('none') })
       .catch(() => setError('Could not send your draw response. Try again.'))
   }
 
   function offerDraw() {
     if (!liveGame) return
-    setDrawOffer('mine')
+    updateDraw('mine')
     clientRef.current?.draw(liveGame.id, 'yes').catch(() => {
-      setDrawOffer('none')
+      updateDraw('none')
       setError('Could not offer a draw right now.')
     })
   }
@@ -412,13 +562,16 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     if (!liveGame) return
     const uci = `${from}${to}${promotion ?? ''}`
     if (pendingMoveRef.current) return
+    let played
     try {
-      chessRef.current.move({ from, to, ...(promotion ? { promotion } : {}) })
+      played = chessRef.current.move({ from, to, ...(promotion ? { promotion } : {}) })
     } catch {
       return
     }
     pendingMoveRef.current = uci
     optimisticPlyRef.current = chessRef.current.history().length
+    soundedPlyRef.current = optimisticPlyRef.current
+    sound.play(soundForMove(played))
     // Hand the clock to the opponent immediately; Lichess's next state corrects any drift.
     if (clockRef.current) {
       const frozen = freeze(clockRef.current, performance.now())
@@ -431,6 +584,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       const confirmed = replayMoves(confirmedMovesRef.current)
       if (clockRef.current) clockRef.current = { ...clockRef.current, running: runningSide(confirmed.history().length, false), at: performance.now() }
       chessRef.current = confirmed
+      soundedPlyRef.current = confirmed.history().length
       setFen(confirmed.fen())
       setError('Move rejected by Lichess. The board has been resynchronized.')
     })
@@ -669,14 +823,14 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       opponent={{
         name: liveGame?.opponentName ?? 'Opponent',
         meta: liveGame?.opponentRating ? `Lichess rating ${liveGame.opponentRating}` : 'Rated Lichess game',
-        glyph: '♟',
+        avatar: { color: liveGame ? (liveGame.myColor === 'w' ? 'b' : 'w') : 'b', type: 'p' },
         ratingChange: ratingChanges?.opp,
       }}
       opponentClock={liveGame ? clockFor(liveGame.myColor === 'w' ? 'b' : 'w') : null}
       self={liveGame ? {
         name: liveGame.myName,
         meta: liveGame.myRating ? `Lichess rating ${liveGame.myRating}` : 'You',
-        glyph: '♙',
+        avatar: { color: liveGame.myColor, type: 'p' },
         ratingChange: ratingChanges?.me,
       } : undefined}
       selfClock={liveGame ? clockFor(liveGame.myColor) : null}
@@ -710,16 +864,46 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
           </>
         )
       ) : (
-        <button type="button" className="btn-ghost" onClick={playAgain}>Find new opponent</button>
+        <>
+          <button type="button" className="btn-ghost" disabled={!result} onClick={() => setResultOpen(true)}>Result</button>
+          <button type="button" className="btn-ghost" onClick={playAgain}>Game menu</button>
+        </>
       )}
-      overlay={pendingPromotion && liveGame && (
-        <PromotionModal
-          color={liveGame.myColor}
-          onPick={type => {
-            sendMove(pendingPromotion.from, pendingPromotion.to, type)
-            setPendingPromotion(null)
-          }}
-        />
+      overlay={(
+        <>
+          {pendingPromotion && liveGame && (
+            <PromotionModal
+              color={liveGame.myColor}
+              onPick={type => {
+                sendMove(pendingPromotion.from, pendingPromotion.to, type)
+                setPendingPromotion(null)
+              }}
+            />
+          )}
+          {phase === 'finished' && result && resultOpen && liveGame && (
+            <GameResultDialog
+              outcome={result.outcome}
+              reason={result.reason}
+              info={liveGame.info}
+              rated={liveGame.rated}
+              me={{ name: liveGame.myName, avatar: { color: liveGame.myColor, type: 'p' }, before: liveGame.myRating, change: ratingChanges?.me }}
+              opp={{ name: liveGame.opponentName, avatar: { color: liveGame.myColor === 'w' ? 'b' : 'w', type: 'p' }, before: liveGame.opponentRating, change: ratingChanges?.opp }}
+              ratingsPending={liveGame.rated && result.outcome !== 'aborted' && !ratingChanges && !ratingsFailed}
+              canRematch={!!liveGame.opponentId && !!gameTcRef.current}
+              rematch={rematch}
+              rematchMessage={rematchMessage}
+              incomingRematch={!!incomingRematch}
+              onRematch={startRematch}
+              onCancelRematch={cancelRematch}
+              onAcceptRematch={acceptRematch}
+              onDeclineRematch={declineRematch}
+              onGrantPermission={() => { void connect() }}
+              onNewGame={newGame}
+              onHome={onBack}
+              onClose={() => setResultOpen(false)}
+            />
+          )}
+        </>
       )}
     >
       <ChessBoard

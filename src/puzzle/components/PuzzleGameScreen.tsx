@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { GameEngine, GameSnapshot } from '../core/GameEngine';
 import { PuzzleHeader } from './PuzzleHeader';
 import { PuzzleBoard } from './PuzzleBoard';
@@ -11,15 +12,24 @@ interface PuzzleGameScreenProps {
 }
 
 export function PuzzleGameScreen({ engine, snapshot, onBack }: PuzzleGameScreenProps) {
+  // Like a native app screen: exactly one viewport tall, the page itself never scrolls.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('is-game');
+    return () => root.classList.remove('is-game');
+  }, []);
+
   return (
     <div className="puzzle-shell">
       <PuzzleHeader engine={engine} snapshot={snapshot} onBack={onBack} />
       <main className="game-main">
         <div className="board-col">
-          <PuzzleBoard
-            snapshot={snapshot}
-            onSelectSquare={(r, c) => engine.selectSquare(r, c)}
-          />
+          <div className="board-stage">
+            <PuzzleBoard
+              snapshot={snapshot}
+              onSelectSquare={(r, c) => engine.selectSquare(r, c)}
+            />
+          </div>
           <div className="board-footer">
             <div className="turn-badge">
               {snapshot.puzzle.turn === 'w' ? 'White' : 'Black'} to move

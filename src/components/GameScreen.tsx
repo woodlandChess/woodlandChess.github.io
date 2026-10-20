@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { clockTone, formatClock } from '../clock'
 
 import { BrandMark } from './BrandMark'
+import { PieceAvatar, type AvatarPiece } from './PieceAvatar'
+import { SoundToggle } from './SoundToggle'
 
 export type GameTone = 'turn' | 'wait' | 'over'
 
@@ -14,7 +16,7 @@ export interface ClockView {
 /** Rating after a finished rated game: `after` = new rating, `diff` = change. */
 export interface RatingChange { after: number; diff: number }
 
-interface Player { name: string; meta: string; glyph: string; ratingChange?: RatingChange | null }
+interface Player { name: string; meta: string; avatar: AvatarPiece; ratingChange?: RatingChange | null }
 
 /** Live `matchMedia` flag, so layout-dependent behaviour follows rotation and resizing. */
 function useMediaQuery(query: string): boolean {
@@ -96,7 +98,7 @@ function GameClock({ view, label }: { view: ClockView; label: string }) {
 function PlayerStrip({ player, clock, className }: { player: Player; clock?: ClockView | null; className: string }) {
   return (
     <div className={`gm-card gm-player ${className}${clock?.active ? ' is-on-move' : ''}`}>
-      <div className="gm-avatar" aria-hidden="true">{player.glyph}</div>
+      <div className="gm-avatar" aria-hidden="true"><PieceAvatar piece={player.avatar} /></div>
       <div className="gm-opp-info">
         <strong>{player.name}</strong>
         <span className="gm-opp-meta">
@@ -260,9 +262,12 @@ export function GameScreen({
           <BrandMark />
           <span className="brand-name">Woodland Chess</span>
         </div>
-        {exitConfirmLabel
-          ? <ConfirmButton className="new-game" label={exitLabel} confirmLabel={exitConfirmLabel} onConfirm={onExit} />
-          : <button type="button" className="new-game" onClick={onExit}>{exitLabel}</button>}
+        <div className="gm-head-actions">
+          <SoundToggle />
+          {exitConfirmLabel
+            ? <ConfirmButton className="new-game" label={exitLabel} confirmLabel={exitConfirmLabel} onConfirm={onExit} />
+            : <button type="button" className="new-game" onClick={onExit}>{exitLabel}</button>}
+        </div>
       </div>
 
       <div className={`gm-body${self ? ' gm-body--me' : ''}`}>

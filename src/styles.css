@@ -2063,6 +2063,9 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
   font-size: 1.1rem;
   line-height: 1;
 }
+.piece-avatar { width: 72%; height: 72%; object-fit: contain; pointer-events: none; user-select: none; }
+.piece-avatar--w { filter: var(--piece-filter-w); }
+.piece-avatar--b { filter: var(--piece-filter-b); }
 .gm-opp-info { min-width: 0; }
 .gm-opp-info strong {
   display: block;
@@ -2320,33 +2323,178 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
   .gm-profile summary::after { display: none; }
 }
 
-/* ── board squares in games: highlights + no hover "lift" ────────────────────────────
-   Last move of each side, tinted like the pieces that made it (ivory = White,
-   steel = Black). Destination gets a fill and a 2px ring, origin a lighter fill.
-   Values are tuned to read clearly on both #1a2027 and #0d1013 squares. */
+/* ── board squares in games: last-move light ───────────────────────────────────────
+   No borders anywhere (two adjacent highlighted squares used to draw colliding
+   rings). Instead each move is painted with light, tinted like the side that
+   moved - ivory for White, steel for Black:
+     arrival    a soft pool of lamplight, brightest behind the piece and easing to
+                a gentle tint at the corners, so neighbours melt into each other
+     departure  a faint diagonal wash with a small ember where the piece stood
+   The light fades in once when a move lands; nothing moves, so nothing jumps. */
 :root {
-  --tr-w-from: rgba(230, 227, 218, 0.16);
-  --tr-w-to:   rgba(230, 227, 218, 0.34);
-  --tr-w-ring: rgba(230, 227, 218, 0.70);
-  --tr-b-from: rgba(124, 136, 145, 0.30);
-  --tr-b-to:   rgba(124, 136, 145, 0.50);
-  --tr-b-ring: rgba(154, 163, 168, 0.95);
+  --tr-w: 230, 227, 218;
+  --tr-b: 124, 136, 145;
 }
-.square.trail-w-from { background-image: linear-gradient(var(--tr-w-from), var(--tr-w-from)); }
-.square.trail-w-to   { background-image: linear-gradient(var(--tr-w-to), var(--tr-w-to)); box-shadow: inset 0 0 0 2px var(--tr-w-ring); }
-.square.trail-b-from { background-image: linear-gradient(var(--tr-b-from), var(--tr-b-from)); }
-.square.trail-b-to   { background-image: linear-gradient(var(--tr-b-to), var(--tr-b-to)); box-shadow: inset 0 0 0 2px var(--tr-b-ring); }
-/* a selected piece always wins over a highlight */
-.gm .square.selected { background-image: linear-gradient(rgba(201, 207, 210, 0.28), rgba(201, 207, 210, 0.28)); box-shadow: inset 0 0 0 2px var(--accent-bright); }
+.square[class*="trail-"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: trailIn 0.55s var(--ease) both;
+}
+@keyframes trailIn { from { opacity: 0; } to { opacity: 1; } }
+
+.square.trail-w-to::before   { background: radial-gradient(circle at 50% 48%, rgba(var(--tr-w), 0.46) 0%, rgba(var(--tr-w), 0.30) 46%, rgba(var(--tr-w), 0.13) 100%); }
+.square.trail-b-to::before   { background: radial-gradient(circle at 50% 48%, rgba(var(--tr-b), 0.70) 0%, rgba(var(--tr-b), 0.46) 46%, rgba(var(--tr-b), 0.20) 100%); }
+.square.trail-w-from::before { background: radial-gradient(circle at 50% 50%, rgba(var(--tr-w), 0.55) 0 5.5%, transparent 7%), linear-gradient(135deg, rgba(var(--tr-w), 0.20), rgba(var(--tr-w), 0.05)); }
+.square.trail-b-from::before { background: radial-gradient(circle at 50% 50%, rgba(var(--tr-b), 0.85) 0 5.5%, transparent 7%), linear-gradient(135deg, rgba(var(--tr-b), 0.34), rgba(var(--tr-b), 0.08)); }
+
+/* A selected piece: a clear lit square (soft inner glow, no outline) - wins over the trail. */
+.gm .square.selected {
+  background-image: radial-gradient(circle at 50% 50%, rgba(201, 207, 210, 0.34), rgba(201, 207, 210, 0.2));
+  box-shadow: inset 0 0 16px rgba(201, 207, 210, 0.22);
+}
+.gm .square.selected::before { display: none; }
 
 /* The old hover lift moved a piece 3px the moment it landed under a resting cursor
    (or a finger's sticky :hover on touch) - that was the "little jump" when the
-   turn changed. Hover is now a hairline ring, on real pointers only. */
+   turn changed. Hover is now a faint tint, on real pointers only. */
 .gm .square:hover .piece-svg { transform: none; }
 @media (hover: hover) and (pointer: fine) {
-  .gm .square:hover:not(.selected):not(.trail-w-to):not(.trail-b-to) { box-shadow: inset 0 0 0 1px rgba(201, 207, 210, 0.28); }
+  .gm .square:hover:not(.selected) { background-image: linear-gradient(rgba(201, 207, 210, 0.09), rgba(201, 207, 210, 0.09)); }
 }
 .gm .board--locked .square { opacity: 1; }
+
+/* ============================================================
+   HEADER SOUND TOGGLE
+   ============================================================ */
+.gm-head-actions { display: flex; align-items: center; gap: 0.5rem; }
+.gm-icon-btn {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--text-3);
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.gm-icon-btn svg { width: 18px; height: 18px; }
+.gm-icon-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.gm-icon-btn:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: 2px; }
+
+/* ============================================================
+   GAME RESULT DIALOG
+   ============================================================ */
+.gr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(4, 5, 6, 0.64);
+  -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+  animation: gmFade 0.3s var(--ease) both;
+}
+.gr-card {
+  position: relative;
+  width: min(100%, 400px);
+  padding: 1.6rem 1.4rem 0.9rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-card);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
+  animation: grRise 0.5s var(--ease-liturgy) both;
+}
+@keyframes grRise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes grSheet { from { transform: translateY(100%); } to { transform: none; } }
+
+.gr-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  transition: color 0.25s var(--ease);
+}
+.gr-close:hover { color: var(--text); }
+
+.gr-kicker { margin: 0 2.4rem 0 0; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); line-height: 1.6; }
+.gr-kicker i { font-style: normal; margin: 0 0.3em; }
+.gr-title { margin: 0.3rem 0 0.9rem; font-family: var(--font-display); font-style: italic; font-weight: 300; font-size: clamp(2.3rem, 9vw, 3rem); line-height: 1.05; color: var(--text); }
+.gr-rule { display: block; height: 1px; margin-bottom: 1.1rem; background: linear-gradient(90deg, var(--accent-bright), transparent 85%); }
+.gr-card--win  .gr-rule { background: linear-gradient(90deg, var(--pz-good), transparent 85%); }
+.gr-card--loss .gr-rule { background: linear-gradient(90deg, var(--pz-bad), transparent 85%); }
+
+.gr-players { list-style: none; display: grid; gap: 0.5rem; margin: 0 0 1rem; padding: 0; }
+.gr-player {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.gr-player.is-winner { box-shadow: inset 2px 0 0 var(--accent-bright); }
+.gr-avatar { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-2); }
+.gr-who { min-width: 0; }
+.gr-who strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-size: 0.95rem; color: var(--text); line-height: 1.35; }
+.gr-tag { display: block; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--pz-good); }
+.gr-score { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.gr-score .gm-delta { margin-left: 0; }
+.gr-rating { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text); }
+.gr-rating--quiet   { color: var(--text-2); }
+.gr-rating--pending { color: var(--text-3); animation: subtlePulse 1.2s var(--ease) infinite; }
+
+.gr-note { margin: 0 0 1rem; font-size: 0.78rem; font-weight: 300; line-height: 1.55; color: var(--text-3); }
+.gr-note--accent { color: var(--text-2); }
+
+.gr-actions { display: grid; gap: 0.6rem; }
+.gr-btn {
+  appearance: none;
+  min-height: 50px;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 300;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease), background 0.25s var(--ease), transform 0.2s var(--ease);
+}
+.gr-btn:hover:not(:disabled) { border-color: var(--border-hover); color: var(--text); }
+.gr-btn:active:not(:disabled) { transform: scale(0.99); }
+.gr-btn:disabled { opacity: 0.7; cursor: default; }
+.gr-btn--primary { border-color: transparent; background: var(--accent-bright); color: var(--bg); font-weight: 400; }
+.gr-btn--primary:hover:not(:disabled) { background: var(--text); color: var(--bg); border-color: transparent; }
+.gr-btn:focus-visible, .gr-links button:focus-visible, .gr-close:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: 2px; }
+
+.gr-links { display: flex; justify-content: center; gap: 1.2rem; margin-top: 0.3rem; }
+.gr-links button { appearance: none; min-height: 44px; padding: 0 0.4rem; border: 0; background: none; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); transition: color 0.25s var(--ease); }
+.gr-links button:hover { color: var(--text); }
+
+/* phones: a bottom sheet, anchored to the thumb */
+@media (max-width: 599.98px) {
+  .gr-backdrop { place-items: end center; padding: 0; }
+  .gr-card { width: 100%; padding-bottom: max(0.9rem, var(--safe-bottom)); border-left: 0; border-right: 0; border-bottom: 0; animation: grSheet 0.45s var(--ease-liturgy) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gr-card, .gr-backdrop, .square[class*="trail-"]::before { animation: none; }
+}
 
 /* ============================================================
    ONLINE MENU - speed tabs → rating → time control → Play
@@ -2419,3 +2567,75 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
 
 .rated-field { margin-top: 0; }
 .field-hint { margin-top: 0.5rem; font-size: 0.74rem; font-weight: 300; color: var(--text-3); line-height: 1.5; }
+
+
+/* ============================================================
+   PUZZLES - an app-like screen
+   Phones/tablets: exactly one viewport tall, the page never scrolls. The header
+   and the action/stat footer are fixed; the board takes the leftover height; only
+   the small description area may scroll inside itself.
+   Desktop keeps its two-column layout (the head/body/foot wrappers are transparent).
+   ============================================================ */
+.puzzle-shell,
+.gm,
+.puzzle-win {
+  -webkit-tap-highlight-color: transparent;   /* no grey flash on tap */
+  -webkit-touch-callout: none;                /* no iOS long-press menu on the board */
+}
+.puzzle-shell .square:hover .piece-svg { transform: none; }
+
+.puzzle-shell .info-head,
+.puzzle-shell .info-body,
+.puzzle-shell .info-foot { display: contents; }
+
+@media (max-width: 999.98px) {
+  .puzzle-shell { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+
+  .puzzle-shell .hdr {
+    gap: 0.6rem;
+    padding: max(0.4rem, var(--safe-top)) max(0.9rem, var(--safe-right)) 0.4rem max(0.9rem, var(--safe-left));
+  }
+  .puzzle-shell .hdr-brand { padding: 0.35rem 0; }
+
+  .puzzle-shell .game-main {
+    align-items: stretch;
+    gap: 0.6rem;
+    overflow: hidden;
+    padding: 0.6rem max(0.9rem, var(--safe-right)) max(0.6rem, var(--safe-bottom)) max(0.9rem, var(--safe-left));
+  }
+
+  /* board column fills whatever the info panel leaves; the stage sizes the square board */
+  .puzzle-shell .board-col { width: 100%; flex: 1 1 0; min-height: 0; gap: 0.45rem; }
+  .puzzle-shell .board-stage { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; container-type: size; }
+  .puzzle-shell .board-wrap { width: min(100%, calc(100dvh - 420px)); }
+  @supports (width: 1cqw) {
+    .puzzle-shell .board-wrap { width: min(100cqw, 100cqh); }
+  }
+  .puzzle-shell .board-footer { flex: 0 0 auto; }
+
+  /* compact info panel */
+  .puzzle-shell .info-col { width: 100%; max-height: none; flex: 0 0 auto; align-items: stretch; gap: 0.5rem; padding: 0.65rem 0.8rem; }
+  .puzzle-shell .info-head { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+  .puzzle-shell .info-head .game-badge { flex-shrink: 0; }
+  .puzzle-shell .info-head .puzzle-year { display: none; }
+  .puzzle-shell .puzzle-title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .puzzle-shell .info-body { display: block; max-height: 3.7rem; padding-right: 0.3rem; overflow-y: auto; overscroll-behavior: contain; }
+  .puzzle-shell .puzzle-subtitle { display: none; }
+  .puzzle-shell .puzzle-desc { font-size: 0.8rem; line-height: 1.45; }
+  .puzzle-shell .hint-text { margin-top: 0.3rem; }
+
+  .puzzle-shell .info-foot { display: flex; flex-direction: column; gap: 0.5rem; }
+  .puzzle-shell .action-row { flex-wrap: nowrap; gap: 0.5rem; }
+  .puzzle-shell .action-row > * { flex: 1 1 0; min-width: 0; min-height: 44px; justify-content: center; }
+  /* reserve the feedback line so the board never resizes when a message appears */
+  .puzzle-shell .feedback,
+  .puzzle-shell .feedback:empty { display: block; min-height: 1.3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; line-height: 1.3; }
+  .puzzle-shell .stat-row { margin-top: 0; padding-top: 0.5rem; }
+  .puzzle-shell .stat-n { font-size: 1.15rem; }
+}
+
+/* Header on very narrow phones: the brand text gives way (ellipsis) before the buttons do. */
+.gm-head .brand { min-width: 0; }
+.gm-head .brand-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-head-actions { flex-shrink: 0; }

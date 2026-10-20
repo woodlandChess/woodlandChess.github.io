@@ -8,6 +8,8 @@ import { PuzzleMode } from './puzzle/PuzzleMode'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { GameScreen } from './components/GameScreen'
+import { GameResultDialog } from './components/GameResultDialog'
+import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
 function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -137,6 +139,9 @@ export function App() {
   const [player,           setPlayer]           = useState<Color>('w')
   const [sideChoice,       setSideChoice]       = useState<Color | 'random'>('w')
   const [setupOpen,        setSetupOpen]        = useState(true)
+  const [resultOpen,       setResultOpen]       = useState(false)
+  const playerRef = useRef<Color>('w')
+  playerRef.current = player
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null)
 
   const game         = useMemo(() => new Chess(fen), [fen])
@@ -153,9 +158,17 @@ export function App() {
   }, [])
 
   const sync = () => {
-    setFen(gameRef.current.fen())
-    setHistory(gameRef.current.history({ verbose: true }))
+    const g = gameRef.current
+    const h = g.history({ verbose: true })
+    setFen(g.fen())
+    setHistory(h)
     setSelected(null)
+    const last = h.at(-1)
+    if (last) sound.play(soundForMove(last))
+    if (g.isGameOver()) {
+      const chime = soundForOutcome(g.isCheckmate() ? (g.turn() === playerRef.current ? 'loss' : 'win') : 'draw')
+      if (chime) window.setTimeout(() => sound.play(chime), 450)
+    }
   }
 
   const start = (side: Color = player) => {
@@ -166,11 +179,19 @@ export function App() {
     setSelected(null)
     setPendingPromotion(null)
     setSetupOpen(false)
+    sound.play('start')
   }
 
   const commit = (from: Square, to: Square, promotion = 'q') => {
     try { gameRef.current.move({ from, to, promotion }); sync() } catch { return }
   }
+
+  const over = game.isGameOver()
+  useEffect(() => {
+    if (!over || setupOpen) { setResultOpen(false); return }
+    const t = window.setTimeout(() => setResultOpen(true), 750)   // a beat to take in the final position
+    return () => window.clearTimeout(t)
+  }, [over, setupOpen])
 
   const clickSquare = (square: Square) => {
     if (game.isGameOver() || game.turn() !== player || pendingPromotion) return
@@ -281,7 +302,7 @@ export function App() {
     <GameScreen
       exitLabel="New game"
       onExit={() => setSetupOpen(true)}
-      opponent={{ name: 'Computer', meta: `${schools[school].label} · ${difficulty}`, glyph: '♛' }}
+      opponent={{ name: 'Computer', meta: `${schools[school].label} · ${difficulty}`, avatar: { color: player === 'w' ? 'b' : 'w', type: 'q' } }}
       status={status}
       tone={tone}
       moves={history.map(m => m.san)}
@@ -295,15 +316,45 @@ export function App() {
       }
       actions={
         <>
+          {over && <button type="button" className="btn-ghost" onClick={() => setResultOpen(true)}>Result</button>}
           <button type="button" className="btn-ghost" onClick={() => start(player)}>Restart</button>
           <button type="button" className="btn-ghost" onClick={() => setSetupOpen(true)}>Change setup</button>
         </>
       }
-      overlay={pendingPromotion && (
-        <PromotionModal
-          color={player}
-          onPick={type => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}
-        />
+      overlay={(
+        <>
+          {pendingPromotion && (
+            <PromotionModal
+              color={player}
+              onPick={type => { commit(pendingPromotion.from, pendingPromotion.to, type); setPendingPromotion(null) }}
+            />
+          )}
+          {over && resultOpen && (
+            <GameResultDialog
+              ratings={false}
+              outcome={(game.isCheckmate() ? (game.turn() === player ? 'loss' : 'win') : 'draw') as Outcome}
+              reason={game.isCheckmate() ? 'Checkmate' : game.isStalemate() ? 'Stalemate' : game.isThreefoldRepetition() ? 'Repetition' : game.isInsufficientMaterial() ? 'Insufficient material' : 'Fifty-move rule'}
+              info={`${schools[school].label} · ${difficulty}`}
+              rated={false}
+              me={{ name: 'You', avatar: { color: player, type: 'p' } }}
+              opp={{ name: 'Computer', avatar: { color: player === 'w' ? 'b' : 'w', type: 'q' } }}
+              ratingsPending={false}
+              canRematch
+              rematch="idle"
+              incomingRematch={false}
+              rematchLabel="Play again"
+              newGameLabel="Change setup"
+              onRematch={() => start(player)}
+              onCancelRematch={() => {}}
+              onAcceptRematch={() => {}}
+              onDeclineRematch={() => {}}
+              onGrantPermission={() => {}}
+              onNewGame={() => { setResultOpen(false); setSetupOpen(true) }}
+              onHome={() => { setResultOpen(false); setSetupOpen(true) }}
+              onClose={() => setResultOpen(false)}
+            />
+          )}
+        </>
       )}
     >
       <ChessBoard

@@ -16,9 +16,11 @@ const CLIENT_ID = 'woodland-chess'
 const AUTH_URL  = 'https://lichess.org/oauth'
 const TOKEN_URL = 'https://lichess.org/api/token'
 const API_BASE  = 'https://lichess.org'
-const SCOPES    = ['board:play']
+// board:play drives games; challenge:write powers Rematch (a challenge to the same opponent).
+const SCOPES    = ['board:play', 'challenge:write']
 
 const LS_TOKEN_KEY     = 'woodland-chess:lichess-token'
+const LS_SCOPES_KEY    = 'woodland-chess:lichess-scopes'
 const SS_VERIFIER_KEY  = 'woodland-chess:pkce-verifier'
 const SS_STATE_KEY     = 'woodland-chess:pkce-state'
 
@@ -146,6 +148,7 @@ export async function handleAuthRedirect(): Promise<LichessToken | null> {
     if (!res.ok) return null
     const data = await res.json()
     if (!data.access_token) return null
+    try { localStorage.setItem(LS_SCOPES_KEY, SCOPES.join(' ')) } catch { /* private mode */ }
     return storeToken(data.access_token, data.expires_in ?? 3600)
   } catch {
     return null
@@ -154,6 +157,19 @@ export async function handleAuthRedirect(): Promise<LichessToken | null> {
 
 export function logout() {
   clearToken()
+  try { localStorage.removeItem(LS_SCOPES_KEY) } catch { /* ignore */ }
+}
+
+/**
+ * Whether this login was granted permission to send challenges. Logins made
+ * before Rematch existed only have board:play, so they must sign in once more.
+ */
+export function canChallenge(): boolean {
+  try { return (localStorage.getItem(LS_SCOPES_KEY) ?? '').split(' ').includes('challenge:write') } catch { return false }
+}
+
+export class MissingScopeError extends Error {
+  constructor() { super('Missing permission to send challenges') }
 }
 
 // ── Board API client ────────────────────────────────────────────────────────
@@ -320,6 +336,37 @@ export class LichessClient {
       diff: typeof p?.ratingDiff === 'number' ? p.ratingDiff : undefined,
     })
     return { white: side(g.players?.white), black: side(g.players?.black) }
+  }
+
+  /** Challenges a player to a game (used for Rematch). Resolves with the challenge id. */
+  async challenge(username: string, tc: { time: number; increment: number }, rated: boolean, color: 'white' | 'black'): Promise<string> {
+    const body = new URLSearchParams({
+      rated: String(rated),
+      'clock.limit': String(tc.time * 60),
+      'clock.increment': String(tc.increment),
+      color,
+      variant: 'standard',
+    })
+    const res = await fetch(`${API_BASE}/api/challenge/${encodeURIComponent(username)}`, {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+      body,
+    })
+    if (res.status === 401 || res.status === 403) throw new MissingScopeError()
+    if (!res.ok) {
+      let detail = ''
+      try { detail = (await res.json())?.error ?? '' } catch { /* not JSON */ }
+      throw new Error(typeof detail === 'string' && detail ? detail : `Lichess could not send the challenge (${res.status}).`)
+    }
+    const j = await res.json()
+    return String(j?.challenge?.id ?? j?.id ?? '')
+  }
+
+  /** Answer or withdraw a challenge: accept / decline (incoming), cancel (our own). */
+  async challengeAction(id: string, action: 'accept' | 'decline' | 'cancel') {
+    const res = await fetch(`${API_BASE}/api/challenge/${encodeURIComponent(id)}/${action}`, { method: 'POST', headers: this.headers() })
+    if (res.status === 401 || res.status === 403) throw new MissingScopeError()
+    if (!res.ok) throw new Error('Challenge request failed')
   }
 
   /** Offer a draw, or answer one the opponent made (`yes` accepts, `no` declines). */
