@@ -914,6 +914,13 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     >
       <ChessBoard
         boardRef={boardDomRef}
+        getLegalTargets={square => viewedGame.moves({ square, verbose: true }).map(move => move.to)}
+        onDropMove={(from, to) => {
+          const current = chessRef.current
+          if (!liveGame || current.turn() !== liveGame.myColor || pendingMoveRef.current) return
+          if (isPromotion(current, from, to)) setPendingPromotion({ from, to })
+          else sendMove(from, to)
+        }}
         board={viewedGame.board()}
         onSquareClick={clickSquare}
         selected={selected}

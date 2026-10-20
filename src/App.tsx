@@ -363,6 +363,12 @@ export function App() {
     >
       <ChessBoard
         boardRef={boardDomRef}
+        getLegalTargets={square => game.moves({ square, verbose: true }).map(move => move.to)}
+        onDropMove={(from, to) => {
+          const moving = gameRef.current.get(from)
+          if (moving?.type === 'p' && (to.endsWith('8') || to.endsWith('1'))) setPendingPromotion({ from, to })
+          else commit(from, to)
+        }}
         board={game.board()}
         onSquareClick={clickSquare}
         selected={selected}

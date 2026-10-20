@@ -28,6 +28,8 @@ export function PuzzleGameScreen({ engine, snapshot, onBack }: PuzzleGameScreenP
             <PuzzleBoard
               snapshot={snapshot}
               onSelectSquare={(r, c) => engine.selectSquare(r, c)}
+              onMoveSquares={(from, to) => engine.moveSquares(from, to)}
+              getLegalMoves={(r, c) => engine.legalMovesFrom(r, c)}
             />
           </div>
           <div className="board-footer">

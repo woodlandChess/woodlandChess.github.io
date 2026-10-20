@@ -9,6 +9,8 @@ const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 interface PuzzleBoardProps {
   snapshot: GameSnapshot;
   onSelectSquare: (row: number, col: number) => void;
+  onMoveSquares: (from: { row: number; col: number }, to: { row: number; col: number }) => void;
+  getLegalMoves: (row: number, col: number) => { row: number; col: number }[];
 }
 
 /**
@@ -18,12 +20,15 @@ interface PuzzleBoardProps {
  * look and behave identically. Only puzzle-specific extras live here:
  * hint highlight, wrong-move shake and the checkmate overlay.
  */
-export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
+export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalMoves }: PuzzleBoardProps) {
   const [shake, setShake] = useState(false);
   const animationRef = useBoardFlip(snapshot.board as PieceGrid, 'w');
   const dragRef = useRef<{ from: string; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null);
+  const [dragFrom, setDragFrom] = useState<string | null>(null);
+  const suppressClick = useRef(false);
+  const dragTargets = dragFrom ? getLegalMoves(8 - Number(dragFrom[1]), dragFrom.charCodeAt(0) - 97) : [];
 
-  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || snapshot.puzzleDone || snapshot.awaitingOpponent) return;
     const squareEl = (event.target as HTMLElement).closest<HTMLElement>('[data-square]');
     const from = squareEl?.dataset.square;
@@ -36,9 +41,10 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
     if (!image) return;
     dragRef.current = { from, pointerId: event.pointerId, image, origin: image.getBoundingClientRect(), pointerX: event.clientX, pointerY: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
+    setDragFrom(from);
   }
 
-  function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function moveDrag(event: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId || Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) < 6) return;
     event.preventDefault();
@@ -47,20 +53,27 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
     Object.assign(drag.image.style, { position: 'fixed', left: `${drag.origin.left + dx}px`, top: `${drag.origin.top + dy}px`, width: `${drag.origin.width}px`, height: `${drag.origin.height}px`, zIndex: '10000', pointerEvents: 'none', transition: 'none', transform: 'scale(1.08)' });
   }
 
-  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function endDrag(event: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
     const moved = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6;
     const target = moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square : undefined;
-    Object.assign(drag.image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' });
-    if (!target || target === drag.from) return;
+    setDragFrom(null);
+    if (moved) {
+      suppressClick.current = true;
+      window.setTimeout(() => { suppressClick.current = false; }, 0);
+    }
+    if (!target || target === drag.from) {
+      Object.assign(drag.image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' });
+      return;
+    }
     const parse = (s: string) => ({ row: 8 - Number(s[1]), col: s.charCodeAt(0) - 97 });
     const from = parse(drag.from);
     const to = parse(target);
     captureBoardPositions(animationRef.current);
-    onSelectSquare(from.row, from.col);
-    window.setTimeout(() => onSelectSquare(to.row, to.col), 0);
+    onMoveSquares(from, to);
+    Object.assign(drag.image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' });
   }
 
   useEffect(() => {
@@ -86,10 +99,6 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
         className={`board${shake ? ' shake' : ''}`}
         role="grid"
         aria-label="Chess puzzle board"
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
       >
         {Array.from({ length: 8 }).map((_, r) =>
           Array.from({ length: 8 }).map((__, c) => {
@@ -117,7 +126,11 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
                     ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`
                     : squareName
                 }
-                onClick={() => { captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
+                onPointerDown={startDrag}
+                onPointerMove={moveDrag}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
               >
                 {c === 0 && <small className="rank">{RANK_LABELS[r]}</small>}
                 {r === 7 && <small className="file">{FILE_LABELS[c]}</small>}
@@ -130,7 +143,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare }: PuzzleBoardProps) {
                     draggable={false}
                   />
                 )}
-                {isPossible(r, c) && <span className={cell ? 'capture' : 'target'} />}
+                {(isPossible(r, c) || dragTargets.some(d => d.row === r && d.col === c)) && <span className={cell ? 'capture' : 'target'} />}
               </button>
             );
           }),

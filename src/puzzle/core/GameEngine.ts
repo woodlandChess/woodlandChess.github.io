@@ -137,6 +137,13 @@ export class GameEngine {
     return this.cachedSnapshot;
   };
 
+  legalMovesFrom(row: number, col: number): Coordinate[] {
+    if (!this.engine || this.puzzleDone || this.awaitingOpponent) return [];
+    const piece = this.engine.getCell(row, col);
+    if (!piece || piece.color !== this.puzzles[this.index]?.turn) return [];
+    return this.engine.getLegalMoves(row, col);
+  }
+
   private boardMatrix(): Cell[][] {
     if (!this.engine) return Array.from({ length: 8 }, () => Array<Cell>(8).fill(null));
     const matrix: Cell[][] = [];
@@ -337,6 +344,27 @@ export class GameEngine {
     } else {
       this.flashFeedback('legal-wrong', 'Legal move, but not the winning line. Try again.');
     }
+  }
+
+  /** Apply a drag/drop move atomically, avoiding async selection-state races. */
+  moveSquares(from: Coordinate, to: Coordinate): void {
+    if (this.puzzleDone || this.awaitingOpponent) return;
+    const puzzle = this.puzzles[this.index];
+    const legal = this.engine.getLegalMoves(from.row, from.col);
+    if (!legal.some(m => m.row === to.row && m.col === to.col)) {
+      this.flashFeedback('wrong', "That move isn't legal.");
+      return;
+    }
+    const step = puzzle.solution[this.moveNum];
+    const stepFrom = ChessEngine.squareToCoordinate(step.from);
+    const stepTo = ChessEngine.squareToCoordinate(step.to);
+    if (stepFrom.row !== from.row || stepFrom.col !== from.col || stepTo.row !== to.row || stepTo.col !== to.col) {
+      this.flashFeedback('legal-wrong', 'Legal move, but not the winning line. Try again.');
+      return;
+    }
+    this.selected = null;
+    this.legalDestinations = [];
+    this.executePlayerMove(from, to, step.notation);
   }
 
   private executePlayerMove(from: Coordinate, to: Coordinate, notation: string): void {
