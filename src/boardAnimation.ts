@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 
 export interface AnimatedPiece { color: string; type: string }
 export type PieceGrid = (AnimatedPiece | null)[][]
-type SpringOptions = { stiffness?: number; damping?: number; mass?: number }
+type SpringOptions = { stiffness?: number; damping?: number; mass?: number; onComplete?: () => void }
 type SquareMap = Map<string, DOMRect>
 const pendingPositions = new WeakMap<HTMLElement, SquareMap>()
 
@@ -20,7 +20,7 @@ export function captureBoardPositions(root: HTMLElement | null) {
 export function animateSpring(element: HTMLElement, fromX: number, fromY: number, options: SpringOptions = {}): () => void {
   const stiffness = options.stiffness ?? 300, damping = options.damping ?? 28, mass = options.mass ?? 1
   let x = fromX, y = fromY, vx = 0, vy = 0, previous = performance.now(), frame = 0, cancelled = false
-  const finish = () => { element.style.transform = ''; element.remove() }
+  const finish = () => { element.style.transform = ''; element.remove(); options.onComplete?.() }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || (Math.abs(x) < 0.5 && Math.abs(y) < 0.5)) { finish(); return finish }
   element.style.willChange = 'transform'
   const tick = (now: number) => {
@@ -73,18 +73,25 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       const toSquare = root.querySelector<HTMLElement>(`[data-square="${to}"]`)
       if (!fromSquare || !toSquare) continue
       const a = captured?.get(from) ?? fromSquare.getBoundingClientRect(), b = toSquare.getBoundingClientRect()
-      const toImage = toSquare.querySelector<HTMLImageElement>('.piece-svg')
-      const image = toImage
+      const image = toSquare.querySelector<HTMLImageElement>('.piece-svg')
       if (!image) continue
       const sprite = image.cloneNode(true) as HTMLImageElement
       Object.assign(sprite.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', pointerEvents: 'none', zIndex: '9999', transition: 'none' })
       sprite.setAttribute('aria-hidden', 'true'); sprite.alt = ''
       document.body.append(sprite)
+      const priorVisibility = image.style.visibility
+      image.style.visibility = 'hidden'
+      let restored = false
+      const restore = () => {
+        if (restored) return
+        restored = true
+        image.style.visibility = priorVisibility
+      }
       sprite.style.transform = `translate3d(${a.left - b.left}px, ${a.top - b.top}px, 0)`
       // Commit the inverse transform before the spring writes its first frame.
       void sprite.getBoundingClientRect()
-      const springCleanup = animateSpring(sprite, a.left - b.left, a.top - b.top)
-      cleanup.push(springCleanup)
+      const springCleanup = animateSpring(sprite, a.left - b.left, a.top - b.top, { onComplete: restore })
+      cleanup.push(() => { springCleanup(); restore() })
     }
     return () => cleanup.forEach(fn => fn())
   }, [board, orientation])
