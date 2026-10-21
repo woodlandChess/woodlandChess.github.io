@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameSnapshot } from '../core/GameEngine';
 import { PIECE_SVGS } from '../../pieces';
-import { captureBoardPositions, useBoardFlip, type PieceGrid } from '../../boardAnimation';
+import { suppressNextBoardAnimation, useBoardFlip, type PieceGrid } from '../../boardAnimation';
 import { sound } from '../../sound';
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -77,7 +77,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
     const parse = (s: string) => ({ row: 8 - Number(s[1]), col: s.charCodeAt(0) - 97 });
     const from = parse(drag.from);
     const to = parse(target);
-    captureBoardPositions(animationRef.current);
+    suppressNextBoardAnimation(animationRef.current);
     onMoveSquares(from, to);
     Object.assign(drag.image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' });
   }
@@ -136,7 +136,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
                 onPointerMove={moveDrag}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
-                onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } void sound.unlock(); captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
+                onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } void sound.unlock(); onSelectSquare(r, c); }}
               >
                 {c === 0 && <small className="rank">{RANK_LABELS[r]}</small>}
                 {r === 7 && <small className="file">{FILE_LABELS[c]}</small>}
