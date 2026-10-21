@@ -166,3 +166,23 @@ export const files = ['a','b','c','d','e','f','g','h']
 export const ranks = ['8','7','6','5','4','3','2','1']
 export const squareName = (f: string, r: string) => `${f}${r}` as Square
 
+
+/**
+ * Decode every piece image once, up front. A piece that moves is a brand-new <img>
+ * on its destination square; if the browser has not decoded that data-URI SVG yet
+ * (iOS Safari decodes lazily) the piece paints blank for a few frames - a blink.
+ * Holding decoded copies keeps them in the image cache so new <img>s paint at once.
+ */
+const heldImages: HTMLImageElement[] = []
+export function preloadPieceImages(): void {
+  if (typeof Image === 'undefined' || heldImages.length) return
+  for (const side of Object.values(PIECE_SVGS)) {
+    for (const url of Object.values(side)) {
+      const img = new Image()
+      img.decoding = 'sync'
+      img.src = url
+      heldImages.push(img)
+      void img.decode?.().catch(() => { /* decoded on demand instead */ })
+    }
+  }
+}

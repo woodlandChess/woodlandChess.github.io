@@ -26,6 +26,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
   const animationRef = useBoardFlip(snapshot.board as PieceGrid, 'w');
   const dragRef = useRef<{ from: string; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
+  const [dragMoved, setDragMoved] = useState(false);   // true only once the piece really leaves its square
   const suppressClick = useRef(false);
   const dragTargets = dragFrom ? getLegalMoves(8 - Number(dragFrom[1]), dragFrom.charCodeAt(0) - 97) : [];
 
@@ -50,6 +51,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId || Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) < 6) return;
     event.preventDefault();
+    if (!dragMoved) setDragMoved(true);
     const dx = event.clientX - drag.pointerX;
     const dy = event.clientY - drag.pointerY;
     Object.assign(drag.image.style, { position: 'fixed', left: `${drag.origin.left + dx}px`, top: `${drag.origin.top + dy}px`, width: `${drag.origin.width}px`, height: `${drag.origin.height}px`, zIndex: '10000', pointerEvents: 'none', transition: 'none', transform: 'scale(1.08)' });
@@ -66,6 +68,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
       ? `${FILE_LABELS[Math.min(7, Math.floor((event.clientX - rect.left) / (rect.width / 8)))]}${RANK_LABELS[Math.min(7, Math.floor((event.clientY - rect.top) / (rect.height / 8)))]}`
       : undefined;
     setDragFrom(null);
+    setDragMoved(false);
     if (moved) {
       suppressClick.current = true;
       window.setTimeout(() => { suppressClick.current = false; }, 0);
@@ -129,7 +132,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
                 role="gridcell"
                 className={classes}
                 data-square={squareName}
-                data-dragging={dragFrom === squareName ? '' : undefined}
+                data-dragging={dragMoved && dragFrom === squareName ? '' : undefined}
                 aria-label={
                   cell
                     ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`
@@ -150,6 +153,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
                     src={PIECE_SVGS[cell.color][cell.type.toLowerCase()]}
                     alt={`${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`}
                     draggable={false}
+                    decoding="sync"
                   />
                 )}
                 {(isPossible(r, c) || dragTargets.some(d => d.row === r && d.col === c)) && <span className={cell ? 'capture' : 'target'} />}

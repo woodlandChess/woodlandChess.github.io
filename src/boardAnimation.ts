@@ -7,12 +7,19 @@ export type PieceGrid = (AnimatedPiece | null)[][]
 /**
  * Piece sliding for every board (Computer, Online, Puzzles).
  *
- * How it works: whenever the *position* changes (not on every render), the
- * moved piece is cloned into a sprite that lives INSIDE the board element and is
- * slid from its old square to its new one with the Web Animations API, while the
- * real piece stays hidden until the slide ends.
+ * How it works: whenever the *position* changes (not on every render), the piece
+ * that moved is slid from its old square to its new one with the Web Animations
+ * API. The REAL piece element is animated - there is no clone, no hide/show swap
+ * and no scaling - so the piece is on screen, fully painted, on every single
+ * frame of the move.
  *
  * Why it is built this way (all of these were real bugs):
+ *  - An earlier version hid the real piece and slid a cloned copy instead. The
+ *    clone is a fresh <img> of a data-URI SVG with a CSS filter chain; some
+ *    browsers (iOS Safari especially) paint such an image blank for a few frames
+ *    until it is decoded and rasterised again, and the hide/show swap at the end
+ *    made the piece visibly blink. Scaling the clone (lift) and squashing the real
+ *    piece on landing forced further re-rasterisation of the filtered SVG.
  *  - Square names come straight from the board grid. They must never be mirrored
  *    for Black's view, otherwise the wrong pieces fly around when playing Black.
  *  - The effect depends on a position signature, not on the board array identity.
@@ -23,9 +30,9 @@ export type PieceGrid = (AnimatedPiece | null)[][]
  *    review or a rejected move simply snap, instead of flying unrelated pieces.
  *  - Time-based Web Animations keep working when the browser throttles
  *    requestAnimationFrame (iOS home-screen app, Low Power Mode, backgrounding),
- *    and a failsafe timer always restores the real piece.
- *  - The sprite is positioned relative to the board, so a layout shift mid-move
- *    can no longer leave it stranded at the old screen position.
+ *    and a failsafe timer always settles the piece.
+ *  - Only `transform` is animated (a compositor-only property), and the piece is
+ *    promoted to its own layer for the duration of the slide only.
  */
 
 const MAX_CHANGED_SQUARES = 4
@@ -120,9 +127,7 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
     if (!slides || slides.length === 0) return
     if (typeof Element === 'undefined' || typeof Element.prototype.animate !== 'function') return
 
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (getComputedStyle(root).position === 'static') root.style.position = 'relative'
-    const rootRect = root.getBoundingClientRect()
+    const reduce = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
     for (const { from, to } of slides) {
       const fromSq = root.querySelector<HTMLElement>(`[data-square="${squareAt(from[0], from[1])}"]`)
@@ -133,84 +138,44 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       const dx = a.left - b.left, dy = a.top - b.top
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue
 
-      // The sprite is a whole square-sized stage holding the piece AND its own
-      // contact shadow, so the shadow travels, shrinks while the piece is lifted
-      // and stays glued under the base. The real square's shadow is hidden meanwhile.
-      const stage = document.createElement('div')
-      stage.className = `piece-sprite piece-t-${image.dataset.piece?.[1] ?? 'p'}`
-      stage.setAttribute('aria-hidden', 'true')
-      Object.assign(stage.style, {
-        left: `${b.left - rootRect.left - root.clientLeft}px`,
-        top: `${b.top - rootRect.top - root.clientTop}px`,
-        width: `${b.width}px`, height: `${b.height}px`,
-      })
-      const shadow = document.createElement('span')
-      shadow.className = 'piece-sprite__shadow'
-      const sprite = image.cloneNode(true) as HTMLImageElement
-      sprite.alt = ''
-      sprite.style.transition = 'none'
-      stage.append(shadow, sprite)
-      root.append(stage)
-      const priorVisibility = image.style.visibility
-      image.style.visibility = 'hidden'
-      toSq.dataset.landing = '1'
-
       const duration = slideMs()
+      // A heavy piece is lifted a hair off the board for the journey (a pure
+      // translation - no scaling, so the filtered SVG is never re-rasterised).
+      const lift = reduce ? 0 : b.height * 0.05
+      const frames: Keyframe[] = lift
+        ? [
+            { transform: `translate3d(${dx}px, ${dy}px, 0)` },
+            { transform: `translate3d(${dx * 0.5}px, ${dy * 0.5 - lift}px, 0)`, offset: 0.5 },
+            { transform: 'translate3d(0, 0, 0)' },
+          ]
+        : [{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }]
+
       let done = false
       let timer = 0
       let anim: Animation | null = null
-      const finish = (landed = false) => {
+      const finish: Finisher = () => {
         if (done) return
         done = true
         window.clearTimeout(timer)
         try { anim?.cancel() } catch { /* already finished */ }
-        stage.remove()
-        image.style.visibility = priorVisibility
-        delete toSq.dataset.landing
-        active.current.delete(interrupt)
-        // Weight: the piece compresses a touch as it settles onto the board.
-        if (landed && !reduce) {
-          try {
-            image.animate(
-              [{ transform: 'scale(1.025, 0.955)', transformOrigin: '50% 92%' }, { transform: 'scale(1, 1)', transformOrigin: '50% 92%' }],
-              { duration: 140, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
-            )
-          } catch { /* decorative only */ }
-        }
+        image.style.zIndex = ''
+        image.style.willChange = ''
+        delete toSq.dataset.landing                          // contact shadow fades back in
+        active.current.delete(finish)
       }
-      const interrupt: Finisher = () => finish(false)
-      active.current.add(interrupt)
+      active.current.add(finish)
+
+      toSq.dataset.landing = '1'                             // no shadow under a lifted piece
+      image.style.zIndex = '30'                              // travel above neighbouring pieces
+      image.style.willChange = 'transform'
       try {
-        // Heavy: a deliberate start, a firm stop. The piece lifts off the board,
-        // travels slightly raised, and is set back down.
-        anim = stage.animate(
-          [{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }],
-          { duration, easing: reduce ? 'ease-out' : 'cubic-bezier(0.42, 0, 0.2, 1)', fill: 'both' },
-        )
-        anim.onfinish = () => finish(true)
-        anim.oncancel = () => finish(false)
-        if (!reduce) {
-          sprite.animate(
-            [
-              { transform: 'translateY(0) scale(1)', offset: 0 },
-              { transform: 'translateY(-7%) scale(1.07)', offset: 0.28 },
-              { transform: 'translateY(-4%) scale(1.04)', offset: 0.72 },
-              { transform: 'translateY(0) scale(1)', offset: 1 },
-            ],
-            { duration, easing: 'ease-in-out', fill: 'both' },
-          )
-          shadow.animate(
-            [
-              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 0 },
-              { transform: 'translateX(-50%) scale(0.86)', opacity: 0.55, offset: 0.28 },
-              { transform: 'translateX(-50%) scale(0.9)', opacity: 0.62, offset: 0.72 },
-              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 1 },
-            ],
-            { duration, easing: 'ease-in-out', fill: 'both' },
-          )
-        }
-      } catch { finish(false); continue }
-      timer = window.setTimeout(() => finish(true), duration + 250)   // failsafe: the real piece always comes back
+        anim = image.animate(frames, {
+          duration,
+          easing: reduce ? 'ease-out' : 'cubic-bezier(0.42, 0, 0.2, 1)',
+        })
+        anim.onfinish = finish
+      } catch { finish(); continue }
+      timer = window.setTimeout(finish, duration + 250)     // failsafe: the piece is always settled
     }
     // Intentionally keyed on the position signature only (see header comment).
     // eslint-disable-next-line react-hooks/exhaustive-deps
