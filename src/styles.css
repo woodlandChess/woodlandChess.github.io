@@ -1486,18 +1486,24 @@ header {
 /* ── shell + card ───────────────────────────────────────────────────────── */
 .setup-shell--home {
   padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .setup-card--home {
   --home-pad-x: max(1.1rem, var(--safe-left));
   --home-pad-r: max(1.1rem, var(--safe-right));
   max-width: 560px;
+  min-height: 100vh;
   min-height: 100dvh;
   margin: 0 auto;
   /* viewport-fit=cover lets iOS render behind the status bar. Add the actual
      notch inset to the design spacing instead of clamping it with max(). */
-  padding: calc(1.1rem + var(--safe-top)) var(--home-pad-r) 0 var(--home-pad-x);
-  background: transparent;
+  padding: calc(0.65rem + var(--safe-top)) var(--home-pad-r) calc(5.4rem + var(--safe-bottom)) var(--home-pad-x);
+  background: linear-gradient(to bottom, #08090b, #08090b 7rem, transparent 13rem);
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -1505,7 +1511,7 @@ header {
 
 .home-head {
   position: relative;
-  z-index: 89;
+  z-index: 91;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -1672,12 +1678,39 @@ header {
 
 /* ── primary action: pinned to the thumb zone on phones ─────────────────── */
 .home-actions {
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
-  z-index: 5;
-  margin: auto calc(-1 * var(--home-pad-r)) 0 calc(-1 * var(--home-pad-x));
-  padding: 1.6rem var(--home-pad-r) max(1rem, var(--safe-bottom)) var(--home-pad-x);
+  z-index: 20;
+  margin: 0;
+  padding: 0.65rem max(1.1rem, var(--safe-right)) calc(0.65rem + var(--safe-bottom)) max(1.1rem, var(--safe-left));
   background: linear-gradient(to top, var(--bg) 62%, rgba(8, 9, 11, 0));
+}
+
+@media (max-width: 699.98px) and (max-height: 780px) {
+  .setup-card--home { padding-top: calc(0.4rem + var(--safe-top)); }
+  .setup-card--home .home-intro { margin: 0.85rem 0 0.75rem; }
+  .home-head { gap: 0.55rem; }
+  .mode-nav { gap: 0.3rem; }
+  .mode-nav-btn { min-height: 54px; gap: 0.25rem; padding: 0.45rem 0.2rem; font-size: 0.72rem; }
+  .mode-nav-icon { width: 19px; height: 19px; }
+  .home-actions { padding-top: 0.45rem; }
+  .setup-card--home .begin-game { min-height: 48px; }
+  .home-grid { gap: 0.9rem; padding-bottom: 0.8rem; }
+  .home-panel { gap: 0.85rem; }
+  .setup-card--home .seg-face { min-height: 44px; padding-block: 0.55rem; }
+  .setup-card--home .dropdown-trigger { min-height: 46px; }
+}
+
+@media (max-width: 699.98px) and (max-height: 680px) {
+  .setup-card--home .setup-copy,
+  .setup-card--compact .home-body,
+  .setup-card--compact .feature-list li:nth-child(n + 3),
+  .setup-card--compact .home-hint { display: none; }
+  .setup-card--home .home-intro { margin: 0.6rem 0; }
+  .home-panel { gap: 0.75rem; }
+  .home-grid { gap: 0.8rem; padding-bottom: 0.75rem; }
 }
 
 .home-summary { display: none; }
@@ -1836,7 +1869,11 @@ header {
 
 .home-actions { display: flex; gap: 0.6rem; }
 .home-actions > .begin-game,
-.home-actions > .btn-ghost { flex: 1 1 0; }
+.home-actions > .btn-ghost { flex: 1 1 0; min-width: 0; }
+@media (max-width: 699.98px) {
+  .home-actions { gap: 0.45rem; }
+  .home-actions > .begin-game, .home-actions > .btn-ghost { padding-inline: 0.45rem; font-size: 0.82rem; white-space: normal; }
+}
 @media (min-width: 700px) {
   .home-actions > .begin-game,
   .home-actions > .btn-ghost { flex: 0 0 auto; }

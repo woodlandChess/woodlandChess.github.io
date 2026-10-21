@@ -92,9 +92,20 @@ let resumePromise: Promise<void> | null = null
 function resumeFromGesture(): Promise<void> {
   const c = ensure()
   if (!c || c.state === 'running') return Promise.resolve()
-  // iOS Safari is most reliable when resume is requested synchronously from
-  // the pointer/touch gesture. Keep the promise so the triggering sound can
-  // play as soon as the context actually enters the running state.
+  // Prime the destination synchronously inside the trusted touch/click. A
+  // silent source is required by some iOS Safari releases before later nodes
+  // are audible, even after AudioContext.resume() resolves.
+  try {
+    const source = c.createOscillator()
+    const gain = c.createGain()
+    gain.gain.value = 0
+    source.connect(gain)
+    gain.connect(c.destination)
+    source.start()
+    source.stop(c.currentTime + 0.01)
+  } catch { /* resume below remains the fallback */ }
+  // Call resume on every trusted gesture: Safari can reject an earlier resume
+  // when it was initiated by a passive document listener.
   if (!resumePromise) {
     resumePromise = c.resume().catch(() => { /* retried on the next user gesture */ }).finally(() => { resumePromise = null })
   }
@@ -285,7 +296,9 @@ function play(name: SoundName): void {
   if (c.state === 'running') { playNow(name); return }
   // Safari/iOS can resolve resume after the click handler returns. Keep this
   // sound tied to the gesture that triggered it instead of silently dropping it.
-  void resumeFromGesture().then(() => playNow(name))
+  void resumeFromGesture().then(() => {
+    if (c.state === 'running') playNow(name)
+  })
 }
 
 export const sound = {
@@ -301,9 +314,7 @@ export const sound = {
     enabled = next
     try { localStorage.setItem(PREF_KEY, next ? '1' : '0') } catch { /* private mode */ }
     listeners.forEach(l => l())
-    if (next && opts.confirm !== false) {
-      void resumeFromGesture().then(() => playNow('move'))
-    }
+    if (next && opts.confirm !== false) play('move')
   },
   /** Prepares audio inside a user gesture (also done automatically on first tap/key). */
   unlock: resumeFromGesture,

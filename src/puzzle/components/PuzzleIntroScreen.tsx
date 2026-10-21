@@ -2,6 +2,7 @@ import type { GameEngine } from '../core/GameEngine';
 import { HomeFrame } from '../../components/HomeFrame';
 import type { ModeId } from '../../components/ModeNav';
 import { IconCalendar, IconOnline, IconPuzzle, IconVolume } from '../../components/ModeIcons';
+import { sound } from '../../sound';
 
 interface PuzzleIntroScreenProps {
   engine: GameEngine;
@@ -26,7 +27,7 @@ export function PuzzleIntroScreen({ engine, soundEnabled, onNavigate, loadError 
           className="icon-btn"
           aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
           aria-pressed={!soundEnabled}
-          onClick={() => engine.toggleSound()}
+          onClick={() => { void sound.unlock(); engine.toggleSound(); }}
         >
           <IconVolume muted={!soundEnabled} />
         </button>
