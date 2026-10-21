@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Chess, Color, Square } from 'chess.js'
 import { PIECE_SVGS, files, ranks, squareName } from './pieces'
-import { captureBoardPositions, useBoardFlip, type PieceGrid } from './boardAnimation'
+import { suppressNextBoardAnimation, useBoardFlip, type PieceGrid } from './boardAnimation'
 import { sound } from './sound'
 
 type BoardSquares = ReturnType<Chess['board']>
@@ -59,7 +59,6 @@ export function ChessBoard({
   const [dragFrom, setDragFrom] = useState<Square | null>(null)
   const suppressClick = useRef(false)
   const dragTargets = dragFrom ? getLegalTargets?.(dragFrom) ?? [] : []
-  const beforeChange = () => captureBoardPositions(animationRef.current)
 
   function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (!interactive || event.button !== 0) return
@@ -97,7 +96,7 @@ export function ChessBoard({
       suppressClick.current = true
       window.setTimeout(() => { suppressClick.current = false }, 0)
     }
-    if (target && target !== drag.from && (getLegalTargets?.(drag.from) ?? []).includes(target)) { beforeChange(); onDropMove?.(drag.from, target) }
+    if (target && target !== drag.from && (getLegalTargets?.(drag.from) ?? []).includes(target)) { suppressNextBoardAnimation(animationRef.current); onDropMove?.(drag.from, target) }
     Object.assign(image.style, { position: '', left: '', top: '', width: '', height: '', zIndex: '', pointerEvents: '', transition: '', transform: '' })
   }
 
@@ -130,7 +129,7 @@ export function ChessBoard({
               onPointerCancel={endDrag}
               onClick={() => {
                 if (suppressClick.current) { suppressClick.current = false; return }
-                if (interactive) { void sound.unlock(); beforeChange(); onSquareClick(square) }
+                if (interactive) { void sound.unlock(); onSquareClick(square) }
               }}
             >
               {screenCol === 0 && <small className="rank">{ranks[row]}</small>}
