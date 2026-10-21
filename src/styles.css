@@ -2732,3 +2732,20 @@ html.is-standalone .home-head, html.is-standalone .brand,
 html.is-standalone .brand-mark, html.is-standalone .brand-name {
   transform: none !important; filter: none !important; will-change: auto !important;
 }
+
+/* ── Installed app on newer iOS: clear the status-bar edge zone ──────────────
+   With viewport-fit=cover the page runs underneath the status bar, and newer iOS
+   draws a soft blur/fade "edge effect" over the top of the web view there. The
+   brand sat inside that zone, so its upper part looked blurred (only in the
+   installed app - Safari has its own toolbar instead). Start the content lower
+   so the brand is fully below it; the Begin button is pinned to the screen
+   bottom so it stays reachable. Tablet/desktop cards are unaffected. */
+@media (display-mode: standalone) and (max-width: 699.98px) {
+  .setup-card--home { padding-top: calc(var(--safe-top) + 1.5rem); }
+  .setup-card--home .home-intro { margin-top: 0.9rem; margin-bottom: 0.9rem; }
+  .setup-card--home .home-grid { gap: 1rem; }
+}
+html.is-standalone .setup-card--home { padding-top: calc(var(--safe-top) + 1.5rem); }
+@media (min-width: 700px) {
+  html.is-standalone .setup-card--home { padding-top: 2rem; }
+}
