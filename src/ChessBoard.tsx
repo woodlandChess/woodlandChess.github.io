@@ -57,6 +57,7 @@ export function ChessBoard({
   const setBoardRef = (node: HTMLDivElement | null) => { animationRef.current = node; if (boardRef) boardRef.current = node }
   const dragRef = useRef<{ from: Square; pointerId: number; image: HTMLImageElement; origin: DOMRect; pointerX: number; pointerY: number } | null>(null)
   const [dragFrom, setDragFrom] = useState<Square | null>(null)
+  const [dragMoved, setDragMoved] = useState(false)   // true only once the piece really leaves its square
   const suppressClick = useRef(false)
   const dragTargets = dragFrom ? getLegalTargets?.(dragFrom) ?? [] : []
 
@@ -80,6 +81,7 @@ export function ChessBoard({
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId || Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) < 6) return
     event.preventDefault()
+    if (!dragMoved) setDragMoved(true)
     const dx = event.clientX - drag.pointerX, dy = event.clientY - drag.pointerY
     Object.assign(drag.image.style, { position: 'fixed', left: `${drag.origin.left + dx}px`, top: `${drag.origin.top + dy}px`, width: `${drag.origin.width}px`, height: `${drag.origin.height}px`, zIndex: '10000', pointerEvents: 'none', transition: 'none', transform: 'scale(1.08)' })
   }
@@ -92,6 +94,7 @@ export function ChessBoard({
     const wasDragged = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6
     const target = wasDragged ? squareAtPoint(animationRef.current, event.clientX, event.clientY, orientation) : undefined
     setDragFrom(null)
+    setDragMoved(false)
     if (wasDragged) {
       suppressClick.current = true
       window.setTimeout(() => { suppressClick.current = false }, 0)
@@ -122,7 +125,7 @@ export function ChessBoard({
               disabled={!interactive}
               aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
               className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? '', piece ? `has-piece piece-t-${piece.type}` : ''].filter(Boolean).join(' ')}
-              data-dragging={dragFrom === square ? '' : undefined}
+              data-dragging={dragMoved && dragFrom === square ? '' : undefined}
               data-square={square}
               onPointerDown={startDrag}
               onPointerMove={moveDrag}
@@ -142,6 +145,7 @@ export function ChessBoard({
                   src={PIECE_SVGS[piece.color][piece.type]}
                   alt={`${piece.color === 'w' ? 'white' : 'black'} ${piece.type}`}
                   draggable={false}
+                  decoding="sync"
                 />
               )}
               {interactive && (legalTargets.includes(square) || dragTargets.includes(square)) && (

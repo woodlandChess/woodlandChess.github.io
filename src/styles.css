@@ -699,7 +699,6 @@ header {
   background: var(--accent-bright);
   opacity: 0.45;
   pointer-events: none;
-  animation: subtlePulse 2s var(--ease) infinite;
 }
 
 .capture {
@@ -2398,7 +2397,7 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
      arrival    a soft pool of lamplight, brightest behind the piece and easing to
                 a gentle tint at the corners, so neighbours melt into each other
      departure  a faint diagonal wash with a small ember where the piece stood
-   The light fades in once when a move lands; nothing moves, so nothing jumps. */
+   The light is static (no fade, no pulse) so a move never makes the board flash. */
 :root {
   --tr-w: 230, 227, 218;
   --tr-b: 124, 136, 145;
@@ -2408,9 +2407,7 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  animation: trailIn 0.55s var(--ease) both;
 }
-@keyframes trailIn { from { opacity: 0; } to { opacity: 1; } }
 
 .square.trail-w-to::before   { background: radial-gradient(circle at 50% 48%, rgba(var(--tr-w), 0.46) 0%, rgba(var(--tr-w), 0.30) 46%, rgba(var(--tr-w), 0.13) 100%); }
 .square.trail-b-to::before   { background: radial-gradient(circle at 50% 48%, rgba(var(--tr-b), 0.70) 0%, rgba(var(--tr-b), 0.46) 46%, rgba(var(--tr-b), 0.20) 100%); }
@@ -2561,7 +2558,7 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
   .gr-card { width: 100%; padding-bottom: max(0.9rem, var(--safe-bottom)); border-left: 0; border-right: 0; border-bottom: 0; animation: grSheet 0.45s var(--ease-liturgy) both; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gr-card, .gr-backdrop, .square[class*="trail-"]::before { animation: none; }
+  .gr-card, .gr-backdrop { animation: none; }
 }
 
 /* ============================================================
@@ -2789,17 +2786,14 @@ html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
    The old soft drop-shadow was offset below and blurred around the whole
    silhouette, which reads as a piece hovering above the board. Now each piece has
    a tight, dark ellipse exactly under its base (wider for heavier pieces), plus a
-   thin crisp edge from the filter. Whilst a piece slides, the sprite carries its
-   own shadow and the square's shadow is hidden until it lands. */
+   thin crisp edge from the filter. Whilst a piece slides it is lifted, so the
+   square's shadow is hidden and fades back in when the piece lands. */
 .square { --shadow-w: 46%; }
 .piece-t-p { --shadow-w: 38%; }
 .piece-t-n, .piece-t-b { --shadow-w: 46%; }
 .piece-t-r { --shadow-w: 52%; }
 .piece-t-q, .piece-t-k { --shadow-w: 56%; }
-.piece-sprite { --shadow-w: 46%; }
-
-.square.has-piece::after,
-.piece-sprite__shadow {
+.square.has-piece::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -2812,16 +2806,7 @@ html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
     rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.18) 68%, rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
   z-index: 1;
+  transition: opacity 0.16s ease-out;       /* settles in as the piece lands */
 }
-.square[data-landing]::after,
-.square[data-dragging]::after { opacity: 0; }
-
-.piece-sprite {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  z-index: 40;
-  contain: layout;
-}
-.piece-sprite .piece-svg { z-index: 2; }
+.square[data-landing]::after { opacity: 0; transition: none; }
+.square[data-dragging]::after { opacity: 0; transition: none; }
