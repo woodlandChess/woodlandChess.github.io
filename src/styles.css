@@ -4,7 +4,7 @@
    Mobile-first: base rules target phones; larger screens are
    progressively enhanced via min-width media queries.
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Jost:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap');
 
 *, *::before, *::after {
   margin: 0;
@@ -240,22 +240,25 @@ a { color: inherit; text-decoration: none; }
   /* Inline SVG knight: fixed box so it can never compress in a flex row */
   display: block;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   aspect-ratio: 1 / 1;
-  color: var(--text-2);
+  color: var(--text);
   shape-rendering: geometricPrecision;
 }
 
 .brand-name {
+  /* Weight 400 (not 300): hairline italic strokes at ~17px get smeared by iOS
+     home-screen text rendering and read as "blurry". Heavier strokes + a bit
+     more size stay sharp at any pixel density. */
   font-family: var(--font-display);
   font-style: italic;
-  font-weight: 300;
-  font-size: 1.05rem;
+  font-weight: 500;
+  font-size: 1.3rem;
+  line-height: 1.2;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* Setup eyebrow + heading - tight unit, spaced away from siblings */
