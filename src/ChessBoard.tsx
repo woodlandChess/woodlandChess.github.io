@@ -107,7 +107,7 @@ export function ChessBoard({
   }
 
   return (
-    <div ref={setBoardRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board">
+    <div ref={setBoardRef} className={`board${interactive ? '' : ' board--locked'}`} role="grid" aria-label="Chess board" onContextMenu={e => e.preventDefault()}>
       {rowOrder.flatMap((row, screenRow) =>
         colOrder.map((col, screenCol) => {
           const square = squareName(files[col], ranks[row])
