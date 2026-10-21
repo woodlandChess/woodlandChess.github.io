@@ -882,14 +882,14 @@ header {
   --piece-filter-w:
     sepia(0.18)
     brightness(0.91)
-    drop-shadow(0 2px 5px rgba(0,0,0,0.70));
+    drop-shadow(0 1px 1px rgba(0,0,0,0.55));
 
   --piece-filter-b:
     invert(0.72)
     hue-rotate(194deg)
     saturate(0.55)
     brightness(0.96)
-    drop-shadow(0 2px 5px rgba(0,0,0,0.80));
+    drop-shadow(0 1px 1px rgba(0,0,0,0.65));
 }
 
 /* ============================================================
@@ -995,14 +995,14 @@ header {
     brightness(2.0)
     sepia(0.10)
     saturate(0.90)
-    drop-shadow(0 2px 4px rgba(0,0,0,0.60));
+    drop-shadow(0 1px 1px rgba(0,0,0,0.55));
 
   /* Black pieces: neutral gray → cool steel #9aa3a8 */
   --piece-filter-b:
     brightness(1.28)
     hue-rotate(196deg)
     saturate(0.72)
-    drop-shadow(0 2px 6px rgba(0,0,0,0.85));
+    drop-shadow(0 1px 1px rgba(0,0,0,0.65));
 }
 
 /* ── piece image layout ─────────────────────────────────────────────────── */
@@ -2783,3 +2783,45 @@ html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
 .board::selection,
 .board-wrap ::selection { background: transparent; color: inherit; }
 .board img, .promotion-pieces img { pointer-events: none; }
+
+
+/* ── Pieces sit ON the board: contact shadow ─────────────────────────────────
+   The old soft drop-shadow was offset below and blurred around the whole
+   silhouette, which reads as a piece hovering above the board. Now each piece has
+   a tight, dark ellipse exactly under its base (wider for heavier pieces), plus a
+   thin crisp edge from the filter. Whilst a piece slides, the sprite carries its
+   own shadow and the square's shadow is hidden until it lands. */
+.square { --shadow-w: 46%; }
+.piece-t-p { --shadow-w: 38%; }
+.piece-t-n, .piece-t-b { --shadow-w: 46%; }
+.piece-t-r { --shadow-w: 52%; }
+.piece-t-q, .piece-t-k { --shadow-w: 56%; }
+.piece-sprite { --shadow-w: 46%; }
+
+.square.has-piece::after,
+.piece-sprite__shadow {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 14.5%;                 /* the base of the artwork sits ~19% above the square's bottom */
+  width: var(--shadow-w);
+  height: 11%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.18) 68%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.square[data-landing]::after,
+.square[data-dragging]::after { opacity: 0; }
+
+.piece-sprite {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 40;
+  contain: layout;
+}
+.piece-sprite .piece-svg { z-index: 2; }

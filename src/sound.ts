@@ -1,14 +1,18 @@
 // ── Woodland sound ──────────────────────────────────────────────────────────
 //
 // A tiny synth - no audio files to ship - voiced like a quiet private library:
-//   • pieces are set down on felted walnut: a round, low "tok" with a soft,
-//     filtered knock on top (never a click, never bright)
-//   • captures are two bodies meeting; check is a muted mallet-bell
+//   • pieces are set down on a wooden board: a crisp contact "clack", a woody
+//     knock with a few ringing resonances, the piece's own thud and the hollow
+//     boom of the board underneath
+//   • captures are a harder strike of wood on wood, with the captured piece
+//     knocked aside; check is a muted mallet-bell
 //   • results are slow glockenspiel phrases (rising = win, falling = loss)
 // Everything runs through one gentle compressor and a short warm room reverb,
 // with small random variation so repeated moves never sound machine-gunned.
 //
 // One shared on/off preference drives every mode (Computer, Online, Puzzles).
+
+import { landingDelayMs } from './boardTiming'
 
 export type SoundName =
   | 'move' | 'capture' | 'check' | 'castle' | 'promote'
@@ -209,23 +213,64 @@ function pad(c: AudioContext, t: number, f: number, dur: number, peak: number) {
 
 const vary = (amount = 0.06) => 1 + (Math.random() * 2 - 1) * amount
 
-/** One piece set down. `weight` shifts it lower and heavier (king/rook feel).
- *  Every layer starts on the SAME instant: staggering layers by a few ms made
- *  one move sound like a double tap ("tac-tac"). */
+/** A few ms of bright noise: the hard contact of wood meeting wood. */
+function tick(c: AudioContext, t: number, peak: number, dur: number, hp = 2200) {
+  if (!noiseBuf) return
+  const src = c.createBufferSource()
+  src.buffer = noiseBuf
+  const f = c.createBiquadFilter()
+  f.type = 'highpass'
+  f.frequency.value = hp * vary(0.1)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(peak, t + 0.0009)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(f); f.connect(g)
+  wire(c, g, 0.03)
+  src.start(t, Math.random() * 0.4)
+  src.stop(t + dur + 0.02)
+}
+
+/** One ringing resonance of the wood: a quickly dying, barely falling sine. */
+function mode(c: AudioContext, t: number, f: number, dur: number, peak: number) {
+  body(c, t, f, f * 0.975, dur, peak, { type: 'sine', lp: 6000, wet: 0.04 })
+}
+
+interface HitOpts { gain?: number; pitch?: number; hard?: number }
+
+/**
+ * Wooden piece meeting a wooden board. All layers start on the SAME instant
+ * (staggering them made one move sound like a double tap):
+ *   contact click + woody knock  -> the hard surface
+ *   three resonant modes         -> what makes it read as wood, not plastic
+ *   piece thud + hollow board    -> weight; the board is a resonating box
+ */
+function woodHit(c: AudioContext, t: number, { gain = 1, pitch = 1, hard = 1 }: HitOpts = {}) {
+  const p = pitch * vary(0.05)
+  tick(c, t, 0.30 * gain * hard, 0.007)
+  knock(c, t, 1350 * p, 0.04, 0.26 * gain * hard)
+  mode(c, t, 760 * p, 0.065, 0.20 * gain)
+  mode(c, t, 1730 * p, 0.038, 0.09 * gain)
+  mode(c, t, 2950 * p, 0.022, 0.04 * gain * hard)
+  body(c, t, 235 * p, 150 * p, 0.12, 0.28 * gain, { type: 'triangle', lp: 800, wet: 0.04 })
+  body(c, t, 128 * p, 84 * p, 0.2, 0.40 * gain, { type: 'sine', lp: 420, wet: 0.1 })
+}
+
+/** One piece set down. `weight` below 1 sounds heavier and lower (castling, captures). */
 function place(c: AudioContext, t: number, gain = 1, weight = 1) {
-  const f = 148 * vary(0.06) * weight
-  knock(c, t, 980 * vary(0.08), 0.05, 0.28 * gain)
-  knock(c, t, 410 * vary(0.07), 0.08, 0.17 * gain)
-  body(c, t, f, f * 0.58, 0.14, 0.22 * gain * vary(0.06), { type: 'triangle', lp: 1150, wet: 0.06 })
-  body(c, t, f * 0.53, f * 0.4, 0.18, 0.17 * gain, { type: 'sine', lp: 620, wet: 0.08 })
+  woodHit(c, t, { gain: 0.72 * gain, pitch: weight })
 }
 
 const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
   move: (c, t) => place(c, t),
 
+  // A strike: harder, louder and lower than a quiet move, a sharp crack on top,
+  // then the captured piece knocked aside (two soft, lower, uneven taps).
   capture: (c, t) => {
-    place(c, t, 1.15, 0.88)
-    knock(c, t, 2300, 0.045, 0.12)
+    woodHit(c, t, { gain: 0.92, pitch: 0.88, hard: 1.5 })
+    tick(c, t, 0.2, 0.012, 3200)
+    knock(c, t + 0.045, 900 * vary(0.1), 0.03, 0.09)
+    body(c, t + 0.078, 330 * vary(0.08), 250, 0.06, 0.06, { type: 'triangle', lp: 900, wet: 0.04 })
   },
 
   check: (c, t) => {
@@ -304,12 +349,12 @@ export function scheduleSlot(
   return start - now > PIECE_MAX_DELAY ? null : start
 }
 
-function playNow(name: SoundName): void {
+function playNow(name: SoundName, delay = 0): void {
   if (!enabled) return
   const c = ensure()
   if (!c || !bus) return
   if (c.state !== 'running') return
-  const now = c.currentTime + 0.005
+  const now = c.currentTime + 0.005 + delay
   const t = scheduleSlot(now, lastPieceAt, name, lastName, lastNameAt)
   if (t === null) return
   lastName = name
@@ -320,20 +365,22 @@ function playNow(name: SoundName): void {
 
 // While the context is still waking up (iOS), keep only the NEWEST request.
 // Replaying every queued request at once is what produced stacked "double" hits.
-let pending: { name: SoundName; at: number } | null = null
+let pending: { name: SoundName; at: number; delay: number } | null = null
 
 function play(name: SoundName): void {
   if (!enabled) return
   const c = ensure()
   if (!c || !bus) return
-  if (c.state === 'running') { playNow(name); return }
-  pending = { name, at: performance.now() }
+  // A piece sound waits for the slide so the click lands with the piece.
+  const delay = PIECE_SOUNDS.has(name) ? landingDelayMs() / 1000 : 0
+  if (c.state === 'running') { playNow(name, delay); return }
+  pending = { name, at: performance.now(), delay }
   void resumeFromGesture().then(() => {
     const req = pending
     pending = null
     if (!req || c.state !== 'running') return
     if (performance.now() - req.at > 400) return          // too late to still feel connected
-    playNow(req.name)
+    playNow(req.name, req.delay)
   })
 }
 
