@@ -163,7 +163,6 @@ export function App() {
     const g = gameRef.current
     const h = g.history({ verbose: true })
     captureBoardPositions(boardDomRef.current)
-    captureBoardPositions(boardDomRef.current)
     setFen(g.fen())
     setHistory(h)
     setSelected(null)
@@ -219,7 +218,7 @@ export function App() {
       const played   = current.history({ verbose: true }).map(m => `${m.from}${m.to}${m.promotion ?? ''}`)
       const bookMove = schoolBookMove(school, played)
       const uci      = bookMove ?? await engineRef.current?.bestMove(current.fen(), difficulty) ?? null
-      if (!uci || current !== gameRef.current || current.isGameOver()) return
+      if (!uci || current !== gameRef.current || current.isGameOver() || current.turn() === playerRef.current) return
       try {
         gameRef.current.move({ from: uci.slice(0,2) as Square, to: uci.slice(2,4) as Square, promotion: uci[4] })
         sync()

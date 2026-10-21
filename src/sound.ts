@@ -39,14 +39,14 @@ function createContext(): AudioContext | null {
 
 /** A short, dark room: exponentially decaying noise, smoothed so it stays warm. */
 function roomImpulse(c: AudioContext): AudioBuffer {
-  const seconds = 1.4
+  const seconds = 0.9
   const len = Math.floor(c.sampleRate * seconds)
   const buf = c.createBuffer(2, len, c.sampleRate)
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch)
     let lp = 0
     for (let i = 0; i < len; i++) {
-      const decay = Math.pow(1 - i / len, 2.6)
+      const decay = Math.pow(1 - i / len, 3.2)
       lp += ((Math.random() * 2 - 1) - lp) * 0.22        // one-pole low-pass = warm tail
       data[i] = lp * decay
     }
@@ -209,25 +209,23 @@ function pad(c: AudioContext, t: number, f: number, dur: number, peak: number) {
 
 const vary = (amount = 0.06) => 1 + (Math.random() * 2 - 1) * amount
 
-/** One piece set down. `weight` shifts it lower and heavier (king/rook feel). */
+/** One piece set down. `weight` shifts it lower and heavier (king/rook feel).
+ *  Every layer starts on the SAME instant: staggering layers by a few ms made
+ *  one move sound like a double tap ("tac-tac"). */
 function place(c: AudioContext, t: number, gain = 1, weight = 1) {
   const f = 148 * vary(0.06) * weight
-  // A woody broadband contact first, followed by a restrained low body
-  // resonance. Keep the tonal part quiet so moves read as wood on felt,
-  // rather than a rounded synthetic beep.
-  knock(c, t, 980 * vary(0.08), 0.055, 0.31 * gain)
-  knock(c, t + 0.008, 410 * vary(0.07), 0.085, 0.19 * gain)
-  body(c, t + 0.003, f, f * 0.58, 0.13, 0.24 * gain * vary(0.06), { type: 'triangle', lp: 1150, wet: 0.16 })
-  body(c, t + 0.012, f * 0.53, f * 0.4, 0.2, 0.2 * gain, { type: 'sine', lp: 620, wet: 0.22 })
+  knock(c, t, 980 * vary(0.08), 0.05, 0.28 * gain)
+  knock(c, t, 410 * vary(0.07), 0.08, 0.17 * gain)
+  body(c, t, f, f * 0.58, 0.14, 0.22 * gain * vary(0.06), { type: 'triangle', lp: 1150, wet: 0.06 })
+  body(c, t, f * 0.53, f * 0.4, 0.18, 0.17 * gain, { type: 'sine', lp: 620, wet: 0.08 })
 }
 
 const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
   move: (c, t) => place(c, t),
 
   capture: (c, t) => {
-    place(c, t, 1.05, 0.9)
-    place(c, t + 0.048, 0.7, 0.75)
-    knock(c, t + 0.01, 2300, 0.05, 0.14)
+    place(c, t, 1.15, 0.88)
+    knock(c, t, 2300, 0.045, 0.12)
   },
 
   check: (c, t) => {
@@ -281,23 +279,61 @@ const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
+// Piece sounds go through a small gate so two moves in quick succession (our
+// move + an instant engine/online reply) never land on top of each other and
+// smear into one doubled click.
+const PIECE_SOUNDS: ReadonlySet<SoundName> = new Set<SoundName>(['move', 'capture', 'check', 'castle', 'promote'])
+/** Minimum distance between two piece sounds, in seconds. */
+export const PIECE_GAP = 0.11
+/** A piece sound that would have to wait longer than this is stale: drop it. */
+export const PIECE_MAX_DELAY = 0.3
+/** Identical sound requested again within this window is the same event. */
+export const DUPLICATE_WINDOW = 0.035
+
+let lastPieceAt = -Infinity
+let lastName: SoundName | null = null
+let lastNameAt = -Infinity
+
+/** Pure scheduling rule (exported for tests). Returns the start time, or null to drop. */
+export function scheduleSlot(
+  now: number, lastStart: number, name: SoundName, prev: SoundName | null, prevAt: number,
+): number | null {
+  if (name === prev && now - prevAt < DUPLICATE_WINDOW) return null
+  if (!PIECE_SOUNDS.has(name)) return now
+  const start = Math.max(now, lastStart + PIECE_GAP)
+  return start - now > PIECE_MAX_DELAY ? null : start
+}
+
 function playNow(name: SoundName): void {
   if (!enabled) return
   const c = ensure()
   if (!c || !bus) return
   if (c.state !== 'running') return
-  VOICES[name](c, c.currentTime + 0.005)
+  const now = c.currentTime + 0.005
+  const t = scheduleSlot(now, lastPieceAt, name, lastName, lastNameAt)
+  if (t === null) return
+  lastName = name
+  lastNameAt = now
+  if (PIECE_SOUNDS.has(name)) lastPieceAt = t
+  VOICES[name](c, t)
 }
+
+// While the context is still waking up (iOS), keep only the NEWEST request.
+// Replaying every queued request at once is what produced stacked "double" hits.
+let pending: { name: SoundName; at: number } | null = null
 
 function play(name: SoundName): void {
   if (!enabled) return
   const c = ensure()
   if (!c || !bus) return
   if (c.state === 'running') { playNow(name); return }
-  // Safari/iOS can resolve resume after the click handler returns. Keep this
-  // sound tied to the gesture that triggered it instead of silently dropping it.
+  pending = { name, at: performance.now() }
   void resumeFromGesture().then(() => {
-    if (c.state === 'running') playNow(name)
+    const req = pending
+    pending = null
+    if (!req || c.state !== 'running') return
+    if (performance.now() - req.at > 400) return          // too late to still feel connected
+    playNow(req.name)
   })
 }
 
