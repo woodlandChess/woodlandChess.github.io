@@ -59,7 +59,8 @@ function loadPrefs(): MenuPrefs {
     for (const p of PERF_ORDER) {
       if (timeControlsFor(p).some(t => t.id === raw.byPerf?.[p])) byPerf[p] = raw.byPerf[p]
     }
-    return { perf, byPerf, rated: raw.rated !== false }
+    // Every online game is rated: the Rated/Casual choice was removed from the menu.
+    return { perf, byPerf, rated: true }
   } catch {
     return DEFAULT_PREFS
   }
@@ -777,19 +778,6 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               })}
             </div>
           </div>
-
-          <fieldset className="field rated-field">
-            <legend className="field-label">Game type</legend>
-            <div className="seg" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-              {([true, false] as const).map(r => (
-                <label key={String(r)} className="seg-opt">
-                  <input type="radio" name="rated" checked={prefs.rated === r} onChange={() => updatePrefs({ ...prefs, rated: r })} />
-                  <span className="seg-face">{r ? 'Rated' : 'Casual'}</span>
-                </label>
-              ))}
-            </div>
-            <p className="field-hint">{prefs.rated ? 'Results change your rating.' : 'Practice games - your rating is not affected.'}</p>
-          </fieldset>
         </div>
       </HomeFrame>
     )

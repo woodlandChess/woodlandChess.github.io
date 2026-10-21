@@ -2749,3 +2749,17 @@ html.is-standalone .setup-card--home { padding-top: calc(var(--safe-top) + 1.5re
 @media (min-width: 700px) {
   html.is-standalone .setup-card--home { padding-top: 2rem; }
 }
+
+/* ── Installed iOS app: keep the in-game and puzzle headers below the status-bar
+   edge zone too (same reason as the menu screens above). The board sizes subtract
+   the same amount so nothing is pushed off-screen. ───────────────────────── */
+@media (display-mode: standalone) and (max-width: 699.98px) {
+  .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
+  .gm-board .board { width: min(100%, calc(100dvh - 400px - 1.1rem)); }
+  .puzzle-shell .hdr { padding-top: calc(var(--safe-top) + 1.1rem); }
+  .puzzle-shell .board-wrap { width: min(100%, calc(100dvh - 420px - 1.1rem)); }
+}
+html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
+@media (min-width: 700px) {
+  html.is-standalone .gm { padding-top: var(--safe-top); }
+}
