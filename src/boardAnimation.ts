@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
+import { markDragDrop, slideMs } from './boardTiming'
 
 export interface AnimatedPiece { color: string; type: string }
 export type PieceGrid = (AnimatedPiece | null)[][]
@@ -33,6 +34,7 @@ const suppressed = new WeakMap<HTMLElement, number>()
 
 /** Call right before committing a move the player already showed by dragging the piece. */
 export function suppressNextBoardAnimation(root: HTMLElement | null) {
+  markDragDrop()
   if (root) suppressed.set(root, performance.now())
 }
 
@@ -127,47 +129,88 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       const toSq = root.querySelector<HTMLElement>(`[data-square="${squareAt(to[0], to[1])}"]`)
       const image = toSq?.querySelector<HTMLImageElement>('.piece-svg')
       if (!fromSq || !toSq || !image) continue
-      const a = fromSq.getBoundingClientRect(), b = toSq.getBoundingClientRect(), p = image.getBoundingClientRect()
+      const a = fromSq.getBoundingClientRect(), b = toSq.getBoundingClientRect()
       const dx = a.left - b.left, dy = a.top - b.top
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue
 
-      const sprite = image.cloneNode(true) as HTMLImageElement
-      sprite.setAttribute('aria-hidden', 'true'); sprite.alt = ''
-      Object.assign(sprite.style, {
-        position: 'absolute',
-        left: `${p.left - rootRect.left - root.clientLeft}px`,
-        top: `${p.top - rootRect.top - root.clientTop}px`,
-        width: `${p.width}px`, height: `${p.height}px`,
-        margin: '0', transition: 'none', pointerEvents: 'none', zIndex: '40', willChange: 'transform',
+      // The sprite is a whole square-sized stage holding the piece AND its own
+      // contact shadow, so the shadow travels, shrinks while the piece is lifted
+      // and stays glued under the base. The real square's shadow is hidden meanwhile.
+      const stage = document.createElement('div')
+      stage.className = `piece-sprite piece-t-${image.dataset.piece?.[1] ?? 'p'}`
+      stage.setAttribute('aria-hidden', 'true')
+      Object.assign(stage.style, {
+        left: `${b.left - rootRect.left - root.clientLeft}px`,
+        top: `${b.top - rootRect.top - root.clientTop}px`,
+        width: `${b.width}px`, height: `${b.height}px`,
       })
-      root.append(sprite)
+      const shadow = document.createElement('span')
+      shadow.className = 'piece-sprite__shadow'
+      const sprite = image.cloneNode(true) as HTMLImageElement
+      sprite.alt = ''
+      sprite.style.transition = 'none'
+      stage.append(shadow, sprite)
+      root.append(stage)
       const priorVisibility = image.style.visibility
       image.style.visibility = 'hidden'
+      toSq.dataset.landing = '1'
 
-      const squares = Math.max(Math.abs(dx), Math.abs(dy)) / Math.max(1, b.width)
-      const duration = Math.round((reduce ? 0.6 : 1) * Math.min(320, 150 + squares * 28))
+      const duration = slideMs()
       let done = false
       let timer = 0
       let anim: Animation | null = null
-      const finish: Finisher = () => {
+      const finish = (landed = false) => {
         if (done) return
         done = true
         window.clearTimeout(timer)
         try { anim?.cancel() } catch { /* already finished */ }
-        sprite.remove()
+        stage.remove()
         image.style.visibility = priorVisibility
-        active.current.delete(finish)
+        delete toSq.dataset.landing
+        active.current.delete(interrupt)
+        // Weight: the piece compresses a touch as it settles onto the board.
+        if (landed && !reduce) {
+          try {
+            image.animate(
+              [{ transform: 'scale(1.025, 0.955)', transformOrigin: '50% 92%' }, { transform: 'scale(1, 1)', transformOrigin: '50% 92%' }],
+              { duration: 140, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+            )
+          } catch { /* decorative only */ }
+        }
       }
-      active.current.add(finish)
+      const interrupt: Finisher = () => finish(false)
+      active.current.add(interrupt)
       try {
-        anim = sprite.animate(
+        // Heavy: a deliberate start, a firm stop. The piece lifts off the board,
+        // travels slightly raised, and is set back down.
+        anim = stage.animate(
           [{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }],
-          { duration, easing: reduce ? 'ease-out' : 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' },
+          { duration, easing: reduce ? 'ease-out' : 'cubic-bezier(0.42, 0, 0.2, 1)', fill: 'both' },
         )
-        anim.onfinish = finish
-        anim.oncancel = finish
-      } catch { finish(); continue }
-      timer = window.setTimeout(finish, duration + 250)      // failsafe: the real piece always comes back
+        anim.onfinish = () => finish(true)
+        anim.oncancel = () => finish(false)
+        if (!reduce) {
+          sprite.animate(
+            [
+              { transform: 'translateY(0) scale(1)', offset: 0 },
+              { transform: 'translateY(-7%) scale(1.07)', offset: 0.28 },
+              { transform: 'translateY(-4%) scale(1.04)', offset: 0.72 },
+              { transform: 'translateY(0) scale(1)', offset: 1 },
+            ],
+            { duration, easing: 'ease-in-out', fill: 'both' },
+          )
+          shadow.animate(
+            [
+              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 0 },
+              { transform: 'translateX(-50%) scale(0.86)', opacity: 0.55, offset: 0.28 },
+              { transform: 'translateX(-50%) scale(0.9)', opacity: 0.62, offset: 0.72 },
+              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 1 },
+            ],
+            { duration, easing: 'ease-in-out', fill: 'both' },
+          )
+        }
+      } catch { finish(false); continue }
+      timer = window.setTimeout(() => finish(true), duration + 250)   // failsafe: the real piece always comes back
     }
     // Intentionally keyed on the position signature only (see header comment).
     // eslint-disable-next-line react-hooks/exhaustive-deps

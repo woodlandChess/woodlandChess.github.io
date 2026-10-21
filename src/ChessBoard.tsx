@@ -121,7 +121,8 @@ export function ChessBoard({
               type="button"
               disabled={!interactive}
               aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
-              className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? ''].filter(Boolean).join(' ')}
+              className={['square', dark ? 'dark' : 'light', selected === square ? 'selected' : '', isLast ? 'last' : '', marks.get(square) ?? '', piece ? `has-piece piece-t-${piece.type}` : ''].filter(Boolean).join(' ')}
+              data-dragging={dragFrom === square ? '' : undefined}
               data-square={square}
               onPointerDown={startDrag}
               onPointerMove={moveDrag}

@@ -117,6 +117,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
               dark ? 'dark' : 'light',
               isSelected(r, c) ? 'selected' : '',
               isHint(r, c) ? 'hint-sq' : '',
+              cell ? `has-piece piece-t-${cell.type.toLowerCase()}` : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -128,6 +129,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
                 role="gridcell"
                 className={classes}
                 data-square={squareName}
+                data-dragging={dragFrom === squareName ? '' : undefined}
                 aria-label={
                   cell
                     ? `${squareName} ${cell.color === 'w' ? 'white' : 'black'} ${cell.type.toLowerCase()}`

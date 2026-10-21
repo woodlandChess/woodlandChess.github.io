@@ -46,3 +46,13 @@ describe('scheduleSlot (no doubled piece sounds)', () => {
     expect(scheduleSlot(10.01, 10, 'notify', 'move', 10)).toBe(10.01)
   })
 })
+
+describe('landing delay (sound waits for the piece)', () => {
+  it('waits for the slide, but not after a drag-and-drop', async () => {
+    const { landingDelayMs, markDragDrop } = await import('./boardTiming')
+    expect(landingDelayMs(1000)).toBeGreaterThan(100)
+    markDragDrop(1000)
+    expect(landingDelayMs(1020)).toBe(0)
+    expect(landingDelayMs(1200)).toBeGreaterThan(100)
+  })
+})
