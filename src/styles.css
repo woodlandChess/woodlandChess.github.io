@@ -2763,3 +2763,23 @@ html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
 @media (min-width: 700px) {
   html.is-standalone .gm { padding-top: var(--safe-top); }
 }
+
+/* ── No text/image selection or long-press highlight on any board ───────────
+   Holding a finger on the board used to start iOS/Android text selection (blue
+   highlight over squares, labels and pieces) and the image callout. Applies to
+   every mode: Computer, Online, Puzzles, the promotion picker and sprites. */
+.board,
+.board *,
+.board-wrap,
+.promotion-pieces,
+.promotion-pieces * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
+}
+.board ::selection,
+.board::selection,
+.board-wrap ::selection { background: transparent; color: inherit; }
+.board img, .promotion-pieces img { pointer-events: none; }

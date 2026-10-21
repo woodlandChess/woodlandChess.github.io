@@ -104,6 +104,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
         ref={animationRef}
         className={`board${shake ? ' shake' : ''}`}
         role="grid"
+        onContextMenu={e => e.preventDefault()}
         aria-label="Chess puzzle board"
       >
         {Array.from({ length: 8 }).map((_, r) =>
