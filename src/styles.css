@@ -240,8 +240,8 @@ a { color: inherit; text-decoration: none; }
   /* Inline SVG knight: fixed box so it can never compress in a flex row */
   display: block;
   flex: 0 0 auto;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 28px;
+  height: 28px;
   aspect-ratio: 1 / 1;
   color: var(--text-2);
   shape-rendering: geometricPrecision;
@@ -2706,3 +2706,26 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
 .gm-head-actions { flex-shrink: 0; }
 
 
+
+
+/* ── Installed (home-screen) app: keep every layer crisp ─────────────────────
+   iOS standalone web apps rasterise composited layers (opacity/transform
+   animations, will-change, scroll containers) at reduced resolution. Drop every
+   entrance animation on the menu screens and keep the brand on the plain,
+   un-composited text/vector path. */
+@media (display-mode: standalone) {
+  .setup-card--home,
+  .setup-card--home * { animation: none !important; }
+  .home-head, .brand, .brand-mark, .brand-name {
+    transform: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    -webkit-backface-visibility: visible;
+  }
+}
+html.is-standalone .setup-card--home,
+html.is-standalone .setup-card--home * { animation: none !important; }
+html.is-standalone .home-head, html.is-standalone .brand,
+html.is-standalone .brand-mark, html.is-standalone .brand-name {
+  transform: none !important; filter: none !important; will-change: auto !important;
+}
