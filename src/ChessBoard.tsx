@@ -2,11 +2,23 @@ import { useRef, useState } from 'react'
 import type { Chess, Color, Square } from 'chess.js'
 import { PIECE_SVGS, files, ranks, squareName } from './pieces'
 import { captureBoardPositions, useBoardFlip, type PieceGrid } from './boardAnimation'
+import { sound } from './sound'
 
 type BoardSquares = ReturnType<Chess['board']>
 
 /** One highlighted move. `color` is the side that played it, so the highlight matches the pieces. */
 export interface TrailMove { from: Square; to: Square; color: Color }
+
+function squareAtPoint(board: HTMLDivElement | null, x: number, y: number, orientation: Color): Square | undefined {
+  if (!board) return undefined
+  const rect = board.getBoundingClientRect()
+  if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) return undefined
+  const screenCol = Math.min(7, Math.floor((x - rect.left) / (rect.width / 8)))
+  const screenRow = Math.min(7, Math.floor((y - rect.top) / (rect.height / 8)))
+  const file = orientation === 'w' ? screenCol : 7 - screenCol
+  const rank = orientation === 'w' ? 8 - screenRow : screenRow + 1
+  return `${String.fromCharCode(97 + file)}${rank}` as Square
+}
 
 /**
  * Shared chessboard grid, used by both the vs-Computer mode and the Lichess
@@ -19,7 +31,7 @@ export interface TrailMove { from: Square; to: Square; color: Color }
  */
 export function ChessBoard({
   board, onSquareClick, selected, legalTargets, lastFrom, lastTo, trail,
-  orientation = 'w', interactive = true, beforeBoardChange, boardRef, getLegalTargets, onDropMove,
+  orientation = 'w', interactive = true, boardRef, getLegalTargets, onDropMove,
 }: {
   board: BoardSquares
   onSquareClick: (square: Square) => void
@@ -35,7 +47,6 @@ export function ChessBoard({
   trail?: TrailMove[]
   orientation?: Color
   interactive?: boolean
-  beforeBoardChange?: () => void
   boardRef?: React.RefObject<HTMLDivElement | null>
   getLegalTargets?: (from: Square) => Square[]
   onDropMove?: (from: Square, to: Square) => void
@@ -48,10 +59,11 @@ export function ChessBoard({
   const [dragFrom, setDragFrom] = useState<Square | null>(null)
   const suppressClick = useRef(false)
   const dragTargets = dragFrom ? getLegalTargets?.(dragFrom) ?? [] : []
-  const beforeChange = () => { captureBoardPositions(animationRef.current); beforeBoardChange?.() }
+  const beforeChange = () => captureBoardPositions(animationRef.current)
 
   function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (!interactive || event.button !== 0) return
+    void sound.unlock()
     const squareEl = (event.target as HTMLElement).closest<HTMLElement>('[data-square]')
     const from = squareEl?.dataset.square as Square | undefined
     if (!squareEl || !from) return
@@ -79,7 +91,7 @@ export function ChessBoard({
     dragRef.current = null
     const image = drag.image
     const wasDragged = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6
-    const target = wasDragged ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square as Square | undefined : undefined
+    const target = wasDragged ? squareAtPoint(animationRef.current, event.clientX, event.clientY, orientation) : undefined
     setDragFrom(null)
     if (wasDragged) {
       suppressClick.current = true
@@ -118,7 +130,7 @@ export function ChessBoard({
               onPointerCancel={endDrag}
               onClick={() => {
                 if (suppressClick.current) { suppressClick.current = false; return }
-                if (interactive) { beforeChange(); onSquareClick(square) }
+                if (interactive) { void sound.unlock(); beforeChange(); onSquareClick(square) }
               }}
             >
               {screenCol === 0 && <small className="rank">{ranks[row]}</small>}

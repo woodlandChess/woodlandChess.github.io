@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GameSnapshot } from '../core/GameEngine';
 import { PIECE_SVGS } from '../../pieces';
 import { captureBoardPositions, useBoardFlip, type PieceGrid } from '../../boardAnimation';
+import { sound } from '../../sound';
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -30,6 +31,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
 
   function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || snapshot.puzzleDone || snapshot.awaitingOpponent) return;
+    void sound.unlock();
     const squareEl = (event.target as HTMLElement).closest<HTMLElement>('[data-square]');
     const from = squareEl?.dataset.square;
     if (!squareEl || !from) return;
@@ -58,7 +60,11 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
     const moved = Math.hypot(event.clientX - drag.pointerX, event.clientY - drag.pointerY) >= 6;
-    const target = moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-square]')?.dataset.square : undefined;
+    const rect = animationRef.current?.getBoundingClientRect();
+    const inside = !!rect && event.clientX >= rect.left && event.clientX < rect.right && event.clientY >= rect.top && event.clientY < rect.bottom;
+    const target = moved && inside && rect
+      ? `${FILE_LABELS[Math.min(7, Math.floor((event.clientX - rect.left) / (rect.width / 8)))]}${RANK_LABELS[Math.min(7, Math.floor((event.clientY - rect.top) / (rect.height / 8)))]}`
+      : undefined;
     setDragFrom(null);
     if (moved) {
       suppressClick.current = true;
@@ -130,7 +136,7 @@ export function PuzzleBoard({ snapshot, onSelectSquare, onMoveSquares, getLegalM
                 onPointerMove={moveDrag}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
-                onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
+                onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } void sound.unlock(); captureBoardPositions(animationRef.current); onSelectSquare(r, c); }}
               >
                 {c === 0 && <small className="rank">{RANK_LABELS[r]}</small>}
                 {r === 7 && <small className="file">{FILE_LABELS[c]}</small>}

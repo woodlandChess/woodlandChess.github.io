@@ -85,17 +85,28 @@ function ensure(): AudioContext | null {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
     noiseBuf = n
   }
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => { /* needs a gesture - retried next time */ })
   return ctx
+}
+
+let resumePromise: Promise<void> | null = null
+function resumeFromGesture(): Promise<void> {
+  const c = ensure()
+  if (!c || c.state === 'running') return Promise.resolve()
+  // iOS Safari is most reliable when resume is requested synchronously from
+  // the pointer/touch gesture. Keep the promise so the triggering sound can
+  // play as soon as the context actually enters the running state.
+  if (!resumePromise) {
+    resumePromise = c.resume().catch(() => { /* retried on the next user gesture */ }).finally(() => { resumePromise = null })
+  }
+  return resumePromise
 }
 
 // Browsers only allow audio after a gesture: prepare the context on the first one.
 if (typeof window !== 'undefined') {
   const unlock = () => {
-    ensure()
-    for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, unlock)
+    void resumeFromGesture()
   }
-  for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, unlock, { passive: true })
+  for (const ev of ['pointerdown', 'touchstart', 'touchend', 'keydown']) window.addEventListener(ev, unlock, { passive: true })
 }
 
 // ── voices ────────────────────────────────────────────────────────────────────
@@ -259,12 +270,22 @@ const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
+function playNow(name: SoundName): void {
+  if (!enabled) return
+  const c = ensure()
+  if (!c || !bus) return
+  if (c.state !== 'running') return
+  VOICES[name](c, c.currentTime + 0.005)
+}
+
 function play(name: SoundName): void {
   if (!enabled) return
   const c = ensure()
   if (!c || !bus) return
-  if (c.state !== 'running') return          // still waiting for a gesture: skip rather than queue stale sounds
-  VOICES[name](c, c.currentTime + 0.005)
+  if (c.state === 'running') { playNow(name); return }
+  // Safari/iOS can resolve resume after the click handler returns. Keep this
+  // sound tied to the gesture that triggered it instead of silently dropping it.
+  void resumeFromGesture().then(() => playNow(name))
 }
 
 export const sound = {
@@ -280,10 +301,12 @@ export const sound = {
     enabled = next
     try { localStorage.setItem(PREF_KEY, next ? '1' : '0') } catch { /* private mode */ }
     listeners.forEach(l => l())
-    if (next && opts.confirm !== false) { ensure(); play('move') }
+    if (next && opts.confirm !== false) {
+      void resumeFromGesture().then(() => playNow('move'))
+    }
   },
   /** Prepares audio inside a user gesture (also done automatically on first tap/key). */
-  unlock: ensure,
+  unlock: resumeFromGesture,
 }
 
 /** Which sound a chess.js move should make. */
