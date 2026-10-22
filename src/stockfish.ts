@@ -94,19 +94,20 @@ export class StockfishClient {
     return move && move !== '(none)' ? move : null
   }
 
-  /** Score a position from White's perspective. */
+  /** Return the final UCI score in centipawns from White's perspective. */
   async evaluate(fen: string, time = 120): Promise<number> {
     await this.readyPromise
     this.send('ucinewgame')
     this.send(`position fen ${fen}`)
     let score = 0
+    const sideToMove: 'w' | 'b' = fen.split(' ')[1] === 'b' ? 'b' : 'w'
     const done = new Promise<void>(resolve => {
       const listen = (line: string) => {
         if (line.startsWith('info ') && line.includes(' score ')) {
           const cp = line.match(/\bscore cp (-?\d+)/)
           const mate = line.match(/\bscore mate (-?\d+)/)
-          if (cp) score = Number(cp[1])
-          if (mate) score = Math.sign(Number(mate[1])) * 100000
+          if (cp) score = Number(cp[1]) * (sideToMove === 'w' ? 1 : -1)
+          if (mate) score = Math.sign(Number(mate[1])) * 100000 * (sideToMove === 'w' ? 1 : -1)
         }
         if (line.startsWith('bestmove ')) { this.listeners.delete(listen); resolve() }
       }
@@ -118,7 +119,6 @@ export class StockfishClient {
   }
 
   async bestScore(fen: string, time = 120): Promise<number> {
-    const score = await this.evaluate(fen, time)
-    return -score
+    return this.evaluate(fen, time)
   }
 }

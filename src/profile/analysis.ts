@@ -71,7 +71,7 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
   const c = new Chess()
   const uciMoves = game.moves.trim().split(/\s+/).filter(Boolean)
   const reviewed: MoveReview[] = []
-  let opening = 'Unclassified opening'
+  const openingMoves: string[] = []
   for (let i = 0; i < uciMoves.length; i++) {
     if (signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
     const uci = uciMoves[i]
@@ -88,7 +88,7 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
       continue
     }
     if (!move) break
-    if (i === 7 || i === 9) opening = `${opening === 'Unclassified opening' ? '' : opening} ${move.san}`.trim()
+    if (i < 12) openingMoves.push(move.san)
     if (mover !== game.userColor) continue
     const after = await evalFen(engine, c.fen(), 70)
     const playedForMover = mover === 'w' ? after : -after
@@ -101,9 +101,11 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
   }
   const averageLoss = reviewed.reduce((n, m) => n + Math.min(m.loss, 1000), 0) / Math.max(1, reviewed.length)
   const accuracy = reviewed.length ? Math.max(0, Math.min(100, Math.round(103.1668 * Math.exp(-0.0046 * averageLoss) - 3.1668))) : 0
-  return { gameId: game.id, version: 2, accuracy, blunders: reviewed.filter(m => m.grade === 'Blunder').length,
-    mistakes: reviewed.filter(m => m.grade === 'Mistake').length, inaccuracies: reviewed.filter(m => m.grade === 'Inaccuracy').length,
-    opening: opening || 'Unclassified opening', moves: reviewed }
+  const blunders = reviewed.filter(m => m.grade === 'Blunder').length
+  const mistakes = reviewed.filter(m => m.grade === 'Mistake').length
+  const inaccuracies = reviewed.filter(m => m.grade === 'Inaccuracy').length
+  return { gameId: game.id, version: 3, accuracy, blunders, mistakes,
+    inaccuracies, opening: openingMoves.length ? openingMoves.join(' ') : 'Opening unavailable', moves: reviewed }
 }
 
 const schoolIds = ['Attacking', 'Positional', 'Defensive', 'Dynamic', 'Classical German', 'British', 'Soviet', 'Hungarian', 'American'] as const
