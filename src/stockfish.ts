@@ -101,15 +101,14 @@ export class StockfishClient {
     this.send(`position fen ${fen}`)
     let score = 0
     const done = new Promise<void>(resolve => {
-      let timer = 0
       const listen = (line: string) => {
-        if (!line.startsWith('info ') || !line.includes(' score ')) return
-        const cp = line.match(/\bscore cp (-?\d+)/)
-        const mate = line.match(/\bscore mate (-?\d+)/)
-        if (cp) score = Number(cp[1])
-        if (mate) score = Math.sign(Number(mate[1])) * 100000
-        window.clearTimeout(timer)
-        timer = window.setTimeout(() => { this.listeners.delete(listen); resolve() }, 30)
+        if (line.startsWith('info ') && line.includes(' score ')) {
+          const cp = line.match(/\bscore cp (-?\d+)/)
+          const mate = line.match(/\bscore mate (-?\d+)/)
+          if (cp) score = Number(cp[1])
+          if (mate) score = Math.sign(Number(mate[1])) * 100000
+        }
+        if (line.startsWith('bestmove ')) { this.listeners.delete(listen); resolve() }
       }
       this.listeners.add(listen)
     })
