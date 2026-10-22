@@ -37,7 +37,7 @@ export function parseLichessNdjson(text: string, username: string): ProfileGame[
       out.push({ id: `lichess-${g.id}`, source: 'lichess', playedAt: Number(g.createdAt) || Date.now(),
         white: g.players?.white?.user?.name ?? 'White', black: g.players?.black?.user?.name ?? 'Black', userColor: me,
         result: winner ? winner === me ? 'win' : 'loss' : g.status === 'draw' || g.status === 'stalemate' || g.status === 'outoftime' ? 'draw' : 'unknown',
-        moves: g.moves, timeClass: g.speed })
+        moves: Array.isArray(g.moves) ? g.moves.map((m: { uci?: string } | string) => typeof m === 'string' ? m : m.uci ?? '').filter(Boolean).join(' ') : String(g.moves), timeClass: g.speed })
     } catch { /* skip malformed game record */ }
   }
   return out
@@ -58,7 +58,13 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
     const mover = c.turn()
     const phase = i < 20 ? 'Opening' : i < 60 ? 'Middlegame' : 'Endgame'
     const before = await evalFen(engine, c.fen(), 45)
-    const move = c.move({ from: uci.slice(0, 2) as never, to: uci.slice(2, 4) as never, promotion: uci[4] })
+    let move
+    try {
+      move = c.move({ from: uci.slice(0, 2) as never, to: uci.slice(2, 4) as never, promotion: uci[4] })
+    } catch {
+      // Lichess export may contain a non-UCI token or a variant position.
+      continue
+    }
     if (!move) break
     if (i === 7 || i === 9) opening = `${opening === 'Unclassified opening' ? '' : opening} ${move.san}`.trim()
     if (mover !== game.userColor) continue
