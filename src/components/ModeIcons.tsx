@@ -49,6 +49,17 @@ export function IconPuzzle(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+/** Player profile — a rook silhouette in a framed study. */
+export function IconProfile(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9 5.5h1.5V8h3V5.5H15V9l-1 1v4l1.5 2v1.5h-7V16L10 14v-4L9 9z" />
+      <path d="M8.5 17h7" />
+    </svg>
+  )
+}
+
 /** Calendar — daily challenge. */
 export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   return (

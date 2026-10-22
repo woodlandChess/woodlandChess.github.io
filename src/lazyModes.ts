@@ -14,11 +14,13 @@ const loadGameScreen = () => import('./components/GameScreen')
 const loadGameResult = () => import('./components/GameResultDialog')
 const loadOnline = () => import('./OnlinePlay')
 const loadPuzzle = () => import('./puzzle/PuzzleMode')
+const loadProfile = () => import('./profile/PlayerProfile')
 
 export const GameScreen = lazy(() => loadGameScreen().then(m => ({ default: m.GameScreen })))
 export const GameResultDialog = lazy(() => loadGameResult().then(m => ({ default: m.GameResultDialog })))
 export const OnlinePlay = lazy(() => loadOnline().then(m => ({ default: m.OnlinePlay })))
 export const PuzzleMode = lazy(() => loadPuzzle().then(m => ({ default: m.PuzzleMode })))
+export const PlayerProfile = lazy(() => loadProfile().then(m => ({ default: m.PlayerProfile })))
 
 const started = new Set<string>()
 const once = (key: string, load: () => Promise<unknown>) => {
@@ -34,7 +36,8 @@ export const preloadGame = () => { once('game', loadGameScreen); once('result', 
 export function preloadMode(mode: ModeId) {
   if (mode === 'ai') preloadGame()
   else if (mode === 'online') once('online', loadOnline)
-  else once('puzzle', loadPuzzle)
+  else if (mode === 'puzzle') once('puzzle', loadPuzzle)
+  else if (mode === 'profile') once('profile', loadProfile)
 }
 
 /** After the first paint, fetch the game screen in idle time (the common next step). */

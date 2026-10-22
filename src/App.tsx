@@ -5,7 +5,7 @@ import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './st
 import { ChessBoard, PromotionModal } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
-import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, warmUpWhenIdle } from './lazyModes'
+import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, PlayerProfile, warmUpWhenIdle } from './lazyModes'
 import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
@@ -107,8 +107,8 @@ function Segmented<T extends string>({ legend, name, value, options, onChange }:
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
   type Mode = ModeId
-  const modeFromPath = (path: string): Mode => path.replace(/\/$/, '') === '/puzzle' ? 'puzzle' : path.replace(/\/$/, '') === '/multiplayer' ? 'online' : 'ai'
-  const pathForMode = (next: Mode) => next === 'puzzle' ? '/puzzle' : next === 'online' ? '/multiplayer' : '/ai'
+  const modeFromPath = (path: string): Mode => path.replace(/\/$/, '') === '/puzzle' ? 'puzzle' : path.replace(/\/$/, '') === '/multiplayer' ? 'online' : path.replace(/\/$/, '') === '/profile' ? 'profile' : 'ai'
+  const pathForMode = (next: Mode) => next === 'puzzle' ? '/puzzle' : next === 'online' ? '/multiplayer' : next === 'profile' ? '/profile' : '/ai'
   const [mode, setMode] = useState<Mode>(() => {
     if (new URLSearchParams(window.location.search).has('code') && sessionStorage.getItem('woodland-chess:oauth-return-path') === '/multiplayer') return 'online'
     return modeFromPath(window.location.pathname)
@@ -188,6 +188,16 @@ export function App() {
 
   const over = game.isGameOver()
   useEffect(() => {
+    if (!over || history.length < 2) return
+    void import('./profile/analysis').then(({ readProfile, saveProfile }) => {
+      const data = readProfile()
+      const id = `ai-${history.map(m => m.lan).join('-')}-${Date.now()}`
+      const gameRecord = { id, source: 'ai' as const, playedAt: Date.now(), white: player === 'w' ? 'You' : 'Computer', black: player === 'b' ? 'You' : 'Computer', userColor: player, result: game.isCheckmate() ? (game.turn() === player ? 'loss' as const : 'win' as const) : 'draw' as const, moves: history.map(m => `${m.from}${m.to}${m.promotion ?? ''}`).join(' ') }
+      const next = { ...data, games: [gameRecord, ...data.games.filter(g => g.id !== id)].slice(0, 100), updatedAt: Date.now() }
+      saveProfile(next)
+    })
+  }, [over, history, player, game])
+  useEffect(() => {
     if (!over || setupOpen) { setResultOpen(false); return }
     const t = window.setTimeout(() => setResultOpen(true), 750)   // a beat to take in the final position
     return () => window.clearTimeout(t)
@@ -236,6 +246,8 @@ export function App() {
   if (mode === 'puzzle') {
     return <Suspense fallback={null}><PuzzleMode onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
   }
+
+  if (mode === 'profile') return <Suspense fallback={null}><PlayerProfile onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
   const sideLabel = sideChoice === 'w' ? 'White' : sideChoice === 'b' ? 'Black' : 'Random side'

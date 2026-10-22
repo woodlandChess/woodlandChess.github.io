@@ -1,12 +1,13 @@
-import { IconComputer, IconOnline, IconPuzzle } from './ModeIcons'
+import { IconComputer, IconOnline, IconPuzzle, IconProfile } from './ModeIcons'
 import { preloadMode } from '../lazyModes'
 
-export type ModeId = 'ai' | 'online' | 'puzzle'
+export type ModeId = 'ai' | 'online' | 'puzzle' | 'profile'
 
 const modeItems: { id: ModeId; label: string; Icon: typeof IconComputer }[] = [
   { id: 'ai',     label: 'Computer',    Icon: IconComputer },
   { id: 'online', label: 'Play online', Icon: IconOnline },
   { id: 'puzzle', label: 'Puzzles',     Icon: IconPuzzle },
+  { id: 'profile', label: 'My style',   Icon: IconProfile },
 ]
 
 /**
