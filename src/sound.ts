@@ -1,16 +1,14 @@
 // ── Woodland sound ──────────────────────────────────────────────────────────
 //
-// A tiny synth - no audio files to ship - voiced like a heavy, expensive
-// hardwood set on a thick solid board in a quiet study:
-//   • a piece is SET DOWN, never clicked: a felt-cushioned contact (no bright
-//     transient at all), the short ring of a heavy turned piece, the broad
-//     "plate" resonances of a thick board, and a low thump that gives it mass
-//   • everything is low-passed and sits in the low-mids (roughly 150-900 Hz),
-//     which is what makes wood read as dense and heavy instead of light plastic
-//   • captures are a firmer, lower strike with the captured piece set aside
-//   • check is a muted mallet-bell; results are slow glockenspiel phrases
-// A tight table-top room adds air without ringing; a gentle compressor glues it.
-// Small random variation keeps repeated moves from sounding machine-gunned.
+// A tiny synth - no audio files to ship - voiced like a quiet private library:
+//   • pieces are set down on a wooden board: a crisp contact "clack", a woody
+//     knock with a few ringing resonances, the piece's own thud and the hollow
+//     boom of the board underneath
+//   • captures are a harder strike of wood on wood, with the captured piece
+//     knocked aside; check is a muted mallet-bell
+//   • results are slow glockenspiel phrases (rising = win, falling = loss)
+// Everything runs through one gentle compressor and a short warm room reverb,
+// with small random variation so repeated moves never sound machine-gunned.
 //
 // One shared on/off preference drives every mode (Computer, Online, Puzzles).
 
@@ -31,15 +29,10 @@ function readPref(): boolean {
 let enabled = readPref()
 
 // ── audio graph (built lazily, inside a user gesture) ────────────────────────
-/**
- * `dry` / `send` feed the glued, reverberant mix used by bells and pads.
- * `wood` / `room` feed the wooden pieces: a separate path with only a transparent
- * peak limiter, so a hard strike really is louder than a soft one (the glue
- * compressor flattened them all to the same level) and a tight table-top room.
- */
-interface Bus { dry: GainNode; send: GainNode; wood: GainNode; room: GainNode; noise: AudioBuffer }
+interface Bus { dry: GainNode; send: GainNode }
 let ctx: AudioContext | null = null
 let bus: Bus | null = null
+let noiseBuf: AudioBuffer | null = null
 
 function createContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -48,80 +41,53 @@ function createContext(): AudioContext | null {
   try { return new Ctor() } catch { return null }
 }
 
-/** A dark room: exponentially decaying noise, smoothed so it stays warm. */
-function roomImpulse(c: BaseAudioContext, seconds: number, power: number, smooth: number): AudioBuffer {
+/** A short, dark room: exponentially decaying noise, smoothed so it stays warm. */
+function roomImpulse(c: AudioContext): AudioBuffer {
+  const seconds = 0.9
   const len = Math.floor(c.sampleRate * seconds)
   const buf = c.createBuffer(2, len, c.sampleRate)
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch)
     let lp = 0
     for (let i = 0; i < len; i++) {
-      const decay = Math.pow(1 - i / len, power)
-      lp += ((Math.random() * 2 - 1) - lp) * smooth      // one-pole low-pass = warm tail
+      const decay = Math.pow(1 - i / len, 3.2)
+      lp += ((Math.random() * 2 - 1) - lp) * 0.22        // one-pole low-pass = warm tail
       data[i] = lp * decay
     }
   }
   return buf
 }
 
-/** Builds the whole mix graph on any audio context (live or offline). */
-function buildBus(c: BaseAudioContext): Bus {
-  const master = c.createGain()
-  master.gain.value = 0.85
-  const comp = c.createDynamicsCompressor()
-  comp.threshold.value = -20
-  comp.ratio.value = 3
-  comp.attack.value = 0.006
-  comp.release.value = 0.25
-  master.connect(comp)
-  comp.connect(c.destination)
-
-  const dry = c.createGain()
-  dry.connect(master)
-
-  // long, warm library reverb - used by the bells
-  const send = c.createGain()
-  const verb = c.createConvolver()
-  verb.buffer = roomImpulse(c, 0.9, 3.2, 0.22)
-  const wet = c.createGain()
-  wet.gain.value = 0.55
-  send.connect(verb)
-  verb.connect(wet)
-  wet.connect(master)
-
-  // wood: its own path to the output through a peak limiter only
-  const limiter = c.createDynamicsCompressor()
-  limiter.threshold.value = -7
-  limiter.knee.value = 4
-  limiter.ratio.value = 12
-  limiter.attack.value = 0.002
-  limiter.release.value = 0.09
-  limiter.connect(c.destination)
-  const wood = c.createGain()
-  wood.gain.value = 0.7
-  wood.connect(limiter)
-
-  // tight, dark table-top room - so the wood has air but never rings
-  const room = c.createGain()
-  const roomVerb = c.createConvolver()
-  roomVerb.buffer = roomImpulse(c, 0.24, 4.2, 0.16)
-  const roomWet = c.createGain()
-  roomWet.gain.value = 0.7
-  room.connect(roomVerb)
-  roomVerb.connect(roomWet)
-  roomWet.connect(limiter)
-
-  const noise = c.createBuffer(1, Math.floor(c.sampleRate * 0.6), c.sampleRate)
-  const d = noise.getChannelData(0)
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
-  return { dry, send, wood, room, noise }
-}
-
 function ensure(): AudioContext | null {
   if (!ctx) {
     ctx = createContext()
     if (!ctx) return null
-    bus = buildBus(ctx)
+    const master = ctx.createGain()
+    master.gain.value = 0.85
+    const comp = ctx.createDynamicsCompressor()
+    comp.threshold.value = -20
+    comp.ratio.value = 3
+    comp.attack.value = 0.006
+    comp.release.value = 0.25
+    master.connect(comp)
+    comp.connect(ctx.destination)
+
+    const dry = ctx.createGain()
+    dry.connect(master)
+    const send = ctx.createGain()
+    const verb = ctx.createConvolver()
+    verb.buffer = roomImpulse(ctx)
+    const wet = ctx.createGain()
+    wet.gain.value = 0.55
+    send.connect(verb)
+    verb.connect(wet)
+    wet.connect(master)
+    bus = { dry, send }
+
+    const n = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.6), ctx.sampleRate)
+    const d = n.getChannelData(0)
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    noiseBuf = n
   }
   return ctx
 }
@@ -159,7 +125,7 @@ if (typeof window !== 'undefined') {
 }
 
 // ── voices ────────────────────────────────────────────────────────────────────
-function wire(c: BaseAudioContext, node: AudioNode, wet: number) {
+function wire(c: AudioContext, node: AudioNode, wet: number) {
   node.connect(bus!.dry)
   if (wet > 0) {
     const s = c.createGain()
@@ -169,17 +135,47 @@ function wire(c: BaseAudioContext, node: AudioNode, wet: number) {
   }
 }
 
-/** Wood goes to its own limited path plus the tight table-top room. */
-function wireWood(c: BaseAudioContext, node: AudioNode, room: number) {
-  node.connect(bus!.wood)
-  const r = c.createGain()
-  r.gain.value = room
-  node.connect(r)
-  r.connect(bus!.room)
+/** A round wooden body: a short pitch-dropping tone, low-passed so it stays soft. */
+function body(c: AudioContext, t: number, f0: number, f1: number, dur: number, peak: number, opts: { type?: OscillatorType; lp?: number; wet?: number } = {}) {
+  const osc = c.createOscillator()
+  osc.type = opts.type ?? 'triangle'
+  osc.frequency.setValueAtTime(f0, t)
+  osc.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur * 0.55)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(peak, t + 0.004)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  const lp = c.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = opts.lp ?? 2200
+  lp.Q.value = 0.5
+  osc.connect(g); g.connect(lp)
+  wire(c, lp, opts.wet ?? 0.22)
+  osc.start(t)
+  osc.stop(t + dur + 0.05)
+}
+
+/** The felt-muffled knock of wood meeting wood: a few ms of band-passed noise. */
+function knock(c: AudioContext, t: number, freq: number, dur: number, peak: number) {
+  if (!noiseBuf) return
+  const src = c.createBufferSource()
+  src.buffer = noiseBuf
+  const bp = c.createBiquadFilter()
+  bp.type = 'bandpass'
+  bp.frequency.value = freq
+  bp.Q.value = 0.9
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(peak, t + 0.002)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(bp); bp.connect(g)
+  wire(c, g, 0.12)
+  src.start(t, Math.random() * 0.4)
+  src.stop(t + dur + 0.02)
 }
 
 /** A soft-mallet bell: fundamental plus two gentle partials, long smooth decay. */
-function bell(c: BaseAudioContext, t: number, f: number, dur: number, peak: number, wet = 0.55) {
+function bell(c: AudioContext, t: number, f: number, dur: number, peak: number, wet = 0.55) {
   const parts: Array<[number, number]> = [[1, 1], [2.01, 0.26], [3.97, 0.08]]
   for (const [mult, amp] of parts) {
     const osc = c.createOscillator()
@@ -198,7 +194,7 @@ function bell(c: BaseAudioContext, t: number, f: number, dur: number, peak: numb
 }
 
 /** A warm sustained pad note for the game-start chord. */
-function pad(c: BaseAudioContext, t: number, f: number, dur: number, peak: number) {
+function pad(c: AudioContext, t: number, f: number, dur: number, peak: number) {
   const osc = c.createOscillator()
   osc.type = 'sine'
   osc.frequency.value = f
@@ -217,128 +213,64 @@ function pad(c: BaseAudioContext, t: number, f: number, dur: number, peak: numbe
 
 const vary = (amount = 0.06) => 1 + (Math.random() * 2 - 1) * amount
 
-// ── the wood ──────────────────────────────────────────────────────────────────
-/**
- * One resonant mode of the wood: a damped sine with a soft (not instant) attack.
- * `twin` adds a second, very slightly detuned partner - real wooden modes are never
- * perfectly single, and the slow beating between the two is what stops a mode
- * sounding like a synthetic beep.
- */
-function ring(c: BaseAudioContext, out: AudioNode, t: number, f: number, dur: number, peak: number, attack: number, twin = true) {
-  const voices: Array<[number, number]> = twin ? [[1, 0.65], [1.0045, 0.35]] : [[1, 1]]
-  for (const [detune, share] of voices) {
-    const osc = c.createOscillator()
-    osc.type = 'sine'
-    osc.frequency.value = f * detune
-    const g = c.createGain()
-    g.gain.setValueAtTime(0.0001, t)
-    g.gain.linearRampToValueAtTime(peak * share, t + attack)
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-    osc.connect(g); g.connect(out)
-    osc.start(t)
-    osc.stop(t + dur + 0.03)
-  }
-}
-
-/** A cushioned burst of filtered noise: the felt and the grain of the wood at contact. */
-function cushion(c: BaseAudioContext, out: AudioNode, t: number, type: BiquadFilterType, freq: number, q: number, attack: number, dur: number, peak: number) {
+/** A few ms of bright noise: the hard contact of wood meeting wood. */
+function tick(c: AudioContext, t: number, peak: number, dur: number, hp = 2200) {
+  if (!noiseBuf) return
   const src = c.createBufferSource()
-  src.buffer = bus!.noise
+  src.buffer = noiseBuf
   const f = c.createBiquadFilter()
-  f.type = type
-  f.frequency.value = freq
-  f.Q.value = q
+  f.type = 'highpass'
+  f.frequency.value = hp * vary(0.1)
   const g = c.createGain()
   g.gain.setValueAtTime(0.0001, t)
-  g.gain.linearRampToValueAtTime(peak, t + attack)
+  g.gain.linearRampToValueAtTime(peak, t + 0.0009)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  src.connect(f); f.connect(g); g.connect(out)
+  src.connect(f); f.connect(g)
+  wire(c, g, 0.03)
   src.start(t, Math.random() * 0.4)
   src.stop(t + dur + 0.02)
 }
 
-/** The low, slightly falling thump of a heavy mass settling onto a thick board. */
-function thump(c: BaseAudioContext, out: AudioNode, t: number, f0: number, f1: number, dur: number, peak: number) {
-  const osc = c.createOscillator()
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(f0, t)
-  osc.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6)
-  const g = c.createGain()
-  g.gain.setValueAtTime(0.0001, t)
-  g.gain.linearRampToValueAtTime(peak, t + 0.003)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  osc.connect(g); g.connect(out)
-  osc.start(t)
-  osc.stop(t + dur + 0.03)
+/** One ringing resonance of the wood: a quickly dying, barely falling sine. */
+function mode(c: AudioContext, t: number, f: number, dur: number, peak: number) {
+  body(c, t, f, f * 0.975, dur, peak, { type: 'sine', lp: 6000, wet: 0.04 })
 }
-
-/**
- * Resonances of a thick solid-wood board: [frequency Hz, decay s, level].
- * Low and broad, with the highest modes dying fastest - dense hardwood damps
- * brightness almost immediately, which is exactly why it sounds expensive.
- */
-const BOARD_MODES: ReadonlyArray<readonly [number, number, number]> = [
-  [150, 0.160, 0.15],
-  [238, 0.155, 0.30],
-  [352, 0.135, 0.42],
-  [521, 0.110, 0.38],
-  [764, 0.080, 0.22],
-  [1120, 0.048, 0.10],
-]
 
 interface HitOpts { gain?: number; pitch?: number; hard?: number }
 
 /**
- * A heavy wooden piece set down on a thick wooden board. All layers start on the
- * SAME instant (staggering them made one move sound like a double tap):
- *   felt + grain      -> a soft, dark contact; deliberately no bright click
- *   piece ring        -> the short note of a heavy turned hardwood piece
- *   board modes       -> the broad body of a thick plate
- *   thump             -> mass
- * `pitch` below 1 is heavier / lower; `hard` is how firmly it is struck.
+ * Wooden piece meeting a wooden board. All layers start on the SAME instant
+ * (staggering them made one move sound like a double tap):
+ *   contact click + woody knock  -> the hard surface
+ *   three resonant modes         -> what makes it read as wood, not plastic
+ *   piece thud + hollow board    -> weight; the board is a resonating box
  */
-function woodHit(c: BaseAudioContext, t: number, { gain = 1, pitch = 1, hard = 1 }: HitOpts = {}) {
-  const p = pitch * vary(0.035)
-  const g = gain * vary(0.07)
-
-  // Everything wooden passes one dark tone stage: harder strikes open it a little,
-  // but it never gets bright. A touch of low shelf adds warmth.
-  const out = c.createGain()
-  const tone = c.createBiquadFilter()
-  tone.type = 'lowpass'
-  tone.frequency.value = Math.min(4300, 2700 + 900 * hard) * vary(0.05)
-  tone.Q.value = 0.55
-  const warm = c.createBiquadFilter()
-  warm.type = 'lowshelf'
-  warm.frequency.value = 260
-  warm.gain.value = 3.5
-  out.connect(tone); tone.connect(warm)
-  wireWood(c, warm, 0.2)
-
-  cushion(c, out, t, 'lowpass', 1300 * p, 0.6, 0.0028, 0.026, 0.10 * g * hard)
-  cushion(c, out, t, 'bandpass', 600 * p, 1.0, 0.0018, 0.07, 0.22 * g * hard)
-
-  ring(c, out, t, 455 * p, 0.105, 0.15 * g, 0.0012)
-  ring(c, out, t, 1240 * p, 0.05, 0.055 * g * hard, 0.001, false)
-
-  for (const [f, dur, level] of BOARD_MODES) ring(c, out, t, f * p, dur, level * g * 0.62, 0.0022, f < 400)
-
-  thump(c, out, t, 96 * p, 68 * p, 0.15, 0.13 * g)
+function woodHit(c: AudioContext, t: number, { gain = 1, pitch = 1, hard = 1 }: HitOpts = {}) {
+  const p = pitch * vary(0.05)
+  tick(c, t, 0.30 * gain * hard, 0.007)
+  knock(c, t, 1350 * p, 0.04, 0.26 * gain * hard)
+  mode(c, t, 760 * p, 0.065, 0.20 * gain)
+  mode(c, t, 1730 * p, 0.038, 0.09 * gain)
+  mode(c, t, 2950 * p, 0.022, 0.04 * gain * hard)
+  body(c, t, 235 * p, 150 * p, 0.12, 0.28 * gain, { type: 'triangle', lp: 800, wet: 0.04 })
+  body(c, t, 128 * p, 84 * p, 0.2, 0.40 * gain, { type: 'sine', lp: 420, wet: 0.1 })
 }
 
 /** One piece set down. `weight` below 1 sounds heavier and lower (castling, captures). */
-function place(c: BaseAudioContext, t: number, gain = 1, weight = 1) {
-  woodHit(c, t, { gain: 0.9 * gain, pitch: weight })
+function place(c: AudioContext, t: number, gain = 1, weight = 1) {
+  woodHit(c, t, { gain: 0.72 * gain, pitch: weight })
 }
 
-const VOICES: Record<SoundName, (c: BaseAudioContext, t: number) => void> = {
+const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
   move: (c, t) => place(c, t),
 
-  // A firmer, lower strike of heavy wood on the board; the captured piece is lifted
-  // away and set down to the side a moment later (one soft, low, quiet tap).
+  // A strike: harder, louder and lower than a quiet move, a sharp crack on top,
+  // then the captured piece knocked aside (two soft, lower, uneven taps).
   capture: (c, t) => {
-    woodHit(c, t, { gain: 1.05, pitch: 0.9, hard: 1.3 })
-    woodHit(c, t + 0.085, { gain: 0.24, pitch: 1.08, hard: 0.4 })
+    woodHit(c, t, { gain: 0.92, pitch: 0.88, hard: 1.5 })
+    tick(c, t, 0.2, 0.012, 3200)
+    knock(c, t + 0.045, 900 * vary(0.1), 0.03, 0.09)
+    body(c, t + 0.078, 330 * vary(0.08), 250, 0.06, 0.06, { type: 'triangle', lp: 900, wet: 0.04 })
   },
 
   check: (c, t) => {
@@ -347,10 +279,9 @@ const VOICES: Record<SoundName, (c: BaseAudioContext, t: number) => void> = {
     bell(c, t + 0.07, 1175, 0.7, 0.03)
   },
 
-  // King first, then the rook: two distinct, heavy settles.
   castle: (c, t) => {
-    place(c, t, 1, 0.92)
-    place(c, t + 0.14, 0.88, 0.84)
+    place(c, t, 1, 0.9)
+    place(c, t + 0.12, 0.85, 0.8)
   },
 
   promote: (c, t) => {
@@ -380,10 +311,10 @@ const VOICES: Record<SoundName, (c: BaseAudioContext, t: number) => void> = {
     bell(c, t, 880, 0.55, 0.025)
   },
 
-  // A soft, low "thud" - corrective, never a buzzer. Wood, set down gently, twice.
+  // A soft, low "thud" - corrective, never a buzzer.
   wrong: (c, t) => {
-    woodHit(c, t, { gain: 0.46, pitch: 0.76, hard: 0.3 })
-    woodHit(c, t + 0.095, { gain: 0.3, pitch: 0.7, hard: 0.25 })
+    body(c, t, 128, 78, 0.24, 0.38, { lp: 700, wet: 0.2 })
+    body(c, t + 0.07, 110, 70, 0.22, 0.2, { lp: 600, wet: 0.2 })
   },
 
   achievement: (c, t) => {
@@ -487,20 +418,4 @@ export type Outcome = 'win' | 'loss' | 'draw' | 'aborted'
 
 export function soundForOutcome(o: Outcome): SoundName | null {
   return o === 'win' ? 'win' : o === 'loss' ? 'loss' : o === 'draw' ? 'draw' : null
-}
-
-/**
- * Renders one sound to a mono sample buffer without playing it - for previews and
- * automated checks. Never used by the app itself, so bundlers drop it.
- */
-export async function renderSoundOffline(name: SoundName, seconds = 1, sampleRate = 44100): Promise<Float32Array> {
-  const oc = new OfflineAudioContext(2, Math.floor(sampleRate * seconds), sampleRate)
-  const saved = bus
-  bus = buildBus(oc)
-  try {
-    VOICES[name](oc, 0.02)
-    return (await oc.startRendering()).getChannelData(0)
-  } finally {
-    bus = saved
-  }
 }

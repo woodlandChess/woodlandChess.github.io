@@ -43,8 +43,8 @@ export function IconOnline(props: SVGProps<SVGSVGElement>) {
 export function IconPuzzle(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M7 4.5h2v2h2v-2h2v2h2v-2h2v5l-2 1.5v5l2 2.5v1H7v-1l2-2.5v-5L7 9.5v-5z" />
-      <path d="M9 11h6" />
+      <path d="M7.8 4.5H9.4V6.8H11.2V4.5H12.8V6.8H14.6V4.5H16.2V8.6L15.2 9.9V15.5L16.8 17.4V19.5H7.2V17.4L8.8 15.5V9.9L7.8 8.6Z" />
+      <path d="M8.8 9.9H15.2M7.2 17.4H16.8" />
     </svg>
   )
 }
