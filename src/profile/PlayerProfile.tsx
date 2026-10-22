@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { StockfishClient } from '../stockfish'
 import { HomeFrame } from '../components/HomeFrame'
 import type { ModeId } from '../components/ModeNav'
+import { getStoredToken, LichessClient } from '../lichess'
 import { readProfile, saveProfile, parseLichessNdjson, reviewGame, summarizeStyle, type PlayerProfileData, type ProfileGame, type GameReview } from './analysis'
 import '../styles/profile.css'
 
@@ -13,10 +14,18 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
   const [error, setError] = useState('')
   const [selectedReview, setSelectedReview] = useState<GameReview | null>(null)
   const [maxGames, setMaxGames] = useState(10)
+  const [connectedUsername, setConnectedUsername] = useState('')
   const runRef = useRef<AbortController | null>(null)
   const summary = useMemo(() => summarizeStyle(data.games, data.reviews), [data])
 
-  useEffect(() => () => runRef.current?.abort(), [])
+  useEffect(() => {
+    let active = true
+    const token = getStoredToken()
+    if (token) new LichessClient(token.access_token).getProfile().then(p => {
+      if (active) { setConnectedUsername(p.username); setUsername(p.username); setData(current => ({ ...current, username: p.username })) }
+    }).catch(() => { /* disconnected or expired, keep manual username entry */ })
+    return () => { active = false; runRef.current?.abort() }
+  }, [])
 
   async function analyzeGames(games: ProfileGame[], nextUsername = data.username) {
     runRef.current?.abort()
@@ -41,14 +50,15 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
   }
 
   async function importLichess() {
-    const name = username.trim()
+    const name = (connectedUsername || username).trim()
     if (!name) { setError('Enter a Lichess username to import public games.'); return }
     setBusy(true); setError(''); setProgress('Loading public games from Lichess…')
     try {
       const url = new URL(`https://lichess.org/api/games/user/${encodeURIComponent(name)}`)
       url.searchParams.set('max', String(maxGames)); url.searchParams.set('moves', 'true')
       url.searchParams.set('clocks', 'false'); url.searchParams.set('evals', 'false'); url.searchParams.set('opening', 'true')
-      const response = await fetch(url, { headers: { Accept: 'application/x-ndjson' } })
+      const token = getStoredToken()
+      const response = await fetch(url, { headers: { Accept: 'application/x-ndjson', ...(token ? { Authorization: `Bearer ${token.access_token}` } : {}) } })
       if (!response.ok) throw new Error(response.status === 429 ? 'Lichess is rate limiting requests. Try again in a minute.' : `Lichess returned ${response.status}. Check the username and try again.`)
       const games = parseLichessNdjson(await response.text(), name)
       if (!games.length) throw new Error('No public games with moves were found for that username.')
@@ -61,7 +71,7 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
   return <HomeFrame mode="profile" onNavigate={onNavigate} compact busy={busy} kicker="Player profile" title="Your chess, in its own light" titleId="profile-title"
     copy="A local study of your games, reviewed with Stockfish. Style matches are clues, not labels." actions={<button type="button" className="btn-ghost" onClick={onBack}>Return to play</button>}>
     <div className="profile-controls">
-      <label className="profile-field"><span>Lichess username</span><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Your public username" autoCapitalize="none" autoCorrect="off" /></label>
+      <label className={`profile-field${connectedUsername ? ' profile-field--connected' : ''}`}><span>{connectedUsername ? 'Lichess account' : 'Lichess username'}</span><input value={connectedUsername || username} onChange={e => setUsername(e.target.value)} placeholder="Your public username" autoCapitalize="none" autoCorrect="off" readOnly={!!connectedUsername} />{connectedUsername && <small>Connected through Multiplayer</small>}</label>
       <label className="profile-field profile-count"><span>Games</span><select value={maxGames} onChange={e => setMaxGames(Number(e.target.value))}><option value={5}>Last 5</option><option value={10}>Last 10</option><option value={20}>Last 20</option><option value={50}>Last 50</option></select></label>
       <button className="profile-primary" onClick={importLichess} disabled={busy}>{busy ? 'Studying…' : 'Import & analyze'}</button>
       <button className="profile-secondary" onClick={reanalyze} disabled={busy || !data.games.length}>Update study</button>
