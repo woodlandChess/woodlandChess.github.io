@@ -13,7 +13,7 @@ export interface ProfileGame {
   moves: string
   timeClass?: string
 }
-export interface MoveReview { ply: number; san: string; grade: string; loss: number; phase: string; tags: string[] }
+export interface MoveReview { ply: number; san: string; uci: string; grade: string; loss: number; phase: string; tags: string[]; fen: string }
 export interface GameReview { gameId: string; accuracy: number; blunders: number; mistakes: number; inaccuracies: number; opening: string; moves: MoveReview[] }
 export interface PlayerProfileData { username: string; games: ProfileGame[]; reviews: GameReview[]; updatedAt: number }
 
@@ -44,7 +44,6 @@ export function parseLichessNdjson(text: string, username: string): ProfileGame[
 }
 
 const evalFen = async (engine: StockfishClient, fen: string, ms: number) => engine.evaluate(fen, ms)
-const lossFor = (before: number, after: number, side: Color) => Math.max(0, side === 'w' ? before - after : after - before)
 const gradeFor = (loss: number) => loss >= 250 ? 'Blunder' : loss >= 100 ? 'Mistake' : loss >= 50 ? 'Inaccuracy' : 'Good'
 
 export async function reviewGame(game: ProfileGame, engine: StockfishClient, signal?: AbortSignal): Promise<GameReview> {
@@ -57,7 +56,9 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
     const uci = uciMoves[i]
     const mover = c.turn()
     const phase = i < 20 ? 'Opening' : i < 60 ? 'Middlegame' : 'Endgame'
-    const before = await evalFen(engine, c.fen(), 45)
+    const beforeFen = c.fen()
+    const bestBefore = await engine.evaluate(beforeFen, 70)
+    const bestForMover = mover === 'w' ? bestBefore : -bestBefore
     let move
     try {
       move = c.move({ from: uci.slice(0, 2) as never, to: uci.slice(2, 4) as never, promotion: uci[4] })
@@ -68,14 +69,14 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
     if (!move) break
     if (i === 7 || i === 9) opening = `${opening === 'Unclassified opening' ? '' : opening} ${move.san}`.trim()
     if (mover !== game.userColor) continue
-    const after = await evalFen(engine, c.fen(), 45)
-    const bestAfter = await engine.bestScore(c.fen(), 45)
-    const loss = Math.max(0, lossFor(before, after, mover) - Math.max(0, mover === 'w' ? bestAfter - before : before - bestAfter))
+    const after = await evalFen(engine, c.fen(), 70)
+    const playedForMover = mover === 'w' ? after : -after
+    const loss = Math.max(0, bestForMover - playedForMover)
     const tags: string[] = []
     if (move.captured) tags.push('Capture')
     if (move.san.includes('+')) tags.push('Check')
     if (move.san.includes('#')) tags.push('Mate')
-    reviewed.push({ ply: i + 1, san: move.san, grade: gradeFor(loss), loss, phase, tags })
+    reviewed.push({ ply: i + 1, san: move.san, uci, grade: gradeFor(loss), loss, phase, tags, fen: c.fen() })
   }
   const weightedLoss = reviewed.reduce((n, m) => n + Math.min(m.loss, 1000), 0)
   const accuracy = Math.max(0, Math.round(100 * Math.exp(-weightedLoss / Math.max(1, reviewed.length) / 330)))
