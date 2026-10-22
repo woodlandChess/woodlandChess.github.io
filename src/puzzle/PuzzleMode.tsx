@@ -3,6 +3,8 @@ import { PuzzleIntroScreen } from './components/PuzzleIntroScreen';
 import { PuzzleGameScreen } from './components/PuzzleGameScreen';
 import { PuzzleWinScreen } from './components/PuzzleWinScreen';
 import type { ModeId } from '../components/ModeNav';
+import '../styles/game.css'
+import '../styles/puzzle.css'
 
 interface PuzzleModeProps {
   onBack: () => void;

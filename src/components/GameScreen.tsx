@@ -4,6 +4,7 @@ import { clockTone, formatClock } from '../clock'
 import { BrandMark } from './BrandMark'
 import { PieceAvatar, type AvatarPiece } from './PieceAvatar'
 import { SoundToggle } from './SoundToggle'
+import '../styles/game.css'
 
 export type GameTone = 'turn' | 'wait' | 'over'
 

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './styles.css'
+import './styles/base.css'
 import { App } from './App'
 
 // iOS "Add to Home Screen" apps expose navigator.standalone (display-mode is the fallback).

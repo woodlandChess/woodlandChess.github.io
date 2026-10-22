@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Outcome } from '../sound'
 import { PieceAvatar, type AvatarPiece } from './PieceAvatar'
+import '../styles/game.css'
 
 export type RematchState = 'idle' | 'sending' | 'waiting' | 'declined' | 'needs-permission' | 'error'
 

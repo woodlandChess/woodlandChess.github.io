@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { sound } from '../sound'
 import { IconVolume } from './ModeIcons'
+import '../styles/game.css'
 
 /** Icon button that mutes / unmutes every sound in the app (shared preference). */
 export function SoundToggle({ className = 'gm-icon-btn' }: { className?: string }) {

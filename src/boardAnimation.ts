@@ -94,6 +94,49 @@ export function diffMoves(before: PieceGrid, after: PieceGrid): Slide[] | null {
   return slides
 }
 
+
+/** How hard each piece lands (board thump in px). Heavier pieces hit harder. */
+const MASS: Record<string, number> = { p: 1.3, n: 1.8, b: 1.8, r: 2.2, q: 2.6, k: 2.8 }
+
+/**
+ * The landing: the piece compresses against the board, the board itself gives a
+ * tiny thump, and the contact shadow flashes wider and darker for a moment.
+ * All decorative - failures are ignored and nothing here changes the position.
+ */
+function impact(root: HTMLElement, square: HTMLElement, image: HTMLElement, mass: number, reduce: boolean) {
+  try {
+    image.animate(
+      [
+        { transform: `scale(${1 + 0.02 * mass}, ${1 - 0.045 * mass})`, transformOrigin: '50% 92%' },
+        { transform: `scale(${1 - 0.006 * mass}, ${1 + 0.012 * mass})`, transformOrigin: '50% 92%', offset: 0.4 },
+        { transform: 'scale(1, 1)', transformOrigin: '50% 92%' },
+      ],
+      { duration: reduce ? 120 : 230, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+    )
+  } catch { /* decorative only */ }
+  if (reduce) return
+  try {
+    root.animate(
+      [
+        { transform: 'translate3d(0, 0, 0)' },
+        { transform: `translate3d(0, ${mass * 0.55}px, 0)`, offset: 0.22 },
+        { transform: `translate3d(0, ${-mass * 0.2}px, 0)`, offset: 0.55 },
+        { transform: 'translate3d(0, 0, 0)' },
+      ],
+      { duration: 200, easing: 'ease-out' },
+    )
+  } catch { /* decorative only */ }
+  try {
+    square.animate(
+      [
+        { opacity: 0.4, transform: 'translateX(-50%) scale(1.3, 1.2)' },
+        { opacity: 1, transform: 'translateX(-50%) scale(1, 1)' },
+      ],
+      { duration: 240, easing: 'ease-out', pseudoElement: '::after' },
+    )
+  } catch { /* pseudo-element animation is not available everywhere */ }
+}
+
 type Finisher = () => void
 
 export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
@@ -134,8 +177,8 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue
 
       // The sprite is a whole square-sized stage holding the piece AND its own
-      // contact shadow, so the shadow travels, shrinks while the piece is lifted
-      // and stays glued under the base. The real square's shadow is hidden meanwhile.
+      // contact shadow, so the shadow travels with the piece and stays glued under
+      // its base. The real square's shadow is hidden meanwhile.
       const stage = document.createElement('div')
       stage.className = `piece-sprite piece-t-${image.dataset.piece?.[1] ?? 'p'}`
       stage.setAttribute('aria-hidden', 'true')
@@ -156,6 +199,8 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       toSq.dataset.landing = '1'
 
       const duration = slideMs()
+      const kind = image.dataset.piece?.[1] ?? 'p'
+      const mass = MASS[kind] ?? 1
       let done = false
       let timer = 0
       let anim: Animation | null = null
@@ -168,47 +213,20 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
         image.style.visibility = priorVisibility
         delete toSq.dataset.landing
         active.current.delete(interrupt)
-        // Weight: the piece compresses a touch as it settles onto the board.
-        if (landed && !reduce) {
-          try {
-            image.animate(
-              [{ transform: 'scale(1.025, 0.955)', transformOrigin: '50% 92%' }, { transform: 'scale(1, 1)', transformOrigin: '50% 92%' }],
-              { duration: 140, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
-            )
-          } catch { /* decorative only */ }
-        }
+        if (landed) impact(root, toSq, image, mass, !!reduce)
       }
       const interrupt: Finisher = () => finish(false)
       active.current.add(interrupt)
       try {
-        // Heavy: a deliberate start, a firm stop. The piece lifts off the board,
-        // travels slightly raised, and is set back down.
+        // Heavy: the piece is not lifted - it is pushed across the wood. It starts
+        // sluggishly (inertia), builds speed, and is stopped dead by the square
+        // (almost no cushioning at the end); the landing is what you feel.
         anim = stage.animate(
           [{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }],
-          { duration, easing: reduce ? 'ease-out' : 'cubic-bezier(0.42, 0, 0.2, 1)', fill: 'both' },
+          { duration, easing: reduce ? 'ease-out' : 'cubic-bezier(0.5, 0, 0.9, 0.85)', fill: 'both' },
         )
         anim.onfinish = () => finish(true)
         anim.oncancel = () => finish(false)
-        if (!reduce) {
-          sprite.animate(
-            [
-              { transform: 'translateY(0) scale(1)', offset: 0 },
-              { transform: 'translateY(-7%) scale(1.07)', offset: 0.28 },
-              { transform: 'translateY(-4%) scale(1.04)', offset: 0.72 },
-              { transform: 'translateY(0) scale(1)', offset: 1 },
-            ],
-            { duration, easing: 'ease-in-out', fill: 'both' },
-          )
-          shadow.animate(
-            [
-              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 0 },
-              { transform: 'translateX(-50%) scale(0.86)', opacity: 0.55, offset: 0.28 },
-              { transform: 'translateX(-50%) scale(0.9)', opacity: 0.62, offset: 0.72 },
-              { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 1 },
-            ],
-            { duration, easing: 'ease-in-out', fill: 'both' },
-          )
-        }
       } catch { finish(false); continue }
       timer = window.setTimeout(() => finish(true), duration + 250)   // failsafe: the real piece always comes back
     }

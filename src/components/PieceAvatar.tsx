@@ -1,5 +1,6 @@
 import type { Color, PieceSymbol } from 'chess.js'
 import { PIECE_SVGS } from '../pieces'
+import '../styles/game.css'
 
 export interface AvatarPiece { color: Color; type: PieceSymbol }
 

@@ -236,6 +236,31 @@ function mode(c: AudioContext, t: number, f: number, dur: number, peak: number) 
   body(c, t, f, f * 0.975, dur, peak, { type: 'sine', lp: 6000, wet: 0.04 })
 }
 
+/** Wood pushed across wood: soft, low-passed friction noise that builds up
+ *  sluggishly and is cut dead the instant the piece lands. */
+function scrape(c: AudioContext, t0: number, dur: number, peak: number) {
+  if (!noiseBuf || dur < 0.06) return
+  const src = c.createBufferSource()
+  src.buffer = noiseBuf
+  const bp = c.createBiquadFilter()
+  bp.type = 'bandpass'
+  bp.frequency.setValueAtTime(620 * vary(0.06), t0)
+  bp.frequency.linearRampToValueAtTime(430, t0 + dur)
+  bp.Q.value = 1.1
+  const lp = c.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 1500
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.linearRampToValueAtTime(peak * 0.35, t0 + dur * 0.35)   // inertia: slow to get going
+  g.gain.linearRampToValueAtTime(peak, t0 + dur * 0.92)           // gathers speed...
+  g.gain.linearRampToValueAtTime(0.0001, t0 + dur)                // ...and stops dead
+  src.connect(bp); bp.connect(lp); lp.connect(g)
+  wire(c, g, 0.02)
+  src.start(t0, Math.random() * 0.3)
+  src.stop(t0 + dur + 0.02)
+}
+
 interface HitOpts { gain?: number; pitch?: number; hard?: number }
 
 /**
@@ -253,39 +278,42 @@ function woodHit(c: AudioContext, t: number, { gain = 1, pitch = 1, hard = 1 }: 
   mode(c, t, 1730 * p, 0.038, 0.09 * gain)
   mode(c, t, 2950 * p, 0.022, 0.04 * gain * hard)
   body(c, t, 235 * p, 150 * p, 0.12, 0.28 * gain, { type: 'triangle', lp: 800, wet: 0.04 })
-  body(c, t, 128 * p, 84 * p, 0.2, 0.40 * gain, { type: 'sine', lp: 420, wet: 0.1 })
+  body(c, t, 124 * p, 78 * p, 0.24, 0.48 * gain, { type: 'sine', lp: 420, wet: 0.1 })
 }
 
-/** One piece set down. `weight` below 1 sounds heavier and lower (castling, captures). */
-function place(c: AudioContext, t: number, gain = 1, weight = 1) {
+/** One piece set down. `weight` below 1 sounds heavier and lower (castling, captures).
+ *  `lead` is how long the piece slides before it lands (seconds): the slide is heard. */
+function place(c: AudioContext, t: number, gain = 1, weight = 0.94, lead = 0) {
+  if (lead > 0.06) scrape(c, t - lead * 0.97, lead * 0.97, 0.075 * gain)
   woodHit(c, t, { gain: 0.72 * gain, pitch: weight })
 }
 
-const VOICES: Record<SoundName, (c: AudioContext, t: number) => void> = {
-  move: (c, t) => place(c, t),
+const VOICES: Record<SoundName, (c: AudioContext, t: number, lead?: number) => void> = {
+  move: (c, t, lead) => place(c, t, 1, 0.94, lead),
 
   // A strike: harder, louder and lower than a quiet move, a sharp crack on top,
   // then the captured piece knocked aside (two soft, lower, uneven taps).
-  capture: (c, t) => {
-    woodHit(c, t, { gain: 0.92, pitch: 0.88, hard: 1.5 })
+  capture: (c, t, lead = 0) => {
+    if (lead > 0.06) scrape(c, t - lead * 0.97, lead * 0.97, 0.085)
+    woodHit(c, t, { gain: 0.92, pitch: 0.86, hard: 1.5 })
     tick(c, t, 0.2, 0.012, 3200)
     knock(c, t + 0.045, 900 * vary(0.1), 0.03, 0.09)
     body(c, t + 0.078, 330 * vary(0.08), 250, 0.06, 0.06, { type: 'triangle', lp: 900, wet: 0.04 })
   },
 
-  check: (c, t) => {
-    place(c, t)
+  check: (c, t, lead) => {
+    place(c, t, 1, 0.94, lead)
     bell(c, t + 0.07, 784, 1.1, 0.07)
     bell(c, t + 0.07, 1175, 0.7, 0.03)
   },
 
-  castle: (c, t) => {
-    place(c, t, 1, 0.9)
+  castle: (c, t, lead) => {
+    place(c, t, 1, 0.9, lead)
     place(c, t + 0.12, 0.85, 0.8)
   },
 
-  promote: (c, t) => {
-    place(c, t)
+  promote: (c, t, lead) => {
+    place(c, t, 1, 0.94, lead)
     ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => bell(c, t + 0.1 + i * 0.075, f, 0.9, 0.055))
   },
 
@@ -360,7 +388,7 @@ function playNow(name: SoundName, delay = 0): void {
   lastName = name
   lastNameAt = now
   if (PIECE_SOUNDS.has(name)) lastPieceAt = t
-  VOICES[name](c, t)
+  VOICES[name](c, t, PIECE_SOUNDS.has(name) ? delay : 0)
 }
 
 // While the context is still waking up (iOS), keep only the NEWEST request.
