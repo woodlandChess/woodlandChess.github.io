@@ -86,10 +86,10 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
     setBusy(true); setError('')
     const engine = new StockfishClient()
     try {
-      const known = new Set(data.reviews.filter(r => r.version === 2).map(r => r.gameId))
+      const known = new Set(data.reviews.filter(r => r.version === 3).map(r => r.gameId))
       const fresh = games.filter(g => !known.has(g.id)).slice(0, 30)
       const freshIds = new Set(fresh.map(g => g.id))
-      const reviews = data.reviews.filter(r => !freshIds.has(r.gameId))
+      const reviews = data.reviews.filter(r => r.version === 3 && !freshIds.has(r.gameId))
       for (let i = 0; i < fresh.length; i++) {
         setProgress(`Reviewing game ${i + 1} of ${fresh.length}`)
         reviews.push(await reviewGame(fresh[i], engine, controller.signal))
