@@ -47,7 +47,7 @@ export class StockfishClient {
   // the listener queue had registered a handler for 'readyok'.
   private readyPromise: Promise<void>
   private resolveReady!: () => void
-  private queue: Array<(line: string) => void> = []
+  private listeners = new Set<(line: string) => void>()
 
   constructor() {
     this.readyPromise = new Promise<void>(resolve => { this.resolveReady = resolve })
@@ -67,16 +67,15 @@ export class StockfishClient {
   private handle(line: string) {
     if (line === 'uciok')   { this.send('isready'); return }
     if (line === 'readyok') { this.resolveReady(); return }
-    const resolver = this.queue[0]
-    if (resolver) resolver(line)
+    this.listeners.forEach(listener => listener(line))
   }
 
   private until(match: (line: string) => boolean): Promise<string> {
     return new Promise(resolve => {
       const listen = (line: string) => {
-        if (match(line)) { this.queue.shift(); resolve(line) }
+        if (match(line)) { this.listeners.delete(listen); resolve(line) }
       }
-      this.queue.push(listen)
+      this.listeners.add(listen)
     })
   }
 
@@ -93,5 +92,34 @@ export class StockfishClient {
     const line = await result
     const move = line.split(' ')[1]
     return move && move !== '(none)' ? move : null
+  }
+
+  /** Score a position from White's perspective. */
+  async evaluate(fen: string, time = 120): Promise<number> {
+    await this.readyPromise
+    this.send('ucinewgame')
+    this.send(`position fen ${fen}`)
+    let score = 0
+    const done = new Promise<void>(resolve => {
+      let timer = 0
+      const listen = (line: string) => {
+        if (!line.startsWith('info ') || !line.includes(' score ')) return
+        const cp = line.match(/\bscore cp (-?\d+)/)
+        const mate = line.match(/\bscore mate (-?\d+)/)
+        if (cp) score = Number(cp[1])
+        if (mate) score = Math.sign(Number(mate[1])) * 100000
+        window.clearTimeout(timer)
+        timer = window.setTimeout(() => { this.listeners.delete(listen); resolve() }, 30)
+      }
+      this.listeners.add(listen)
+    })
+    this.send(`go movetime ${time}`)
+    await done
+    return score
+  }
+
+  async bestScore(fen: string, time = 120): Promise<number> {
+    const score = await this.evaluate(fen, time)
+    return -score
   }
 }
