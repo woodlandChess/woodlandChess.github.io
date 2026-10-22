@@ -14,7 +14,7 @@ export interface ProfileGame {
   timeClass?: string
 }
 export interface MoveReview { ply: number; san: string; uci: string; grade: string; loss: number; phase: string; tags: string[]; fen: string }
-export interface GameReview { gameId: string; accuracy: number; blunders: number; mistakes: number; inaccuracies: number; opening: string; moves: MoveReview[] }
+export interface GameReview { gameId: string; version: number; accuracy: number; blunders: number; mistakes: number; inaccuracies: number; opening: string; moves: MoveReview[] }
 export interface PlayerProfileData { username: string; games: ProfileGame[]; reviews: GameReview[]; updatedAt: number }
 
 const KEY = 'woodland-chess:player-style-v1'
@@ -34,13 +34,34 @@ export function parseLichessNdjson(text: string, username: string): ProfileGame[
         : g.players?.black?.user?.name?.toLowerCase() === username.toLowerCase() ? 'b' : null
       if (!me || !g.moves) continue
       const winner = g.winner === 'white' ? 'w' : g.winner === 'black' ? 'b' : null
+      const normalizedMoves = normalizeMoves(g.moves)
+      if (!normalizedMoves) continue
       out.push({ id: `lichess-${g.id}`, source: 'lichess', playedAt: Number(g.createdAt) || Date.now(),
         white: g.players?.white?.user?.name ?? 'White', black: g.players?.black?.user?.name ?? 'Black', userColor: me,
         result: winner ? winner === me ? 'win' : 'loss' : g.status === 'draw' || g.status === 'stalemate' || g.status === 'outoftime' ? 'draw' : 'unknown',
-        moves: Array.isArray(g.moves) ? g.moves.map((m: { uci?: string } | string) => typeof m === 'string' ? m : m.uci ?? '').filter(Boolean).join(' ') : String(g.moves), timeClass: g.speed })
+        moves: normalizedMoves, timeClass: g.speed })
     } catch { /* skip malformed game record */ }
   }
   return out
+}
+
+/** Persist every game as legal UCI moves, regardless of the API's selected notation. */
+export function normalizeMoves(raw: unknown): string {
+  const tokens: string[] = Array.isArray(raw)
+    ? raw.map((m: any) => typeof m === 'string' ? m : String(m?.uci ?? m?.san ?? '')).filter(Boolean)
+    : String(raw ?? '').trim().split(/\s+/).filter(Boolean)
+  const game = new Chess()
+  const uci: string[] = []
+  for (const token of tokens) {
+    try {
+      const move = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(token)
+        ? game.move({ from: token.slice(0,2) as never, to: token.slice(2,4) as never, promotion: token[4] })
+        : game.move(token)
+      if (!move) break
+      uci.push(`${move.from}${move.to}${move.promotion ?? ''}`)
+    } catch { break }
+  }
+  return uci.join(' ')
 }
 
 const evalFen = async (engine: StockfishClient, fen: string, ms: number) => engine.evaluate(fen, ms)
@@ -78,9 +99,9 @@ export async function reviewGame(game: ProfileGame, engine: StockfishClient, sig
     if (move.san.includes('#')) tags.push('Mate')
     reviewed.push({ ply: i + 1, san: move.san, uci, grade: gradeFor(loss), loss, phase, tags, fen: c.fen() })
   }
-  const weightedLoss = reviewed.reduce((n, m) => n + Math.min(m.loss, 1000), 0)
-  const accuracy = Math.max(0, Math.round(100 * Math.exp(-weightedLoss / Math.max(1, reviewed.length) / 330)))
-  return { gameId: game.id, accuracy, blunders: reviewed.filter(m => m.grade === 'Blunder').length,
+  const averageLoss = reviewed.reduce((n, m) => n + Math.min(m.loss, 1000), 0) / Math.max(1, reviewed.length)
+  const accuracy = reviewed.length ? Math.max(0, Math.min(100, Math.round(103.1668 * Math.exp(-0.0046 * averageLoss) - 3.1668))) : 0
+  return { gameId: game.id, version: 2, accuracy, blunders: reviewed.filter(m => m.grade === 'Blunder').length,
     mistakes: reviewed.filter(m => m.grade === 'Mistake').length, inaccuracies: reviewed.filter(m => m.grade === 'Inaccuracy').length,
     opening: opening || 'Unclassified opening', moves: reviewed }
 }
