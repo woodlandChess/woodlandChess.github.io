@@ -32,6 +32,16 @@ function makeTips(games: ProfileGame[], reviews: GameReview[]): PlayerTip[] {
   const common = openings.length ? openings[0] : ''
   if (common) result.push({ title:'Build a small opening plan', body:`Review ${common} and note one development plan and one common pawn break for your side.` })
   if (misses.length) result.push({ title:'Scan for opponent threats', body:`Your largest measured swing was ${Math.round(misses[0].loss)} centipawns. Before each move, ask what your opponent threatens next.` })
+  if (result.length < 5) {
+    const fallback: PlayerTip[] = [
+      { title:'Compare candidate moves', body:'For each critical position, identify two legal choices and the opponent reply to each before playing.' },
+      { title:'Check loose pieces', body:'Before moving, scan for pieces that are attacked more times than they are defended.' },
+      { title:'Use the king actively', body:'In simplified positions, centralize your king while keeping it outside the opponent’s pawn checks.' },
+      { title:'Review your biggest swings', body:'Replay the moves with the largest engine loss and write down the threat you missed.' },
+      { title:'Study recurring openings', body:'Revisit the opening positions that appear most often and learn a simple development plan.' },
+    ]
+    for (const tip of fallback) if (result.length < 5 && !result.some(item => item.title === tip.title)) result.push(tip)
+  }
   result.push({ title:'Keep a post-game habit', body:`You have ${games.length} games and ${reviews.length} engine reviews. Revisit one turning point after each new game.` })
   return result.slice(0,5)
 }
@@ -45,6 +55,7 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
   const [selectedReview, setSelectedReview] = useState<GameReview | null>(null)
   const [selectedGame, setSelectedGame] = useState<ProfileGame | null>(null)
   const [reviewPly, setReviewPly] = useState(0)
+  const [reviewMoveIndex, setReviewMoveIndex] = useState(0)
   const [maxGames, setMaxGames] = useState(10)
   const [connectedUsername, setConnectedUsername] = useState('')
   const runRef = useRef<AbortController | null>(null)
@@ -52,8 +63,9 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
   const reviewPosition = useMemo(() => {
     if (!selectedGame) return new Chess()
     const c = new Chess()
+    let applied = 0
     for (const uci of selectedGame.moves.trim().split(/\s+/).filter(Boolean).slice(0, reviewPly)) {
-      try { c.move({ from: uci.slice(0,2) as Square, to: uci.slice(2,4) as Square, promotion: uci[4] }) } catch { break }
+      try { c.move({ from: uci.slice(0,2) as Square, to: uci.slice(2,4) as Square, promotion: uci[4] }); applied++ } catch { break }
     }
     return c
   }, [selectedGame, reviewPly])
@@ -131,8 +143,8 @@ export function PlayerProfile({ onBack, onNavigate }: { onBack: () => void; onNa
       <ol className="profile-tips">{makeTips(data.games, data.reviews).map((tip, i) => <li key={tip.title}><b>{String(i+1).padStart(2,'0')}</b><span><strong>{tip.title}</strong><small>{tip.body}</small></span></li>)}</ol>
     </section>
     <section className="profile-section"><div className="profile-section-head"><h3>Recent games</h3><span>Stockfish move review</span></div>
-      {data.games.length ? <div className="profile-games">{data.games.slice(0,12).map(g => { const r = data.reviews.find(x => x.gameId === g.id); const opponent = g.userColor === 'w' ? g.black : g.white; return <button className="profile-game" key={g.id} onClick={() => { if (!r) return; setSelectedReview(r); setSelectedGame(g); setReviewPly(0) }} disabled={!r}><span><b>{opponent}</b><small>{g.source === 'lichess' ? 'Lichess' : 'Computer'} · {new Date(g.playedAt).toLocaleDateString()}</small></span><span className={`profile-result profile-result--${g.result}`}>{g.result}</span><strong>{r ? `${r.accuracy}%` : 'Pending'}</strong></button>})}</div> : <div className="profile-empty">Your analyzed games will appear here.</div>}
+      {data.games.length ? <div className="profile-games">{data.games.slice(0,12).map(g => { const r = data.reviews.find(x => x.gameId === g.id); const opponent = g.userColor === 'w' ? g.black : g.white; return <button type="button" className="profile-game" key={g.id} onClick={() => { if (!r) return; setSelectedReview(r); setSelectedGame(g); setReviewPly(0); setReviewMoveIndex(0) }} disabled={!r}><span><b>{opponent}</b><small>{g.source === 'lichess' ? 'Lichess' : 'Computer'} · {new Date(g.playedAt).toLocaleDateString()}</small></span><span className={`profile-result profile-result--${g.result}`}>{g.result}</span><strong>{r ? `${r.accuracy}%` : 'Pending'}</strong></button>})}</div> : <div className="profile-empty">Your analyzed games will appear here.</div>}
     </section>
-    {selectedReview && selectedGame && <div className="profile-review-backdrop" role="presentation" onClick={() => { setSelectedReview(null); setSelectedGame(null) }}><section className="profile-review" role="dialog" aria-modal="true" aria-label="Game review" onClick={e => e.stopPropagation()}><button className="profile-close" onClick={() => { setSelectedReview(null); setSelectedGame(null) }} aria-label="Close review">×</button><span className="profile-eyebrow">Game study · {selectedGame.userColor === 'w' ? selectedGame.white : selectedGame.black}</span><h2>{selectedReview.accuracy}% accuracy</h2><p>{selectedReview.opening} · {selectedReview.blunders} blunders · {selectedReview.mistakes} mistakes</p><div className="profile-board"><ChessBoard board={reviewPosition.board()} onSquareClick={() => {}} selected={null} legalTargets={[]} trail={reviewPosition.history({ verbose: true }).slice(-1).map(m => ({ from:m.from, to:m.to, color:m.color }))} orientation={selectedGame.userColor} interactive={false} /></div><div className="profile-board-controls"><button onClick={() => setReviewPly(p => Math.max(0,p-1))} disabled={reviewPly===0}>Previous</button><span>{reviewPly===0 ? 'Initial position' : `Move ${Math.ceil(reviewPly/2)}${reviewPly%2 ? ' white' : ' black'}`}</span><button onClick={() => setReviewPly(p => Math.min(selectedGame.moves.trim().split(/\s+/).filter(Boolean).length,p+1))} disabled={reviewPly>=selectedGame.moves.trim().split(/\s+/).filter(Boolean).length}>Next</button></div><div className="profile-moves">{selectedReview.moves.map(m => <button key={m.ply} className={`profile-move-row${reviewPly===m.ply?' is-current':''}`} onClick={() => setReviewPly(m.ply)}><span>{Math.ceil(m.ply / 2)}{m.ply % 2 ? '.' : '…'}</span><b>{m.san}</b><em className={`grade-${m.grade.toLowerCase()}`}>{m.grade} · {Math.round(m.loss)} cp</em><small>{m.phase}{m.tags.length ? ` · ${m.tags}` : ''}</small></button>)}</div></section></div>}
+    {selectedReview && selectedGame && <div className="profile-review-backdrop" role="presentation" onClick={() => { setSelectedReview(null); setSelectedGame(null) }}><section className="profile-review" role="dialog" aria-modal="true" aria-label="Game review" onClick={e => e.stopPropagation()}><button type="button" className="profile-close" onClick={() => { setSelectedReview(null); setSelectedGame(null) }} aria-label="Close review">×</button><span className="profile-eyebrow">Game study · {selectedGame.userColor === 'w' ? selectedGame.white : selectedGame.black}</span><h2>{selectedReview.accuracy}% accuracy</h2><p>{selectedReview.opening} · {selectedReview.blunders} blunders · {selectedReview.mistakes} mistakes</p><div className="profile-board"><ChessBoard board={reviewPosition.board()} onSquareClick={() => {}} selected={null} legalTargets={[]} trail={reviewPosition.history({ verbose: true }).slice(-1).map(m => ({ from:m.from, to:m.to, color:m.color }))} orientation={selectedGame.userColor} interactive={false} /></div><div className="profile-board-controls"><button type="button" onClick={() => { setReviewMoveIndex(i => Math.max(0,i-1)); setReviewPly(p => Math.max(0,p-1)) }} disabled={reviewPly===0}>‹ Previous</button><span>{reviewPly===0 ? 'Initial position' : `Move ${Math.ceil(reviewPly/2)}${reviewPly%2 ? ' white' : ' black'}`}</span><button type="button" onClick={() => { const max=selectedGame.moves.trim().split(/\s+/).filter(Boolean).length; setReviewMoveIndex(i => Math.min(max,i+1)); setReviewPly(p => Math.min(max,p+1)) }} disabled={reviewPly>=selectedGame.moves.trim().split(/\s+/).filter(Boolean).length}>Next ›</button></div>{selectedReview.moves[reviewMoveIndex] && <p className="profile-current-analysis"><strong>{selectedReview.moves[reviewMoveIndex].san}</strong><span>{selectedReview.moves[reviewMoveIndex].grade} · {Math.round(selectedReview.moves[reviewMoveIndex].loss)} cp loss · {selectedReview.moves[reviewMoveIndex].phase}</span></p>}<div className="profile-moves">{selectedReview.moves.map((m,i) => <button type="button" key={m.ply} className={`profile-move-row${reviewMoveIndex===i?' is-current':''}`} onClick={() => { setReviewMoveIndex(i); setReviewPly(m.ply) }}><span>{Math.ceil(m.ply / 2)}{m.ply % 2 ? '.' : '…'}</span><b>{m.san}</b><em className={`grade-${m.grade.toLowerCase()}`}>{m.grade} · {Math.round(m.loss)} cp</em><small>{m.phase}{m.tags.length ? ` · ${m.tags}` : ''}</small></button>)}</div></section></div>}
   </HomeFrame>
 }
