@@ -4,8 +4,8 @@
  * is committed, so the sound waits for the slide - unless the player dragged the
  * piece there themselves (it already arrived under their finger).
  */
-const SLIDE_MS = 190
-const SLIDE_MS_REDUCED = 120
+const SLIDE_MS = 260
+const SLIDE_MS_REDUCED = 140
 const DRAG_WINDOW_MS = 80
 
 let lastDragDropAt = -Infinity

@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Move, type Square } from 'chess.js'
 import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 import { ChessBoard, PromotionModal } from './ChessBoard'
-import { OnlinePlay } from './OnlinePlay'
-import { PuzzleMode } from './puzzle/PuzzleMode'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
-import { GameScreen } from './components/GameScreen'
-import { GameResultDialog } from './components/GameResultDialog'
+import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, warmUpWhenIdle } from './lazyModes'
 import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 
 // ── Weight bar ────────────────────────────────────────────────────────────────
@@ -116,6 +113,8 @@ export function App() {
     if (new URLSearchParams(window.location.search).has('code') && sessionStorage.getItem('woodland-chess:oauth-return-path') === '/multiplayer') return 'online'
     return modeFromPath(window.location.pathname)
   })
+
+  useEffect(() => { warmUpWhenIdle() }, [])
 
   useEffect(() => {
     if (window.location.pathname === '/' && !window.location.search) window.history.replaceState({}, '', '/ai')
@@ -231,11 +230,11 @@ export function App() {
   // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
   // screens. Selecting "Back" there returns here with mode reset to 'ai'.
   if (mode === 'online') {
-    return <OnlinePlay onBack={() => navigateMode('ai')} onNavigate={navigateMode} />
+    return <Suspense fallback={null}><OnlinePlay onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
   }
 
   if (mode === 'puzzle') {
-    return <PuzzleMode onBack={() => navigateMode('ai')} onNavigate={navigateMode} />
+    return <Suspense fallback={null}><PuzzleMode onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
   }
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
@@ -300,6 +299,7 @@ export function App() {
   // ── GAME ───────────────────────────────────────────────────────────────────
   const tone = game.isGameOver() ? 'over' : game.turn() === player ? 'turn' : 'wait'
   return (
+    <Suspense fallback={null}>
     <GameScreen
       exitLabel="New game"
       onExit={() => setSetupOpen(true)}
@@ -331,6 +331,7 @@ export function App() {
             />
           )}
           {over && resultOpen && (
+            <Suspense fallback={null}>
             <GameResultDialog
               ratings={false}
               outcome={(game.isCheckmate() ? (game.turn() === player ? 'loss' : 'win') : 'draw') as Outcome}
@@ -354,6 +355,7 @@ export function App() {
               onHome={() => { setResultOpen(false); setSetupOpen(true) }}
               onClose={() => setResultOpen(false)}
             />
+            </Suspense>
           )}
         </>
       )}
@@ -374,5 +376,6 @@ export function App() {
         orientation={player}
       />
     </GameScreen>
+    </Suspense>
   )
 }

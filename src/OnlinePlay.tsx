@@ -18,6 +18,8 @@ import {
 import {
   freeze, formatTimeControl, remainingMs, runningSide, type ClockState,
 } from './clock'
+import './styles/game.css'
+import './styles/online.css'
 
 type Phase = 'loading' | 'login' | 'idle' | 'seeking' | 'in-game' | 'finished'
 type DrawState = 'none' | 'mine' | 'theirs'

@@ -1,4 +1,5 @@
 import { IconComputer, IconOnline, IconPuzzle } from './ModeIcons'
+import { preloadMode } from '../lazyModes'
 
 export type ModeId = 'ai' | 'online' | 'puzzle'
 
@@ -19,6 +20,9 @@ export function ModeNav({ current, onSelect }: { current: ModeId; onSelect: (m: 
       {modeItems.map(({ id, label, Icon }) => (
         <button key={id} type="button" className="mode-nav-btn"
           aria-current={id === current ? 'page' : undefined}
+          onPointerEnter={() => preloadMode(id)}
+          onFocus={() => preloadMode(id)}
+          onTouchStart={() => preloadMode(id)}
           onClick={() => { if (id !== current) onSelect(id) }}>
           <Icon className="mode-nav-icon" />
           <span>{label}</span>

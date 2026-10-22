@@ -1,0 +1,321 @@
+/* Puzzle mode styles. Loaded with the Puzzles screen.
+   Generated from the former single stylesheet: rule order inside each file is unchanged. */
+
+/* ── Shared buttons ───────────────────────────────────────── */
+.puzzle-shell button,
+.puzzle-win button { font-family: var(--font-body); cursor: pointer; }
+.hdr-center { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.hdr-puzzle-num { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.2em; color: var(--text-2); }
+.progress-bar-wrap { width: clamp(80px, 18vw, 160px); height: 2px; background: var(--border); }
+.progress-bar-fill { height: 100%; background: var(--accent-bright); transition: width 0.5s var(--ease-liturgy); }
+.hdr-right { justify-self: end; display: flex; align-items: center; gap: 0.9rem; }
+.hdr-score { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.score-label { font-family: var(--font-mono); font-size: 0.52rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-3); }
+.score-val { font-family: var(--font-display); font-size: 1.25rem; color: var(--text); }
+
+.puzzle-shell .game-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem max(1.25rem, var(--safe-right)) max(1.5rem, var(--safe-bottom)) max(1.25rem, var(--safe-left));
+  overflow-y: auto;
+}
+@media (min-width: 1000px) {
+  .puzzle-shell .game-main {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+    padding: 1.25rem 2rem;
+  }
+}
+
+/* ── Board ────────────────────────────────────────────────── */
+.puzzle-shell .board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: min(100%, 560px);
+  flex-shrink: 0;
+}
+@media (min-width: 1000px) {
+  .puzzle-shell .board-col { width: min(calc(100dvh - 170px), 760px); }
+}
+.puzzle-shell .square.hint-sq { background: var(--pz-hint); }
+.puzzle-shell .board.shake { animation: pzShake 0.32s var(--ease); }
+
+.puzzle-shell .mate-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 9, 11, 0.78);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s var(--ease);
+}
+.puzzle-shell .mate-overlay.show { opacity: 1; }
+.mate-overlay-inner { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.mate-overlay-icon { font-size: 2.6rem; color: var(--accent-bright); line-height: 1; }
+.mate-overlay-text { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text); }
+
+.puzzle-loading-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  color: var(--text);
+  background: var(--bg);
+  background-image: radial-gradient(ellipse 70% 55% at 50% 38%, rgba(26, 32, 39, 0.9), transparent 70%);
+}
+.puzzle-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 360px);
+  padding: 2.5rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: rgba(11, 13, 15, 0.82);
+  box-shadow: var(--shadow);
+}
+.puzzle-loading-mark { color: var(--accent-bright); font-size: 1.5rem; line-height: 1; }
+.puzzle-loading-title { margin-top: 0.65rem; color: var(--text-2); font: 0.65rem var(--font-mono); letter-spacing: 0.24em; }
+.puzzle-loading-rule { width: 56px; height: 1px; margin: 1.5rem 0; background: var(--accent); }
+.puzzle-loading-message { color: var(--text-2); font: 300 1.05rem var(--font-display); letter-spacing: 0.02em; }
+.puzzle-loading-dots { display: flex; gap: 0.45rem; margin-top: 1.3rem; }
+.puzzle-loading-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-bright); opacity: 0.3; animation: puzzleLoadingPulse 1.2s ease-in-out infinite; }
+.puzzle-loading-dots i:nth-child(2) { animation-delay: 0.18s; }
+.puzzle-loading-dots i:nth-child(3) { animation-delay: 0.36s; }
+
+.puzzle-shell .board-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.turn-badge { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-2); }
+.move-dots { display: flex; gap: 0.5rem; }
+.move-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--text-3); }
+.move-dot.filled { border-color: var(--accent-bright); background: transparent; box-shadow: 0 0 0 2px rgba(201,207,210,0.15); }
+.move-dot.used { background: var(--accent-bright); border-color: var(--accent-bright); }
+
+/* ── Info panel ───────────────────────────────────────────── */
+.puzzle-shell .info-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+  width: min(100%, 560px);
+  padding: 1.5rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+@media (min-width: 1000px) {
+  .puzzle-shell .info-col { width: 340px; max-height: calc(100dvh - 130px); overflow-y: auto; flex-shrink: 0; }
+}
+
+.puzzle-shell .game-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.puzzle-shell .game-badge.easy   { color: var(--pz-good); border-color: rgba(77, 168, 112, 0.4); }
+.puzzle-shell .game-badge.medium { color: #c9a45a; border-color: rgba(201, 164, 90, 0.4); }
+.puzzle-shell .game-badge.hard   { color: var(--pz-bad); border-color: rgba(192, 83, 74, 0.45); }
+
+.puzzle-year { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.18em; color: var(--text-3); }
+.puzzle-title { font-family: var(--font-display); font-style: italic; font-weight: 300; font-size: 1.7rem; line-height: 1.1; color: var(--text); margin-top: -0.2rem; }
+.puzzle-subtitle { font-family: var(--font-display); font-style: italic; font-size: 1rem; color: var(--text-2); margin-top: -0.4rem; }
+.puzzle-desc { font-size: 0.88rem; font-weight: 300; line-height: 1.6; color: var(--text-2); }
+
+.puzzle-shell .hint-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; width: 100%; }
+.puzzle-shell .btn-hint,
+.puzzle-shell .btn-ghost,
+.puzzle-shell .btn-next {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0 1rem;
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: color 0.25s var(--ease), border-color 0.25s var(--ease), background 0.25s var(--ease);
+}
+.puzzle-shell .btn-hint,
+.puzzle-shell .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-2); }
+.puzzle-shell .btn-hint:hover,
+.puzzle-shell .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); }
+.puzzle-shell .btn-next { background: var(--accent-dim); border: 1px solid var(--accent); color: var(--text); }
+.puzzle-shell .btn-next:hover { background: var(--accent); color: var(--bg); }
+.hint-text { min-height: 1.2em; font-size: 0.82rem; font-style: italic; color: var(--text-2); }
+.hint-text:empty { display: none; }
+
+.puzzle-shell .move-history { width: 100%; display: flex; flex-direction: column; gap: 0.3rem; }
+.puzzle-shell .move-history:empty { display: none; }
+.move-entry { display: flex; align-items: baseline; gap: 0.6rem; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-2); }
+.move-entry .mn { color: var(--text-3); font-size: 0.6rem; }
+.move-entry .mv.correct { color: var(--pz-good); }
+
+.puzzle-shell .action-row { display: flex; flex-wrap: wrap; gap: 0.6rem; width: 100%; }
+
+.puzzle-shell .feedback { min-height: 1.3em; font-size: 0.85rem; color: var(--text-2); }
+.puzzle-shell .feedback:empty { display: none; }
+.puzzle-shell .feedback.correct,
+.puzzle-shell .feedback.done { color: var(--pz-good); }
+.puzzle-shell .feedback.wrong,
+.puzzle-shell .feedback.legal-wrong { color: var(--pz-bad); }
+
+.puzzle-shell .stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; flex: 1; }
+.stat-n { font-family: var(--font-display); font-size: 1.5rem; line-height: 1; color: var(--text); }
+.stat-l { font-family: var(--font-mono); font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-3); }
+.stat-sep { width: 1px; height: 28px; background: var(--border); }
+
+/* ── Achievement toast ────────────────────────────────────── */
+.achievement-toast {
+  position: fixed;
+  right: max(1rem, var(--safe-right));
+  bottom: max(1rem, var(--safe-bottom));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  max-width: min(320px, calc(100vw - 2rem));
+  padding: 0.9rem 1.1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.5s var(--ease-liturgy) both;
+}
+.achievement-toast-icon svg { width: 22px; height: 22px; color: var(--accent-bright); }
+.achievement-toast-title { font-family: var(--font-display); font-style: italic; font-size: 1.05rem; color: var(--text); }
+.achievement-toast-desc { font-size: 0.75rem; color: var(--text-2); }
+
+/* ── Win ──────────────────────────────────────────────────── */
+.puzzle-win {
+  display: flex;
+  height: 100dvh;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 40%, rgba(26, 32, 39, 0.9), transparent 70%),
+    var(--bg);
+}
+.puzzle-win .win-content {
+  margin: auto;
+  padding: 2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  animation: fadeUp 0.9s var(--ease-liturgy) both;
+}
+.win-crown svg { width: 44px; height: 44px; color: var(--accent-bright); }
+.win-label { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-3); }
+.win-title { font-family: var(--font-display); font-style: italic; font-weight: 300; font-size: clamp(2.4rem, 9vw, 3.6rem); line-height: 1; color: var(--text); }
+.win-score-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; margin: 0.75rem 0 1rem; }
+.win-score-num { font-family: var(--font-display); font-size: 3rem; line-height: 1; color: var(--text); }
+.win-score-lbl { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-3); }
+.puzzle-win .win-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+.puzzle-win .begin-game,
+.puzzle-win .new-game { width: auto; min-width: 160px; min-height: 48px; margin: 0; align-self: auto; }
+
+
+/* ============================================================
+   HOME / SETUP SCREEN  (.setup-card--home)
+   Mobile-first, then enhanced:
+     base      phones   - full-bleed screen, 3-up icon nav, 48px+ touch
+                          targets, primary action pinned in the thumb zone
+     ≥700px    tablets  - bordered card, inline icon + label nav
+     ≥920px    desktop  - two-column card: nav sits in the header row,
+                          opponent | match side by side, action row at foot
+   Scoped to .setup-card--home so Online / Puzzle screens that share
+   .setup-card are untouched.
+   ============================================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* ============================================================
+   PUZZLES - an app-like screen
+   Phones/tablets: exactly one viewport tall, the page never scrolls. The header
+   and the action/stat footer are fixed; the board takes the leftover height; only
+   the small description area may scroll inside itself.
+   Desktop keeps its two-column layout (the head/body/foot wrappers are transparent).
+   ============================================================ */
+.puzzle-shell,
+.gm,
+.puzzle-win {
+  -webkit-tap-highlight-color: transparent;   /* no grey flash on tap */
+  -webkit-touch-callout: none;                /* no iOS long-press menu on the board */
+}
+
+.puzzle-shell .info-head,
+.puzzle-shell .info-body,
+.puzzle-shell .info-foot { display: contents; }
+
+@media (max-width: 999.98px) {
+
+  .puzzle-shell .game-main {
+    align-items: stretch;
+    gap: 0.6rem;
+    overflow: hidden;
+    padding: 0.6rem max(0.9rem, var(--safe-right)) max(0.6rem, var(--safe-bottom)) max(0.9rem, var(--safe-left));
+  }
+  .puzzle-shell .board-col { width: 100%; flex: 1 1 0; min-height: 0; gap: 0.45rem; }
+  .puzzle-shell .board-stage { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; container-type: size; }
+  .puzzle-shell .board-footer { flex: 0 0 auto; }
+  .puzzle-shell .info-col { width: 100%; max-height: none; flex: 0 0 auto; align-items: stretch; gap: 0.5rem; padding: 0.65rem 0.8rem; }
+  .puzzle-shell .info-head { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+  .puzzle-shell .info-head .game-badge { flex-shrink: 0; }
+  .puzzle-shell .info-head .puzzle-year { display: none; }
+  .puzzle-shell .puzzle-title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .puzzle-shell .info-body { display: block; max-height: 3.7rem; padding-right: 0.3rem; overflow-y: auto; overscroll-behavior: contain; }
+  .puzzle-shell .puzzle-subtitle { display: none; }
+  .puzzle-shell .puzzle-desc { font-size: 0.8rem; line-height: 1.45; }
+  .puzzle-shell .hint-text { margin-top: 0.3rem; }
+
+  .puzzle-shell .info-foot { display: flex; flex-direction: column; gap: 0.5rem; }
+  .puzzle-shell .action-row { flex-wrap: nowrap; gap: 0.5rem; }
+  .puzzle-shell .action-row > * { flex: 1 1 0; min-width: 0; min-height: 44px; justify-content: center; }
+  .puzzle-shell .feedback,
+  .puzzle-shell .feedback:empty { display: block; min-height: 1.3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; line-height: 1.3; }
+  .puzzle-shell .stat-row { margin-top: 0; padding-top: 0.5rem; }
+  .puzzle-shell .stat-n { font-size: 1.15rem; }
+}

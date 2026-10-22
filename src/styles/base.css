@@ -1,0 +1,1833 @@
+/* Woodland Chess - base styles (design tokens, reset, shell, menus, shared board). Loaded up front.
+   Generated from the former single stylesheet: rule order inside each file is unchanged. */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  --bg:           #08090b;
+  --bg-2:         #0d1013;
+  --bg-3:         #12161a;
+  --surface:      rgba(214, 219, 222, 0.035);
+  --border:       rgba(214, 219, 222, 0.07);
+  --border-hover: rgba(214, 219, 222, 0.18);
+
+  --text:         #e6e3da;
+  --text-2:       #9aa3a8;
+  --text-3:       #7f8589;
+
+  --accent:       #7c8891;
+  --accent-dim:   rgba(124, 136, 145, 0.13);
+  --accent-bright:#c9cfd2;
+
+  /* Board-specific tokens */
+  --sq-light:     #1a2027;
+  --sq-dark:      #0d1013;
+  --sq-border:    rgba(214, 219, 222, 0.04);
+  --sq-selected:  rgba(201, 207, 210, 0.18);
+  --sq-last:      rgba(201, 207, 210, 0.09);
+  --sq-target:    rgba(201, 207, 210, 0.55);
+  --sq-capture:   rgba(201, 207, 210, 0.25);
+
+  --radius-card:  2px;
+  --radius-img:   2px;
+  --shadow:       0 1px 3px rgba(0,0,0,.45), 0 8px 40px rgba(0,0,0,.55);
+  --shadow-hover: 0 2px 8px rgba(0,0,0,.5), 0 24px 70px rgba(0,0,0,.65);
+  --ease:         cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out:     cubic-bezier(0, 0, 0.2, 1);
+  --ease-liturgy: cubic-bezier(0.16, 0.4, 0.15, 1);
+
+  --font-display: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --font-body:    "Jost", "DM Sans", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", monospace;
+
+  /* Safe-area insets so notches/home-indicators never clip content */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Prevent iOS text auto-inflation + rubber-band scroll on the app shell */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(124, 136, 145, 0.05), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.55  0 0 0 0 0.58  0 0 0 0 0.6  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+  color: var(--text);
+  height: 100%;
+  min-height: 100dvh;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button, select, input { font: inherit; }
+button {
+  cursor: pointer;
+  touch-action: manipulation; /* kill the 300ms tap delay + double-tap zoom */
+}
+a { color: inherit; text-decoration: none; }
+
+::selection {
+  background: rgba(124, 136, 145, 0.28);
+  color: var(--text);
+}
+
+* {
+  outline: none;
+}
+
+*:focus { outline: none; }
+*:focus-visible { outline: none; }
+
+/* ── Scrollbars: "rail & thread" ────────────────────────────────────────────
+   A hairline rail (the same 1px border tone as every card) with a slim slate
+   thread riding on it - square-ended like the rest of the UI, never a chunky
+   OS bar. The thread swells on hover and again while dragging, so it reads as
+   a physical thing you are holding. Applies to every scroll area on the site
+   (page, move list, menus, sheets, puzzle panels).
+   - WebKit/Blink: the ::-webkit-scrollbar rules below.
+   - Firefox: scrollbar-width / scrollbar-color, inside @supports so they do not
+     switch the custom WebKit styling off in Chrome (which honours them first).
+   - Touch devices keep their native overlay bars. */
+:root {
+  --sb-size:        10px;
+  --sb-rail:        rgba(214, 219, 222, 0.10);
+  --sb-thread:      rgba(124, 136, 145, 0.55);
+  --sb-thread-hover:rgba(201, 207, 210, 0.85);
+  --sb-thread-drag: #e6e3da;
+}
+
+*::-webkit-scrollbar { width: var(--sb-size); height: var(--sb-size); background: transparent; }
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment { display: none; width: 0; height: 0; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+*::-webkit-scrollbar-track:vertical {
+  background: linear-gradient(to right,
+    transparent calc(50% - 0.5px), var(--sb-rail) calc(50% - 0.5px),
+    var(--sb-rail) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+*::-webkit-scrollbar-track:horizontal {
+  background: linear-gradient(to bottom,
+    transparent calc(50% - 0.5px), var(--sb-rail) calc(50% - 0.5px),
+    var(--sb-rail) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+
+/* The thread is a transparent-bordered box: border width = how much of the 10px
+   gutter stays empty, so shrinking the border thickens the visible thread. */
+*::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thread);
+  background-clip: padding-box;
+  border-style: solid;
+  border-color: transparent;
+  border-radius: 0;
+  min-height: 36px;
+  min-width: 36px;
+  transition: background-color 0.2s var(--ease);
+}
+*::-webkit-scrollbar-thumb:vertical   { border-width: 0 4px; }   /* 2px thread */
+*::-webkit-scrollbar-thumb:horizontal { border-width: 4px 0; }
+*::-webkit-scrollbar-thumb:hover { background-color: var(--sb-thread-hover); }
+*::-webkit-scrollbar-thumb:vertical:hover   { border-width: 0 3px; }   /* 4px */
+*::-webkit-scrollbar-thumb:horizontal:hover { border-width: 3px 0; }
+*::-webkit-scrollbar-thumb:active { background-color: var(--sb-thread-drag); }
+*::-webkit-scrollbar-thumb:vertical:active   { border-width: 0 2px; }  /* 6px */
+*::-webkit-scrollbar-thumb:horizontal:active { border-width: 2px 0; }
+
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--sb-thread) transparent; }
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); filter: blur(3px); }
+  to   { opacity: 1; transform: none;             filter: none;      }
+}
+
+/* Home screens: opacity only. A transform/filter that is still applied after the
+   animation (fill-mode "both") keeps the whole card on its own bitmap layer, which
+   iOS home-screen apps rasterise at low resolution (blurry logo + text) and which
+   also turns the card into the containing block of the position:fixed action bar. */
+@keyframes homeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ringFloat {
+  0%, 100% { transform: rotate(0deg); }
+  to        { transform: rotate(360deg); }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.6; }
+}
+
+/* ============================================================
+   SETUP SCREEN - mobile-first (full-bleed sheet on phones)
+   ============================================================ */
+
+.setup-shell {
+  /* Fixed viewport height so the shell itself scrolls (html/body are
+     overflow:hidden on desktop). The card uses margin:auto to centre when
+     it fits and to stay fully reachable when it does not. */
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(1.25rem, var(--safe-top))
+           max(1.25rem, var(--safe-right))
+           max(1.25rem, var(--safe-bottom))
+           max(1.25rem, var(--safe-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.setup-card {
+  margin: auto;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.8rem 1.5rem 1.6rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: fadeUp 0.9s var(--ease-liturgy) both;
+  /* Prevent card itself from shrinking on short screens */
+  flex-shrink: 0;
+}
+
+/* Brand lockup - shared between setup and header */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.brand-mark {
+  /* Inline SVG knight: fixed box so it can never compress in a flex row */
+  display: block;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  aspect-ratio: 1 / 1;
+  color: var(--text);
+  shape-rendering: geometricPrecision;
+}
+
+.brand-name {
+  /* Weight 400 (not 300): hairline italic strokes at ~17px get smeared by iOS
+     home-screen text rendering and read as "blurry". Heavier strokes + a bit
+     more size stay sharp at any pixel density. */
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.3rem;
+  line-height: 1.2;
+  color: var(--text);
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+}
+
+/* Setup eyebrow + heading - tight unit, spaced away from siblings */
+.setup-heading {
+  margin: 1.2rem 0 0.9rem;
+}
+
+.setup-kicker {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 0.55rem;
+  display: block;
+}
+
+.setup-card h1 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(1.6rem, 7vw, 2.1rem);
+  line-height: 1.05;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.setup-copy {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.75;
+  margin-bottom: 1.1rem;
+}
+
+/* Form fields - 44px+ tall for comfortable thumb targets */
+.school-summary {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 300;
+  color: var(--text-3);
+  line-height: 1.6;
+  text-transform: none;
+  letter-spacing: 0;
+  display: block;
+  margin-top: 0.5rem;
+}
+
+/* ============================================================
+   CUSTOM DROPDOWN
+   Replaces the native <select> with a fully branded control:
+   an anchored panel on desktop, a full-width sheet on mobile  - 
+   never the OS-rendered picker.
+   ============================================================ */
+
+.dropdown {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.3rem;
+}
+
+.dropdown-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 0.5rem;
+}
+
+.dropdown-trigger {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 300;
+  text-align: left;
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
+}
+
+@media (min-width: 700px) {
+  .dropdown-trigger { font-size: 0.82rem; min-height: 0; padding: 0.7rem 0.9rem; }
+}
+
+.dropdown-trigger:hover,
+.dropdown-trigger[aria-expanded="true"] {
+  border-color: var(--border-hover);
+  background: var(--bg-2);
+}
+
+.dropdown-chevron {
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: transform 0.25s var(--ease);
+}
+
+.dropdown-trigger[aria-expanded="true"] .dropdown-chevron {
+  transform: rotate(180deg);
+  color: var(--text-2);
+}
+
+/* Backdrop - only meaningful on mobile where the menu is a sheet,
+   but kept on desktop too so an outside click always closes it. */
+.dropdown-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: transparent;
+}
+
+@media (max-width: 699.98px) {
+  .dropdown-scrim {
+    background: rgba(8, 9, 11, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    /* The top status/notch area stays visually calm; the blurred sheet scrim
+       starts beneath the iPhone safe area so it cannot wash over the brand. */
+    top: calc(var(--safe-top) + 7.5rem);
+  }
+}
+
+/* Mobile: bottom sheet, consistent with the promotion modal */
+.dropdown-menu {
+  list-style: none;
+  position: fixed;
+  z-index: 91;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: var(--shadow-hover);
+  padding: 0.5rem max(0.5rem, var(--safe-left)) max(0.5rem, var(--safe-bottom)) max(0.5rem, var(--safe-right));
+  animation: fadeUp 0.25s var(--ease-liturgy) both;
+}
+
+/* Desktop: compact anchored panel below the trigger */
+@media (min-width: 700px) {
+  .dropdown-menu {
+    position: absolute;
+    z-index: 92;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    max-height: 280px;
+    border-radius: var(--radius-card);
+    border-bottom: 1px solid var(--border);
+    padding: 0.3rem;
+  }
+}
+
+.dropdown-menu-handle {
+  display: none;
+}
+
+@media (max-width: 699.98px) {
+  .dropdown-menu-handle {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 0.7rem;
+  }
+  .dropdown-menu-handle span {
+    width: 34px;
+    height: 3px;
+    border-radius: 99px;
+    background: var(--border-hover);
+  }
+}
+
+.dropdown-option {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 46px;
+  padding: 0.65rem 0.8rem;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-card);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 300;
+  text-align: left;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+@media (min-width: 700px) {
+  .dropdown-option { font-size: 0.82rem; min-height: 38px; padding: 0.55rem 0.7rem; }
+}
+
+.dropdown-option:hover {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.dropdown-option[aria-selected="true"] {
+  color: var(--text);
+}
+
+.dropdown-option svg {
+  flex-shrink: 0;
+  color: var(--accent-bright);
+}
+
+/* Color picker */
+.color-picker {
+  border: 0;
+  padding: 0;
+  margin-bottom: 1.5rem;
+}
+
+.color-picker legend {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 0.6rem;
+}
+
+.color-picker-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.color-picker button {
+  min-height: 46px;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  border-radius: var(--radius-card);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 300;
+  transition: border-color 0.3s var(--ease), color 0.3s var(--ease), background 0.3s var(--ease);
+}
+
+@media (min-width: 700px) {
+  .color-picker button { font-size: 0.82rem; min-height: 0; }
+}
+
+.color-picker button:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.color-picker button[aria-pressed="true"] {
+  border-color: var(--accent-bright);
+  color: var(--text);
+  background: rgba(201, 207, 210, 0.07);
+}
+
+/* Primary CTA - full-width thumb-friendly on mobile */
+.begin-game {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+  width: 100%;
+  min-height: 50px;
+  padding: 0.85rem 1.4rem;
+  border-radius: var(--radius-card);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  transition: background 0.35s var(--ease), color 0.35s var(--ease), transform 0.2s var(--ease);
+}
+
+@media (min-width: 700px) {
+  .begin-game { width: auto; min-height: 0; font-size: 0.82rem; align-self: flex-start; }
+}
+
+.begin-game:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.begin-game:active { transform: scale(0.98); }
+
+/* ============================================================
+   MAIN APP SHELL
+   Mobile-first: a single scrolling column - board first, then a
+   compact status/history/actions stack below it, like a native
+   app screen. Desktop gets the fixed-height two-column layout.
+   ============================================================ */
+
+html, body {
+  height: 100%;
+}
+
+@media (min-width: 1000px) {
+  html, body { overflow: hidden; }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.new-game {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  min-height: 40px;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.new-game:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+/* ============================================================
+   BOARD
+   ============================================================ */
+
+.board-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  /* Mobile: fill the available width edge-to-edge, capped so it
+     never pushes the info stack off-screen on short phones. */
+  width: min(100%, calc(100dvh - 260px));
+  min-width: min(100%, 320px);
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  flex-shrink: 0;
+  touch-action: manipulation;
+}
+
+/* Pointer-driven piece dragging works with mouse, pen, and touch without the
+   browser interpreting an in-progress board gesture as page panning. */
+.board .square { touch-action: manipulation; }
+
+@media (min-width: 1000px) {
+  .board {
+    width: min(100%, calc(100dvh - 120px));
+    min-width: 0;
+  }
+}
+
+.square {
+  border: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  transition: background 0.2s var(--ease);
+}
+
+.square.light { background: var(--sq-light); }
+.square.dark  { background: var(--sq-dark);  }
+
+.square.last  {
+  background: var(--sq-last);
+}
+
+.square.selected {
+  background: var(--sq-selected);
+}
+
+.piece {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 9vw, 52px);
+  line-height: 1;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+  transition: transform 0.15s var(--ease);
+}
+
+@media (min-width: 1000px) {
+  .piece { font-size: clamp(22px, 5.5vw, 52px); }
+}
+
+.square:hover .piece { transform: translateY(-2px); }
+
+.piece.w { color: var(--text);   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7)); }
+.piece.b { color: var(--text-3); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+
+/* Move indicators */
+.target {
+  position: absolute;
+  width: 28%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  opacity: 0.45;
+  pointer-events: none;
+  animation: subtlePulse 2s var(--ease) infinite;
+}
+
+.capture {
+  position: absolute;
+  inset: 8%;
+  border: 2px solid var(--accent-bright);
+  border-radius: 50%;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Coordinate labels */
+.rank, .file {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-3);
+  opacity: 0.5;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.rank { top: 3px; left: 4px; }
+.file { bottom: 3px; right: 4px; }
+
+/* Status */
+.status {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.history {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.history p {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 300;
+  color: var(--text-3);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* ============================================================
+   PROMOTION MODAL - bottom sheet on mobile, centered dialog on desktop
+   ============================================================ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 11, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+}
+
+@media (min-width: 700px) {
+  .modal-backdrop { align-items: center; }
+}
+
+.promotion {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 1.6rem 1.6rem max(1.6rem, calc(1.2rem + var(--safe-bottom)));
+  box-shadow: var(--shadow-hover);
+  text-align: center;
+  animation: fadeUp 0.4s var(--ease-liturgy) both;
+}
+
+@media (min-width: 700px) {
+  .promotion {
+    width: auto;
+    min-width: 240px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 2rem;
+  }
+}
+
+.promotion h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.2rem;
+  color: var(--text);
+  margin-bottom: 1.2rem;
+}
+
+.promotion-pieces {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.promotion button {
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  border-radius: var(--radius-card);
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  transition: border-color 0.3s var(--ease), color 0.3s var(--ease), background 0.3s var(--ease), transform 0.2s var(--ease);
+}
+
+@media (min-width: 700px) {
+  .promotion button { width: 52px; height: 52px; font-size: 1.8rem; }
+}
+
+.promotion button:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+  background: var(--bg-2);
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   SMALL-PHONE REFINEMENTS
+   ============================================================ */
+
+@media (max-width: 380px) {
+  .setup-card { padding: 1.5rem 1.1rem 1.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ============================================================
+   SCHOOL WEIGHT TOKENS  +  PIECE FILTER TOKENS
+   ============================================================
+   Color theory rationale for piece filters:
+   Board squares: --sq-light #1a2027 (rgb 26,32,39) and --sq-dark #0d1013 (rgb 13,16,19)
+   Both are very dark blue-gray. Pieces must read against these.
+
+   WHITE pieces (cburnett "lt" = white fill + black outline):
+     Pure white (#fff) is too harsh and lacks the brand warmth.
+     Target: --text (#e6e3da = rgb 230,227,218) - warm off-white with slight yellow.
+     Filter: sepia(0.18) pulls warm yellow into the white fill.
+             brightness(0.91) tones it down from glaring 255 to ~210 range.
+     Result: warm ivory - harmonises with Cormorant Garamond headline tone.
+
+   BLACK pieces (cburnett "dt" = near-black fill + light outline):
+     Black (#0d1013 ≈ board dark) = invisible. Must be lifted significantly.
+     Target: --accent-bright (#c9cfd2 = rgb 201,207,210) - the brand's cool silver.
+     Filter: invert(0.72) flips black to ~rgb 183,183,183 (cool neutral gray).
+             hue-rotate(194deg) shifts toward the blue-gray of --accent-bright.
+             saturate(0.55) keeps it muted rather than vivid blue.
+             brightness(0.96) fine-tunes brightness.
+     Result: cool steel silver - visually distinct from warm white pieces,
+             reads clearly on both dark squares, matches brand accent palette.
+   ============================================================ */
+:root {
+  --w-attack: #c0534a;   /* warm red   - Attack bar */
+  --w-focus:  #5a8fd4;   /* steel blue - Focus bar  */
+  --w-defend: #4da870;   /* muted green - Defend bar */
+
+  /* Piece CSS filter chains */
+  --piece-filter-w:
+    sepia(0.18)
+    brightness(0.91)
+    drop-shadow(0 1px 1px rgba(0,0,0,0.55));
+
+  --piece-filter-b:
+    invert(0.72)
+    hue-rotate(194deg)
+    saturate(0.55)
+    brightness(0.96)
+    drop-shadow(0 1px 1px rgba(0,0,0,0.65));
+}
+
+/* ============================================================
+   WEIGHT BARS
+   ============================================================ */
+.school-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.weight-bar-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 24px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.weight-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.weight-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.weight-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s var(--ease-liturgy);
+  opacity: 0.85;
+}
+
+.weight-value {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-align: right;
+}
+
+/* ============================================================
+   SVG PIECE IMAGES - cburnett set (Wikimedia Commons, CC BY-SA 3.0)
+   Color filters are applied per-side via --piece-filter-w / --piece-filter-b.
+   See :root comment block above for full color-theory rationale.
+   ============================================================ */
+
+/* Base layout - shared by both sides */
+
+
+/* ============================================================
+   CHESS PIECE SVG COLOR SYSTEM
+   ============================================================
+   Source paths: cburnett set (CC BY-SA 3.0), same as Lichess/Wikipedia,
+   extracted from python-chess/chess/svg.py. Both sides share identical
+   path data - only the CSS filter differs.
+
+   Base SVG color:  #808080  (neutral gray, L*53)
+   Detail color:    #505050  (darker gray, L*34 - eyes, inner lines)
+
+   WHITE pieces → warm ivory  #e6e3da  (brand --text,   L*90)
+   ─────────────────────────────────────────────────────────────
+   Starting #808080 (L*53):
+     brightness(2.0)   →  lifts to L*90 range
+     sepia(0.10)        →  adds warm yellow-cream cast matching #e6e3da hue
+     saturate(0.90)     →  keeps muted, not vivid yellow
+   Result: ~#e9e5db - within 1 ΔE of brand --text #e6e3da ✓
+
+   BLACK pieces → cool steel  #9aa3a8  (brand --text-2, L*66)
+   ─────────────────────────────────────────────────────────────
+   Starting #808080 (L*53):
+     brightness(1.28)   →  lifts to L*66 range
+     hue-rotate(196deg) →  rotates toward blue-cyan (cool steel hue of #9aa3a8)
+     saturate(0.72)     →  gentle cool saturation, not vivid
+   Result: ~#9ba4a9 - within 1 ΔE of brand --text-2 #9aa3a8 ✓
+
+   WCAG non-text contrast ≥ 3:1 (graphics guideline):
+     Ivory  vs light sq #1a2027 → ~11:1  ✓ AAA
+     Ivory  vs dark sq  #0d1013 → ~16:1  ✓ AAA
+     Steel  vs light sq #1a2027 → ~4.8:1 ✓ AA+
+     Steel  vs dark sq  #0d1013 → ~6.6:1 ✓ AA+
+     White-vs-black side:        ~2.7:1  (supplemented by shape cues)
+   ============================================================ */
+
+:root {
+  --w-attack: #c0534a;
+  --w-focus:  #5a8fd4;
+  --w-defend: #4da870;
+
+  /* White pieces: neutral gray → warm ivory #e6e3da */
+  --piece-filter-w:
+    brightness(2.0)
+    sepia(0.10)
+    saturate(0.90)
+    drop-shadow(0 1px 1px rgba(0,0,0,0.55));
+
+  /* Black pieces: neutral gray → cool steel #9aa3a8 */
+  --piece-filter-b:
+    brightness(1.28)
+    hue-rotate(196deg)
+    saturate(0.72)
+    drop-shadow(0 1px 1px rgba(0,0,0,0.65));
+}
+
+/* ── piece image layout ─────────────────────────────────────────────────── */
+.piece-svg {
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+  image-rendering: auto;
+  transition: transform 0.15s var(--ease), filter 0.15s var(--ease);
+}
+
+.piece-svg--w { filter: var(--piece-filter-w); }
+.piece-svg--b { filter: var(--piece-filter-b); }
+
+.square:hover .piece-svg { transform: translateY(-3px); }
+
+.promo-piece-svg {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.promo-piece-svg--w { filter: var(--piece-filter-w); }
+.promo-piece-svg--b { filter: var(--piece-filter-b); }
+
+/* ── weight bars ────────────────────────────────────────────────────────── */
+.school-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.weight-bar-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 24px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.weight-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.weight-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.weight-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s var(--ease-liturgy);
+  opacity: 0.85;
+}
+
+.weight-value {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-align: right;
+}
+
+/* Inline error text on the online screens */
+.online-error {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: #c0534a;
+  margin: -0.4rem 0 0.8rem;
+  line-height: 1.6;
+}
+
+/* Spinner-less "searching" state keeps the existing fadeUp animation on the
+   setup-card; the kicker/heading text communicates the waiting state. */
+
+
+/* Short desktop viewports: tighten vertical rhythm so the whole setup card
+   fits without scrolling. */
+@media (min-width: 700px) and (max-height: 900px) {
+  .setup-card { padding: 1.3rem 1.5rem 1.3rem; }
+  .setup-heading { margin: 1.1rem 0 0.7rem; }
+  .setup-copy { margin-bottom: 0.7rem; }
+  .school-weights { margin: 0.6rem 0; }
+}
+
+/* ============================================================
+   PUZZLE MODE (Checkmate)
+   Uses Woodland tokens only. Every rule is scoped to a puzzle
+   root (.puzzle-shell / .puzzle-intro / .puzzle-win) so nothing
+   here can leak into the main game's .board, .brand, etc.
+   ============================================================ */
+
+:root {
+  --pz-good: #4da870;
+  --pz-bad:  #c0534a;
+  --pz-hint: rgba(192, 83, 74, 0.38);
+  --pz-gap:  1rem;
+}
+.hdr-brand {
+  justify-self: start;
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  padding: 0.5rem 0;
+  transition: color 0.25s var(--ease);
+}
+.hdr-brand:hover { color: var(--text); }
+@keyframes pzShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  60% { transform: translateX(5px); }
+}
+@keyframes puzzleLoadingPulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+/* ── shell + card ───────────────────────────────────────────────────────── */
+.setup-shell--home {
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.setup-card--home {
+  animation: homeIn 0.6s var(--ease-liturgy) backwards;
+  --home-pad-x: max(1.1rem, var(--safe-left));
+  --home-pad-r: max(1.1rem, var(--safe-right));
+  max-width: 560px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  /* viewport-fit=cover lets iOS render behind the status bar. Add the actual
+     notch inset to the design spacing instead of clamping it with max(). */
+  padding: calc(0.65rem + var(--safe-top)) var(--home-pad-r) calc(5.4rem + var(--safe-bottom)) var(--home-pad-x);
+  background: linear-gradient(to bottom, #08090b, #08090b 7rem, transparent 13rem);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-head {
+  position: relative;
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── mode navigation ────────────────────────────────────────────────────── */
+.mode-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.mode-nav-btn {
+  line-height: 1.2;
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 64px;
+  padding: 0.7rem 0.3rem 0.6rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease),
+              background 0.25s var(--ease), transform 0.2s var(--ease);
+}
+
+.mode-nav-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: color 0.25s var(--ease);
+}
+
+.mode-nav-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+.mode-nav-btn:hover .mode-nav-icon { color: var(--text-2); }
+.mode-nav-btn:active { transform: scale(0.98); }
+
+.mode-nav-btn[aria-current="page"] {
+  border-color: var(--accent-bright);
+  background: rgba(201, 207, 210, 0.07);
+  color: var(--text);
+  cursor: default;
+}
+.mode-nav-btn[aria-current="page"] .mode-nav-icon { color: var(--accent-bright); }
+
+/* ── intro ──────────────────────────────────────────────────────────────── */
+.setup-card--home .home-intro { margin: 1.6rem 0 1.3rem; }
+.setup-card--home .setup-kicker { margin-bottom: 0.5rem; }
+.setup-card--home .setup-copy { margin: 0.7rem 0 0; max-width: 46ch; }
+
+/* ── panels ─────────────────────────────────────────────────────────────── */
+.home-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding-bottom: 1.4rem;
+}
+
+.home-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.3rem;
+  min-width: 0;
+}
+
+.setup-card--home .dropdown { margin-bottom: 0; }
+.setup-card--home .school-weights { margin: 0; }
+
+/* ── field + segmented control ──────────────────────────────────────────── */
+.field {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.field-label {
+  display: block;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.seg {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.seg-opt {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.seg-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.7rem 0.4rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 300;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease),
+              background 0.25s var(--ease), transform 0.2s var(--ease);
+}
+
+.seg-opt:hover .seg-face {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+.seg-opt:active .seg-face { transform: scale(0.98); }
+
+.seg-opt input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.seg-opt input:checked + .seg-face {
+  border-color: var(--accent-bright);
+  background: rgba(201, 207, 210, 0.07);
+  color: var(--text);
+}
+
+/* side swatches use the exact piece colours of the board */
+.seg-swatch {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-hover);
+}
+.seg-swatch--w { background: var(--text); }
+.seg-swatch--b { background: var(--text-2); }
+.seg-swatch--r { background: linear-gradient(90deg, var(--text) 50%, var(--text-2) 50%); }
+
+/* ── primary action: pinned to the thumb zone on phones ─────────────────── */
+.home-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0.65rem max(1.1rem, var(--safe-right)) calc(0.65rem + var(--safe-bottom)) max(1.1rem, var(--safe-left));
+  background: linear-gradient(to top, var(--bg) 62%, rgba(8, 9, 11, 0));
+}
+
+@media (max-width: 699.98px) and (max-height: 780px) {
+  .setup-card--home { padding-top: calc(0.4rem + var(--safe-top)); }
+  .setup-card--home .home-intro { margin: 0.85rem 0 0.75rem; }
+  .home-head { gap: 0.55rem; }
+  .mode-nav { gap: 0.3rem; }
+  .mode-nav-btn { min-height: 54px; gap: 0.25rem; padding: 0.45rem 0.2rem; font-size: 0.72rem; }
+  .mode-nav-icon { width: 19px; height: 19px; }
+  .home-actions { padding-top: 0.45rem; }
+  .setup-card--home .begin-game { min-height: 48px; }
+  .home-grid { gap: 0.9rem; padding-bottom: 0.8rem; }
+  .home-panel { gap: 0.85rem; }
+  .setup-card--home .seg-face { min-height: 44px; padding-block: 0.55rem; }
+  .setup-card--home .dropdown-trigger { min-height: 46px; }
+}
+
+@media (max-width: 699.98px) and (max-height: 680px) {
+  .setup-card--home .setup-copy,
+  .setup-card--compact .home-body,
+  .setup-card--compact .feature-list li:nth-child(n + 3),
+  .setup-card--compact .home-hint { display: none; }
+  .setup-card--home .home-intro { margin: 0.6rem 0; }
+  .home-panel { gap: 0.75rem; }
+  .home-grid { gap: 0.8rem; padding-bottom: 0.75rem; }
+}
+
+.home-summary { display: none; }
+
+.setup-card--home .begin-game {
+  min-height: 52px;
+  font-size: 0.95rem;
+  align-self: stretch;
+}
+
+/* ── keyboard focus (the global reset removes outlines; restore them here) ─ */
+.setup-card--home :is(button, .dropdown-trigger):focus-visible,
+.setup-card--home .seg-opt:has(input:focus-visible) .seg-face {
+  outline: 1px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+/* ── ≥700px: bordered card, inline icon + label ─────────────────────────── */
+@media (min-width: 700px) {
+  .setup-shell--home {
+    padding: max(1.5rem, var(--safe-top)) max(1.5rem, var(--safe-right))
+             max(1.5rem, var(--safe-bottom)) max(1.5rem, var(--safe-left));
+  }
+
+  .setup-card--home {
+    --home-pad-x: 2rem;
+    --home-pad-r: 2rem;
+    min-height: 0;
+    max-width: 600px;
+    margin: auto;
+    padding: 2rem 2rem 0;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+  }
+
+  .mode-nav-btn {
+    flex-direction: row;
+    gap: 0.55rem;
+    min-height: 44px;
+    padding: 0.6rem 0.7rem;
+    font-size: 0.82rem;
+  }
+  .mode-nav-icon { width: 18px; height: 18px; }
+
+  .setup-card--home .home-intro { margin: 1.8rem 0 1.5rem; }
+  .setup-card--home h1 { font-size: 2.1rem; }
+
+  .seg-face { min-height: 44px; font-size: 0.85rem; }
+
+  .home-actions {
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    margin: 0 calc(-1 * var(--home-pad-r)) 0 calc(-1 * var(--home-pad-x));
+    padding: 1.1rem var(--home-pad-r) 1.3rem var(--home-pad-x);
+    border-top: 1px solid var(--border);
+    background: transparent;
+  }
+
+  .home-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    min-width: 0;
+  }
+  .home-summary i {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--text-3);
+    opacity: 0.6;
+  }
+
+  .setup-card--home .begin-game {
+    width: auto;
+    min-height: 44px;
+    padding: 0.7rem 1.8rem;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    align-self: auto;
+  }
+}
+
+/* ── ≥920px: desktop-first two-column card ──────────────────────────────── */
+@media (min-width: 920px) {
+  .setup-card--home { max-width: 940px; padding-top: 1.75rem; }
+
+  .home-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+  .mode-nav { width: 400px; flex-shrink: 0; }
+
+  .setup-card--home .home-intro {
+    margin: 2rem 0 1.6rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--border);
+  }
+  .setup-card--home h1 { font-size: 2.4rem; }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 2.5rem;
+    padding-bottom: 1.8rem;
+  }
+
+  .home-panel { gap: 1.4rem; }
+}
+
+/* short desktop windows: keep the whole card above the fold */
+@media (min-width: 920px) and (max-height: 760px) {
+  .setup-card--home { padding-top: 1.25rem; }
+  .setup-card--home .home-intro { margin: 1.3rem 0 1.2rem; padding-top: 1.2rem; }
+  .setup-card--home h1 { font-size: 2rem; }
+  .home-grid { padding-bottom: 1.2rem; }
+  .home-actions { padding-top: 0.9rem; padding-bottom: 1rem; }
+}
+
+/* very small phones */
+@media (max-width: 359px) {
+  .mode-nav-btn { font-size: 0.72rem; }
+  .seg-face { font-size: 0.86rem; gap: 0.35rem; }
+}
+
+
+/* ============================================================
+   SHARED MENU PARTS  (Computer / Online / Puzzles home screens)
+   ============================================================ */
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes orbPulse {
+  0%   { transform: scale(0.55); opacity: 0.55; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.home-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-body { padding-bottom: 1.4rem; }
+
+.home-actions { display: flex; gap: 0.6rem; }
+.home-actions > .begin-game,
+.home-actions > .btn-ghost { flex: 1 1 0; min-width: 0; }
+@media (max-width: 699.98px) {
+  .home-actions { gap: 0.45rem; }
+  .home-actions > .begin-game, .home-actions > .btn-ghost { padding-inline: 0.45rem; font-size: 0.82rem; white-space: normal; }
+}
+@media (min-width: 700px) {
+  .home-actions > .begin-game,
+  .home-actions > .btn-ghost { flex: 0 0 auto; }
+}
+
+/* Secondary button — pairs with .begin-game */
+.btn-ghost {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0.85rem 1.2rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease),
+              background 0.25s var(--ease), transform 0.2s var(--ease);
+}
+.btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+.btn-ghost:active { transform: scale(0.98); }
+.btn-ghost.is-armed {
+  border-color: var(--pz-bad);
+  background: rgba(192, 83, 74, 0.12);
+  color: var(--text);
+}
+@media (min-width: 700px) {
+  .btn-ghost { min-height: 44px; padding: 0.7rem 1.4rem; font-size: 0.85rem; }
+}
+
+/* Single-column menu card (Online, Puzzles) */
+.setup-card--compact { max-width: 600px; }
+@media (min-width: 920px) {
+  .setup-card--compact .home-head { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .setup-card--compact .mode-nav { width: auto; }
+  .setup-card--compact .home-intro { margin: 1.8rem 0 1.5rem; padding-top: 0; border-top: 0; }
+  .setup-card--compact h1 { font-size: 2.1rem; }
+  .setup-card--compact .home-actions { justify-content: flex-end; }
+}
+.setup-card--compact .setup-copy { max-width: 52ch; }
+
+.title-upright { font-style: normal; }
+.setup-card--home h1 em { color: var(--text-2); }
+
+/* Feature list (login + puzzle intro) */
+.feature-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.feature-list li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  color: var(--accent-bright);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--accent-dim);
+}
+.feature-list strong {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.feature-list span {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.home-hint {
+  margin-top: 1.3rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.05rem;
+  color: var(--text-3);
+}
+
+/* Notices */
+.setup-card--home .online-error {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(192, 83, 74, 0.35);
+  border-radius: var(--radius-card);
+  background: rgba(192, 83, 74, 0.08);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 300;
+}
+
+/* Connected chip */
+.conn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.45rem 0.8rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--text-2);
+}
+.conn-chip strong { font-weight: 400; color: var(--text); }
+.conn-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--pz-good); box-shadow: 0 0 0 3px rgba(77, 168, 112, 0.15); }
+.online-account { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.online-link { border: 0; background: transparent; color: var(--accent-bright); font: inherit; cursor: pointer; }
+/* (time-control + rating UI: see ONLINE MENU at the end of this file) */
+
+/* Waiting states */
+.online-wait { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; padding: 1.6rem 0 0.8rem; color: var(--text-2); font-size: 0.9rem; font-weight: 300; }
+.spinner { width: 22px; height: 22px; border: 2px solid var(--border-hover); border-top-color: var(--accent-bright); border-radius: 50%; animation: spin 0.9s linear infinite; }
+.seek-orb { position: relative; display: grid; place-items: center; width: 104px; height: 104px; }
+.seek-orb i { position: absolute; inset: 0; border: 1px solid var(--accent); border-radius: 50%; animation: orbPulse 2.4s var(--ease-out) infinite; }
+.seek-orb i:nth-child(2) { animation-delay: 1.2s; }
+.seek-orb .seek-knight { width: 2.2rem; height: 2.2rem; color: var(--text-2); }
+.seek-timer { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.16em; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Puzzle header brand */
+.hdr-brand { display: inline-flex; align-items: center; gap: 0.5rem; }
+.hdr-brand-icon { width: 16px; height: 16px; }
+
+/* rating change after a rated game */
+@keyframes gmFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes clockPulse { 50% { opacity: 0.8; } }
+.btn-ghost:disabled { opacity: 0.5; cursor: default; }
+.btn-ghost:disabled:hover { border-color: var(--border); color: var(--text-2); }
+.new-game.is-armed { border-color: var(--pz-bad); background: rgba(192, 83, 74, 0.12); color: var(--text); }
+
+/* ── phones + tablets: board takes whatever height is left ───────────────────────── */
+@media (max-width: 999.98px) {
+  @supports (width: 1cqw) {
+    .gm-board .board { width: min(100cqw, 100cqh); }
+  }
+
+  /* Moves + review controls share one compact row: [‹] ticker [›] */
+
+  /* Notices and draw offers float over the board edge instead of pushing the layout. */
+
+  /* Computer-mode profile opens as a popover so it can never add height. */
+}
+
+/* ── desktop: fixed-height two-column workspace ──────────────────────────────────── */
+@media (min-width: 1000px) {
+
+  /* status: two fixed rows (state + dots / game info) - constant height every turn */
+  /* a vertical list, newest move on top, with the rail & thread scrollbar */
+}
+
+/* ── board squares in games: last-move light ───────────────────────────────────────
+   No borders anywhere (two adjacent highlighted squares used to draw colliding
+   rings). Instead each move is painted with light, tinted like the side that
+   moved - ivory for White, steel for Black:
+     arrival    a soft pool of lamplight, brightest behind the piece and easing to
+                a gentle tint at the corners, so neighbours melt into each other
+     departure  a faint diagonal wash with a small ember where the piece stood
+   The light fades in once when a move lands; nothing moves, so nothing jumps. */
+:root {
+  --tr-w: 230, 227, 218;
+  --tr-b: 124, 136, 145;
+}
+.square[class*="trail-"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: trailIn 0.55s var(--ease) both;
+}
+@keyframes trailIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grRise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes grSheet { from { transform: translateY(100%); } to { transform: none; } }
+
+/* phones: a bottom sheet, anchored to the thumb */
+
+@media (max-width: 999.98px) {
+
+  /* board column fills whatever the info panel leaves; the stage sizes the square board */
+  @supports (width: 1cqw) {
+    .puzzle-shell .board-wrap { width: min(100cqw, 100cqh); }
+  }
+
+  /* compact info panel */
+  /* reserve the feedback line so the board never resizes when a message appears */
+}
+
+
+
+
+/* ── Installed (home-screen) app: keep every layer crisp ─────────────────────
+   iOS standalone web apps rasterise composited layers (opacity/transform
+   animations, will-change, scroll containers) at reduced resolution. Drop every
+   entrance animation on the menu screens and keep the brand on the plain,
+   un-composited text/vector path. */
+@media (display-mode: standalone) {
+  .setup-card--home,
+  .setup-card--home * { animation: none !important; }
+  .home-head, .brand, .brand-mark, .brand-name {
+    transform: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    -webkit-backface-visibility: visible;
+  }
+}
+html.is-standalone .setup-card--home,
+html.is-standalone .setup-card--home * { animation: none !important; }
+html.is-standalone .home-head, html.is-standalone .brand,
+html.is-standalone .brand-mark, html.is-standalone .brand-name {
+  transform: none !important; filter: none !important; will-change: auto !important;
+}
+
+/* ── Installed app on newer iOS: clear the status-bar edge zone ──────────────
+   With viewport-fit=cover the page runs underneath the status bar, and newer iOS
+   draws a soft blur/fade "edge effect" over the top of the web view there. The
+   brand sat inside that zone, so its upper part looked blurred (only in the
+   installed app - Safari has its own toolbar instead). Start the content lower
+   so the brand is fully below it; the Begin button is pinned to the screen
+   bottom so it stays reachable. Tablet/desktop cards are unaffected. */
+@media (display-mode: standalone) and (max-width: 699.98px) {
+  .setup-card--home { padding-top: calc(var(--safe-top) + 1.5rem); }
+  .setup-card--home .home-intro { margin-top: 0.9rem; margin-bottom: 0.9rem; }
+  .setup-card--home .home-grid { gap: 1rem; }
+}
+html.is-standalone .setup-card--home { padding-top: calc(var(--safe-top) + 1.5rem); }
+@media (min-width: 700px) {
+  html.is-standalone .setup-card--home { padding-top: 2rem; }
+}
+
+/* ── Installed iOS app: keep the in-game and puzzle headers below the status-bar
+   edge zone too (same reason as the menu screens above). The board sizes subtract
+   the same amount so nothing is pushed off-screen. ───────────────────────── */
+
+/* ── No text/image selection or long-press highlight on any board ───────────
+   Holding a finger on the board used to start iOS/Android text selection (blue
+   highlight over squares, labels and pieces) and the image callout. Applies to
+   every mode: Computer, Online, Puzzles, the promotion picker and sprites. */
+.board,
+.board *,
+.board-wrap,
+.promotion-pieces,
+.promotion-pieces * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
+}
+.board ::selection,
+.board::selection,
+.board-wrap ::selection { background: transparent; color: inherit; }
+.board img, .promotion-pieces img { pointer-events: none; }
+
+
+/* ── Pieces sit ON the board: contact shadow ─────────────────────────────────
+   The old soft drop-shadow was offset below and blurred around the whole
+   silhouette, which reads as a piece hovering above the board. Now each piece has
+   a tight, dark ellipse exactly under its base (wider for heavier pieces), plus a
+   thin crisp edge from the filter. Whilst a piece slides, the sprite carries its
+   own shadow and the square's shadow is hidden until it lands. */
+.square { --shadow-w: 46%; }
+.piece-t-p { --shadow-w: 38%; }
+.piece-t-n, .piece-t-b { --shadow-w: 46%; }
+.piece-t-r { --shadow-w: 52%; }
+.piece-t-q, .piece-t-k { --shadow-w: 56%; }
+.piece-sprite { --shadow-w: 46%; }
+
+.square.has-piece::after,
+.piece-sprite__shadow {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 14.5%;                 /* the base of the artwork sits ~19% above the square's bottom */
+  width: var(--shadow-w);
+  height: 11%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.18) 68%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.square[data-landing]::after,
+.square[data-dragging]::after { opacity: 0; }
+
+.piece-sprite {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 40;
+  contain: layout;
+}
+.piece-sprite .piece-svg { z-index: 2; }
