@@ -129,15 +129,10 @@ function impact(root: HTMLElement, square: HTMLElement, image: HTMLElement, mass
       { duration: 200, easing: 'ease-out' },
     )
   } catch { /* decorative only */ }
-  try {
-    square.animate(
-      [
-        { opacity: 0.4, transform: 'translateX(-50%) scale(1.3, 1.2)' },
-        { opacity: 1, transform: 'translateX(-50%) scale(1, 1)' },
-      ],
-      { duration: 240, easing: 'ease-out', pseudoElement: '::after' },
-    )
-  } catch { /* pseudo-element animation is not available everywhere */ }
+  // Shadow flash: a CSS animation keyed on an attribute (animating the ::after pseudo-element
+  // through the Web Animations API is ignored by some browsers, which would animate the whole square).
+  square.dataset.landed = '1'
+  window.setTimeout(() => { delete square.dataset.landed }, 320)
 }
 
 type Finisher = () => void
@@ -193,6 +188,7 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
       const shadow = document.createElement('span')
       shadow.className = 'piece-sprite__shadow'
       const sprite = image.cloneNode(true) as HTMLImageElement
+      if (sprite.complete === false) continue          // not decoded yet: snapping is better than a blank blink
       sprite.alt = ''
       sprite.style.transition = 'none'
       stage.append(shadow, sprite)
