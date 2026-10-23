@@ -64,7 +64,8 @@ const norm = (x: number, lo: number, hi: number) => clamp((x - lo) / (hi - lo))
 const avg = (t: Tally) => (t.n ? t.sum / t.n : null)
 const sumTally = (xs: Tally[]): Tally => xs.reduce((a, t) => ({ sum: a.sum + t.sum, n: a.n + t.n }), { sum: 0, n: 0 })
 
-export function metricsOf(reviews: GameReview[]): StyleMetrics | null {
+export function metricsOf(all: GameReview[]): StyleMetrics | null {
+  const reviews = all.filter(r => r && r.features)
   const f = reviews.map(r => r.features)
   const moves = f.reduce((n, x) => n + x.moves, 0)
   if (!moves) return null

@@ -148,6 +148,11 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
 /* Whose turn it is: the card's whole border lights up evenly (no thicker edge, no colour flood). */
 .gm-player { transition: border-color 0.25s var(--ease); }
 .gm-player.is-on-move { border-color: var(--accent-bright); }
+/* Phones: no turn highlight at all (the status line already says whose move it is). Low-time warnings stay. */
+@media (max-width: 700px), (pointer: coarse) {
+  .gm-player.is-on-move { border-color: var(--border); }
+  .gm-clock.is-active:not(.gm-clock--low):not(.gm-clock--critical) { color: inherit; background: transparent; }
+}
 
 .gm-avatar {
   display: grid;

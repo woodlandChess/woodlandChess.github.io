@@ -85,9 +85,31 @@ export interface PlayerProfileData {
   updatedAt: number
 }
 
-const KEY = 'woodland-chess:player-style-v1'
+export const PROFILE_STORAGE_KEY = 'woodland-chess:player-style-v1'
+const KEY = PROFILE_STORAGE_KEY
 const MAX_GAMES = 100
 const empty = (): PlayerProfileData => ({ username: '', games: [], reviews: [], updatedAt: 0 })
+
+const isNum = (x: unknown) => typeof x === 'number' && Number.isFinite(x)
+const isTally = (t: unknown) => !!t && isNum((t as Tally).sum) && isNum((t as Tally).n)
+
+/** True only for a complete review of the current format; anything else is recomputed, never rendered. */
+export function isValidReview(r: unknown): r is GameReview {
+  const v = r as GameReview | null
+  const f = v?.features
+  return !!v && v.version === REVIEW_VERSION && typeof v.gameId === 'string'
+    && Array.isArray(v.plies) && Array.isArray(v.wins) && v.wins.length === v.plies.length + 1
+    && isNum(v.accuracy) && isNum(v.opponentAccuracy)
+    && !!f && isNum(f.moves) && isNum(f.captures) && isNum(f.checks) && isNum(f.trades) && isNum(f.pressure)
+    && isNum(f.sacrifices) && isTally(f.worse) && isTally(f.better)
+    && !!f.byPhase && isTally(f.byPhase.Opening) && isTally(f.byPhase.Middlegame) && isTally(f.byPhase.Endgame)
+    && Array.isArray(f.firstMoves)
+}
+
+/** Forgets everything saved by My style (used when stored data cannot be read). */
+export function clearProfile(): void {
+  try { localStorage.removeItem(KEY) } catch { /* unavailable */ }
+}
 
 /** Reads the stored profile. Reviews made by older, less accurate versions are dropped (they are recomputed). */
 export function readProfile(): PlayerProfileData {
@@ -96,8 +118,8 @@ export function readProfile(): PlayerProfileData {
     if (!v || !Array.isArray(v.games)) return empty()
     return {
       username: typeof v.username === 'string' ? v.username : '',
-      games: v.games,
-      reviews: Array.isArray(v.reviews) ? v.reviews.filter((r: GameReview) => r?.version === REVIEW_VERSION) : [],
+      games: v.games.filter((g: ProfileGame) => g && typeof g.id === 'string' && typeof g.moves === 'string' && (g.userColor === 'w' || g.userColor === 'b')),
+      reviews: Array.isArray(v.reviews) ? v.reviews.filter(isValidReview) : [],
       updatedAt: Number(v.updatedAt) || 0,
     }
   } catch { return empty() }

@@ -5,7 +5,7 @@ import { normalizeMoves, parseLichessNdjson, phaseOf, reviewGame, type ReviewEng
 import { classifyOpening } from './openings'
 import { gameAccuracy, gradeFor, moveAccuracy, winPercent } from './stats'
 import { axesOf, matchSchools, metricsOf, summarizeStyle } from './style'
-import type { ProfileGame } from './store'
+import { isValidReview, type ProfileGame } from './store'
 
 /** Half-moves played so far, read from the FEN (a FEN carries no history). */
 const plyOf = (fen: string) => { const f = fen.split(' '); return (Number(f[5]) - 1) * 2 + (f[1] === 'b' ? 1 : 0) }
@@ -144,5 +144,22 @@ describe('style read', () => {
     expect(all.every(m => m.match >= 0 && m.match <= 100)).toBe(true)
     expect(all.find(m => m.school === 'Classical German')!.players).toBe('Siegbert Tarrasch')
     expect(all.find(m => m.school === 'Hungarian')!.players).toBe('Lajos Portisch')
+  })
+})
+
+describe('saved data is validated (a bad record must never crash the page)', () => {
+  it('accepts a real review and rejects partial or old ones', async () => {
+    const real = await reviewGame(game(['e4', 'e5', 'Nf3']), scripted(() => 0))
+    expect(isValidReview(real)).toBe(true)
+    const { features, ...noFeatures } = real
+    void features
+    expect(isValidReview(noFeatures)).toBe(false)               // the shape that crashed the page
+    expect(isValidReview({ ...real, version: 2 })).toBe(false)
+    expect(isValidReview({ ...real, wins: [50] })).toBe(false)
+    expect(isValidReview(null)).toBe(false)
+    expect(isValidReview({ gameId: 'x', version: 3 })).toBe(false)
+  })
+  it('summarising tolerates a review without features', () => {
+    expect(summarizeStyle([], [{ gameId: 'x' } as never]).school).toBeNull()
   })
 })

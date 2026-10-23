@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { StockfishClient } from '../stockfish'
 import { HomeFrame } from '../components/HomeFrame'
 import { Segmented, WeightBar } from '../components/Controls'
 import type { ModeId } from '../components/ModeNav'
 import { getStoredToken, LichessClient } from '../lichess'
 import { parseLichessNdjson, reviewGame } from './analysis'
-import { readProfile, saveProfile, type GameReview, type PlayerProfileData, type ProfileGame } from './store'
+import { clearProfile, readProfile, saveProfile, type GameReview, type PlayerProfileData, type ProfileGame } from './store'
 import { makeTips, summarizeStyle } from './style'
 import { GameStudy } from './GameStudy'
 import '../styles/profile.css'
@@ -28,7 +28,7 @@ function mergeGames(existing: ProfileGame[], incoming: ProfileGame[], username: 
 
 const resultLabel = { win: 'Won', loss: 'Lost', draw: 'Drew', unknown: '—' } as const
 
-export function PlayerProfile({ onNavigate }: { onBack?: () => void; onNavigate: (m: ModeId) => void }) {
+function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }) {
   const [data, setData] = useState<PlayerProfileData>(readProfile)
   const dataRef = useRef(data)
   const [username, setUsername] = useState(data.username)
@@ -255,4 +255,28 @@ export function PlayerProfile({ onNavigate }: { onBack?: () => void; onNavigate:
       {open && <GameStudy game={open.game} review={open.review} onClose={() => setOpen(null)} />}
     </HomeFrame>
   )
+}
+
+/** If saved study data is ever unreadable, show a way out instead of a blank page. */
+class ProfileBoundary extends Component<{ onNavigate: (m: ModeId) => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <HomeFrame mode="profile" onNavigate={this.props.onNavigate} compact kicker="Player profile" title="Your saved study could not be read"
+        copy="Something in the saved data is out of date. Clearing it only removes your analysed games on this device."
+        actions={
+          <button type="button" className="begin-game" onClick={() => { clearProfile(); window.location.reload() }}>
+            Clear saved study
+          </button>
+        }>
+        <p className="profile-empty">Your Lichess games can be imported again at any time.</p>
+      </HomeFrame>
+    )
+  }
+}
+
+export function PlayerProfile({ onNavigate }: { onBack?: () => void; onNavigate: (m: ModeId) => void }) {
+  return <ProfileBoundary onNavigate={onNavigate}><PlayerProfileScreen onNavigate={onNavigate} /></ProfileBoundary>
 }
