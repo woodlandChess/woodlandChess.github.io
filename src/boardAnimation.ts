@@ -48,7 +48,7 @@ export function squareAt(row: number, col: number) {
   return `${String.fromCharCode(97 + col)}${8 - row}`
 }
 
-interface Slide { from: [number, number]; to: [number, number] }
+interface Slide { from: [number, number]; to: [number, number]; capture: boolean }
 
 /** Work out which pieces slid between two positions; null when it is not a plain move. */
 export function diffMoves(before: PieceGrid, after: PieceGrid): Slide[] | null {
@@ -77,7 +77,7 @@ export function diffMoves(before: PieceGrid, after: PieceGrid): Slide[] | null {
     vacated.forEach((v, j) => { if (v.k === to.k && (best < 0 || dist(v, to) < dist(vacated[best], to))) best = j })
     if (best >= 0) {
       const from = take(vacated, best)
-      slides.push({ from: [from.r, from.c], to: [to.r, to.c] })
+      slides.push({ from: [from.r, from.c], to: [to.r, to.c], capture: false })
       arrived.splice(i, 1)
     } else i++
   }
@@ -87,10 +87,12 @@ export function diffMoves(before: PieceGrid, after: PieceGrid): Slide[] | null {
     const j = vacated.findIndex(v => v.k === `${to.k[0]}p` && dist(v, to) <= 1)
     if (j >= 0 && to.k[1] !== 'p') {
       const from = take(vacated, j)
-      slides.push({ from: [from.r, from.c], to: [to.r, to.c] })
+      slides.push({ from: [from.r, from.c], to: [to.r, to.c], capture: false })
       arrived.splice(i, 1)
     } else i++
   }
+  // A piece left the board without sliding anywhere: it was taken (incl. en passant).
+  if (vacated.length > 0) for (const sl of slides) sl.capture = true
   return slides
 }
 
@@ -99,11 +101,12 @@ export function diffMoves(before: PieceGrid, after: PieceGrid): Slide[] | null {
 const MASS: Record<string, number> = { p: 1.3, n: 1.8, b: 1.8, r: 2.2, q: 2.6, k: 2.8 }
 
 /**
- * The landing: the piece compresses against the board, the board itself gives a
- * tiny thump, and the contact shadow flashes wider and darker for a moment.
+ * The landing: the piece compresses against the board and the contact shadow
+ * flashes wider and darker. The board itself only vibrates when a piece is TAKEN -
+ * ordinary moves leave it still.
  * All decorative - failures are ignored and nothing here changes the position.
  */
-function impact(root: HTMLElement, square: HTMLElement, image: HTMLElement, mass: number, reduce: boolean) {
+function impact(root: HTMLElement, square: HTMLElement, image: HTMLElement, mass: number, capture: boolean, reduce: boolean) {
   try {
     image.animate(
       [
@@ -116,11 +119,11 @@ function impact(root: HTMLElement, square: HTMLElement, image: HTMLElement, mass
   } catch { /* decorative only */ }
   if (reduce) return
   try {
-    root.animate(
+    if (capture) root.animate(
       [
         { transform: 'translate3d(0, 0, 0)' },
-        { transform: `translate3d(0, ${mass * 0.55}px, 0)`, offset: 0.22 },
-        { transform: `translate3d(0, ${-mass * 0.2}px, 0)`, offset: 0.55 },
+        { transform: `translate3d(0, ${mass * 0.8}px, 0)`, offset: 0.22 },
+        { transform: `translate3d(0, ${-mass * 0.3}px, 0)`, offset: 0.55 },
         { transform: 'translate3d(0, 0, 0)' },
       ],
       { duration: 200, easing: 'ease-out' },
@@ -167,7 +170,7 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
     if (getComputedStyle(root).position === 'static') root.style.position = 'relative'
     const rootRect = root.getBoundingClientRect()
 
-    for (const { from, to } of slides) {
+    for (const { from, to, capture } of slides) {
       const fromSq = root.querySelector<HTMLElement>(`[data-square="${squareAt(from[0], from[1])}"]`)
       const toSq = root.querySelector<HTMLElement>(`[data-square="${squareAt(to[0], to[1])}"]`)
       const image = toSq?.querySelector<HTMLImageElement>('.piece-svg')
@@ -213,7 +216,7 @@ export function useBoardFlip(board: PieceGrid, orientation: 'w' | 'b' = 'w') {
         image.style.visibility = priorVisibility
         delete toSq.dataset.landing
         active.current.delete(interrupt)
-        if (landed) impact(root, toSq, image, mass, !!reduce)
+        if (landed) impact(root, toSq, image, mass, capture, !!reduce)
       }
       const interrupt: Finisher = () => finish(false)
       active.current.add(interrupt)

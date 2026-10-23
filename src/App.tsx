@@ -5,21 +5,10 @@ import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './st
 import { ChessBoard, PromotionModal } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
+import { Segmented, WeightBar } from './components/Controls'
+import { recordComputerGame } from './profile/store'
 import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, PlayerProfile, warmUpWhenIdle } from './lazyModes'
 import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
-
-// ── Weight bar ────────────────────────────────────────────────────────────────
-function WeightBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="weight-bar-row">
-      <span className="weight-label">{label}</span>
-      <div className="weight-track">
-        <div className="weight-fill" style={{ width: `${value * 10}%`, background: color }} />
-      </div>
-      <span className="weight-value">{value}</span>
-    </div>
-  )
-}
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 type DropdownOption = { value: string; label: string; summary?: string }
@@ -75,32 +64,6 @@ function Dropdown({ label, value, options, onChange }: {
         </>
       )}
     </div>
-  )
-}
-
-// ── Segmented control (native radios: free arrow-key + screen-reader support) ──
-type SegOption<T extends string> = { value: T; label: string; swatch?: 'w' | 'b' | 'r' }
-
-function Segmented<T extends string>({ legend, name, value, options, onChange }: {
-  legend: string; name: string; value: T; options: SegOption<T>[]
-  onChange: (v: T) => void
-}) {
-  return (
-    <fieldset className="field">
-      <legend className="field-label">{legend}</legend>
-      <div className="seg" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-        {options.map(o => (
-          <label key={o.value} className="seg-opt">
-            <input type="radio" name={name} value={o.value} checked={o.value === value}
-              onChange={() => onChange(o.value)} />
-            <span className="seg-face">
-              {o.swatch && <i className={`seg-swatch seg-swatch--${o.swatch}`} aria-hidden="true" />}
-              {o.label}
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
   )
 }
 
@@ -189,12 +152,10 @@ export function App() {
   const over = game.isGameOver()
   useEffect(() => {
     if (!over || history.length < 2) return
-    void import('./profile/analysis').then(({ readProfile, saveProfile }) => {
-      const data = readProfile()
-      const id = `ai-${history.map(m => m.lan).join('-')}-${Date.now()}`
-      const gameRecord = { id, source: 'ai' as const, playedAt: Date.now(), white: player === 'w' ? 'You' : 'Computer', black: player === 'b' ? 'You' : 'Computer', userColor: player, result: game.isCheckmate() ? (game.turn() === player ? 'loss' as const : 'win' as const) : 'draw' as const, moves: history.map(m => `${m.from}${m.to}${m.promotion ?? ''}`).join(' ') }
-      const next = { ...data, games: [gameRecord, ...data.games.filter(g => g.id !== id)].slice(0, 100), updatedAt: Date.now() }
-      saveProfile(next)
+    recordComputerGame({
+      userColor: player,
+      result: game.isCheckmate() ? (game.turn() === player ? 'loss' : 'win') : 'draw',
+      moves: history.map(m => `${m.from}${m.to}${m.promotion ?? ''}`),
     })
   }, [over, history, player, game])
   useEffect(() => {

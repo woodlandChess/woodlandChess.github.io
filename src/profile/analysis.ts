@@ -1,143 +1,213 @@
-import { Chess, type Color } from 'chess.js'
-import { StockfishClient } from '../stockfish'
+import { Chess, type Color, type Move } from 'chess.js'
+import type { PositionScore } from '../stockfish'
+import { classifyOpening } from './openings'
+import { clampCp, gameAccuracy, gradeFor, winPercent } from './stats'
+import {
+  REVIEW_VERSION, type GameFeatures, type GameReview, type Phase, type PlyReview, type ProfileGame, type Tally,
+} from './store'
 
-export type GameSource = 'ai' | 'lichess'
-export interface ProfileGame {
-  id: string
-  source: GameSource
-  playedAt: number
-  white: string
-  black: string
-  userColor: Color
-  result: 'win' | 'loss' | 'draw' | 'unknown'
-  moves: string
-  timeClass?: string
-}
-export interface MoveReview { ply: number; san: string; uci: string; grade: string; loss: number; phase: string; tags: string[]; fen: string }
-export interface GameReview { gameId: string; version: number; accuracy: number; blunders: number; mistakes: number; inaccuracies: number; opening: string; moves: MoveReview[] }
-export interface PlayerProfileData { username: string; games: ProfileGame[]; reviews: GameReview[]; updatedAt: number }
+export { readProfile, saveProfile, recordComputerGame } from './store'
+export type { GameReview, PlayerProfileData, ProfileGame, PlyReview } from './store'
 
-const KEY = 'woodland-chess:player-style-v1'
-export const readProfile = (): PlayerProfileData => {
-  try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); return v?.games ? v : { username: '', games: [], reviews: [], updatedAt: 0 } }
-  catch { return { username: '', games: [], reviews: [], updatedAt: 0 } }
-}
-export const saveProfile = (data: PlayerProfileData) => { try { localStorage.setItem(KEY, JSON.stringify(data)) } catch { /* storage can be unavailable */ } }
+// ── Importing games ───────────────────────────────────────────────────────────
 
-export function parseLichessNdjson(text: string, username: string): ProfileGame[] {
-  const out: ProfileGame[] = []
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.trim()) continue
-    try {
-      const g = JSON.parse(line)
-      const me = g.players?.white?.user?.name?.toLowerCase() === username.toLowerCase() ? 'w'
-        : g.players?.black?.user?.name?.toLowerCase() === username.toLowerCase() ? 'b' : null
-      if (!me || !g.moves) continue
-      const winner = g.winner === 'white' ? 'w' : g.winner === 'black' ? 'b' : null
-      const normalizedMoves = normalizeMoves(g.moves)
-      if (!normalizedMoves) continue
-      out.push({ id: `lichess-${g.id}`, source: 'lichess', playedAt: Number(g.createdAt) || Date.now(),
-        white: g.players?.white?.user?.name ?? 'White', black: g.players?.black?.user?.name ?? 'Black', userColor: me,
-        result: winner ? winner === me ? 'win' : 'loss' : g.status === 'draw' || g.status === 'stalemate' || g.status === 'outoftime' ? 'draw' : 'unknown',
-        moves: normalizedMoves, timeClass: g.speed })
-    } catch { /* skip malformed game record */ }
-  }
-  return out
-}
-
-/** Persist every game as legal UCI moves, regardless of the API's selected notation. */
+/** Persist every game as legal UCI moves, whatever notation the source used. Stops at the first illegal token. */
 export function normalizeMoves(raw: unknown): string {
   const tokens: string[] = Array.isArray(raw)
-    ? raw.map((m: any) => typeof m === 'string' ? m : String(m?.uci ?? m?.san ?? '')).filter(Boolean)
+    ? raw.map((m: unknown) => typeof m === 'string' ? m : String((m as { uci?: string; san?: string })?.uci ?? (m as { san?: string })?.san ?? '')).filter(Boolean)
     : String(raw ?? '').trim().split(/\s+/).filter(Boolean)
   const game = new Chess()
   const uci: string[] = []
   for (const token of tokens) {
     try {
       const move = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(token)
-        ? game.move({ from: token.slice(0,2) as never, to: token.slice(2,4) as never, promotion: token[4] })
+        ? game.move({ from: token.slice(0, 2), to: token.slice(2, 4), promotion: token[4] })
         : game.move(token)
-      if (!move) break
       uci.push(`${move.from}${move.to}${move.promotion ?? ''}`)
     } catch { break }
   }
   return uci.join(' ')
 }
 
-const evalFen = async (engine: StockfishClient, fen: string, ms: number) => engine.evaluate(fen, ms)
-const gradeFor = (loss: number) => loss >= 250 ? 'Blunder' : loss >= 100 ? 'Mistake' : loss >= 50 ? 'Inaccuracy' : 'Good'
+interface LichessPlayer { user?: { name?: string }; aiLevel?: number }
+const playerName = (p: LichessPlayer | undefined, fallback: string) =>
+  p?.user?.name ?? (p?.aiLevel ? `Stockfish level ${p.aiLevel}` : fallback)
 
-export async function reviewGame(game: ProfileGame, engine: StockfishClient, signal?: AbortSignal): Promise<GameReview> {
-  const c = new Chess()
-  const uciMoves = game.moves.trim().split(/\s+/).filter(Boolean)
-  const reviewed: MoveReview[] = []
-  const openingMoves: string[] = []
-  for (let i = 0; i < uciMoves.length; i++) {
-    if (signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
-    const uci = uciMoves[i]
-    const mover = c.turn()
-    const phase = i < 20 ? 'Opening' : i < 60 ? 'Middlegame' : 'Endgame'
-    const beforeFen = c.fen()
-    const bestBefore = await engine.evaluate(beforeFen, 70)
-    const bestForMover = mover === 'w' ? bestBefore : -bestBefore
-    let move
+/** Parses the NDJSON from Lichess' public game export, keeping only standard games the user played. */
+export function parseLichessNdjson(text: string, username: string): ProfileGame[] {
+  const out: ProfileGame[] = []
+  const me = username.trim().toLowerCase()
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue
     try {
-      move = c.move({ from: uci.slice(0, 2) as never, to: uci.slice(2, 4) as never, promotion: uci[4] })
-    } catch {
-      // Lichess export may contain a non-UCI token or a variant position.
-      continue
-    }
-    if (!move) break
-    if (i < 12) openingMoves.push(move.san)
-    if (mover !== game.userColor) continue
-    const after = await evalFen(engine, c.fen(), 70)
-    const playedForMover = mover === 'w' ? after : -after
-    const loss = Math.max(0, bestForMover - playedForMover)
-    const tags: string[] = []
-    if (move.captured) tags.push('Capture')
-    if (move.san.includes('+')) tags.push('Check')
-    if (move.san.includes('#')) tags.push('Mate')
-    reviewed.push({ ply: i + 1, san: move.san, uci, grade: gradeFor(loss), loss, phase, tags, fen: c.fen() })
+      const g = JSON.parse(line)
+      if (g.variant && g.variant !== 'standard') continue        // variants have other rules
+      if (g.initialFen) continue                                  // set-up positions do not start from move 1
+      const white = g.players?.white as LichessPlayer | undefined
+      const black = g.players?.black as LichessPlayer | undefined
+      const color: Color | null = white?.user?.name?.toLowerCase() === me ? 'w' : black?.user?.name?.toLowerCase() === me ? 'b' : null
+      if (!color || !g.moves) continue
+      const moves = normalizeMoves(g.moves)
+      if (moves.split(' ').filter(Boolean).length < 2) continue
+      const winner = g.winner === 'white' ? 'w' : g.winner === 'black' ? 'b' : null
+      const drawn = g.status === 'draw' || g.status === 'stalemate' || g.status === 'outoftime'
+      out.push({
+        id: `lichess-${g.id}`, source: 'lichess', playedAt: Number(g.createdAt) || Date.now(),
+        white: playerName(white, 'White'), black: playerName(black, 'Black'), userColor: color,
+        result: winner ? (winner === color ? 'win' : 'loss') : drawn ? 'draw' : 'unknown',
+        moves, timeClass: g.speed, opening: typeof g.opening?.name === 'string' ? g.opening.name : undefined,
+      })
+    } catch { /* skip a malformed record */ }
   }
-  const averageLoss = reviewed.reduce((n, m) => n + Math.min(m.loss, 1000), 0) / Math.max(1, reviewed.length)
-  const accuracy = reviewed.length ? Math.max(0, Math.min(100, Math.round(103.1668 * Math.exp(-0.0046 * averageLoss) - 3.1668))) : 0
-  const blunders = reviewed.filter(m => m.grade === 'Blunder').length
-  const mistakes = reviewed.filter(m => m.grade === 'Mistake').length
-  const inaccuracies = reviewed.filter(m => m.grade === 'Inaccuracy').length
-  return { gameId: game.id, version: 3, accuracy, blunders, mistakes,
-    inaccuracies, opening: openingMoves.length ? openingMoves.join(' ') : 'Opening unavailable', moves: reviewed }
+  return out
 }
 
-const schoolIds = ['Attacking', 'Positional', 'Defensive', 'Dynamic', 'Classical German', 'British', 'Soviet', 'Hungarian', 'American'] as const
-export interface StyleSummary { school: string; player: string; scores: Record<string, number>; strengths: string[]; focus: string; games: number; confidence: 'Early read' | 'Developing' | 'Established' }
+// ── Reviewing a game ──────────────────────────────────────────────────────────
 
-export function summarizeStyle(games: ProfileGame[], reviews: GameReview[]): StyleSummary {
-  const scores: Record<string, number> = Object.fromEntries(schoolIds.map(s => [s, 0]))
-  const moves = reviews.flatMap(r => r.moves)
-  const denominator = Math.max(1, moves.length)
-  const captureRate = moves.filter(m => m.tags.includes('Capture')).length / denominator
-  const checkRate = moves.filter(m => m.tags.includes('Check')).length / denominator
-  const openingMoves = moves.filter(m => m.phase === 'Opening')
-  const accuracy = reviews.length ? reviews.reduce((n, r) => n + r.accuracy, 0) / reviews.length : 0
-  scores.Attacking = Math.round(35 + checkRate * 210 + captureRate * 75)
-  scores.Positional = Math.round(35 + Math.max(0, 72 - checkRate * 180) + accuracy * 0.15)
-  scores.Defensive = Math.round(35 + (1 - captureRate) * 45 + accuracy * 0.15)
-  scores.Dynamic = Math.round(35 + captureRate * 95 + checkRate * 105)
-  scores['Classical German'] = Math.round(35 + (openingMoves.length ? 55 : 0) + accuracy * 0.12)
-  scores.British = Math.round(35 + (games.filter(g => g.timeClass === 'classical' || g.timeClass === 'rapid').length / Math.max(1, games.length)) * 40 + accuracy * 0.1)
-  scores.Soviet = Math.round(35 + accuracy * 0.14 + (1 - checkRate) * 30)
-  scores.Hungarian = Math.round(35 + accuracy * 0.12 + (1 - captureRate) * 35)
-  scores.American = Math.round(35 + accuracy * 0.17 + captureRate * 30)
-  for (const key of Object.keys(scores)) scores[key] = Math.min(98, scores[key])
-  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
-  const best = sorted[0]
-  const famous: Record<string, string> = { Attacking: 'Mikhail Tal', Positional: 'José Raúl Capablanca', Defensive: 'Tigran Petrosian', Dynamic: 'Garry Kasparov', 'Classical German': 'Magnus Carlsen', British: 'Nigel Short', Soviet: 'Anatoly Karpov', Hungarian: 'Judit Polgár', American: 'Bobby Fischer' }
-  const strengths = [
-    accuracy >= 75 ? 'Consistent move quality' : moves.length ? 'Room to sharpen move precision' : 'Build a sample with a few games',
-    checkRate > 0.13 ? 'Active king-side ideas' : 'Patient position building',
-    captureRate > 0.18 ? 'Tactical exchanges' : 'Selective exchanges',
-  ]
-  return { school: best?.[0] ?? 'Universal', player: famous[best?.[0] ?? ''] ?? 'A balanced approach', scores, strengths,
-    focus: moves.length && reviews.reduce((n, r) => n + r.blunders + r.mistakes, 0) > reviews.length ? 'Review turning points and missed tactics' : 'Keep building a representative game sample',
-    games: games.length, confidence: games.length < 5 ? 'Early read' : games.length < 20 ? 'Developing' : 'Established' }
+/** What the reviewer needs from an engine (Stockfish in the app, a script in tests). */
+export interface ReviewEngine {
+  newGame(): Promise<void>
+  analyse(fen: string, ms: number): Promise<PositionScore>
+}
+
+export interface ReviewOptions {
+  signal?: AbortSignal
+  msPerPosition?: number
+  onProgress?: (done: number, total: number) => void
+}
+
+const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
+
+/** White's material minus Black's, in pawns. */
+export function materialBalance(chess: Chess): number {
+  let total = 0
+  for (const row of chess.board()) for (const sq of row) if (sq) total += (sq.color === 'w' ? 1 : -1) * PIECE_VALUE[sq.type]
+  return total
+}
+
+/** Opening until about move 10 while most pieces are still home, endgame once few pieces remain. */
+export function phaseOf(chess: Chess, plyIndex: number): Phase {
+  let pieces = 0
+  for (const row of chess.board()) for (const sq of row) if (sq && sq.type !== 'p' && sq.type !== 'k') pieces++
+  if (pieces <= 6) return 'Endgame'
+  if (plyIndex < 20 && pieces >= 11) return 'Opening'
+  return 'Middlegame'
+}
+
+const tally = (): Tally => ({ sum: 0, n: 0 })
+const add = (t: Tally, v: number) => { t.sum += v; t.n++ }
+
+const chebyshev = (a: string, b: string) =>
+  Math.max(Math.abs(a.charCodeAt(0) - b.charCodeAt(0)), Math.abs(Number(a[1]) - Number(b[1])))
+
+function kingSquare(chess: Chess, color: Color): string | null {
+  for (const row of chess.board()) for (const sq of row) if (sq && sq.type === 'k' && sq.color === color) return sq.square
+  return null
+}
+
+/** A position that is over has no search result: score it directly (the side to move has been mated or it is a draw). */
+function terminalScore(chess: Chess): PositionScore | null {
+  if (chess.isCheckmate()) return { cp: chess.turn() === 'w' ? -10000 : 10000, mate: 0, best: null }
+  if (chess.isDraw() || chess.isStalemate()) return { cp: 0, mate: null, best: null }
+  return null
+}
+
+export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: ReviewOptions = {}): Promise<GameReview> {
+  const { signal, msPerPosition = 150, onProgress } = opts
+  const user = game.userColor
+  const replay = new Chess()
+  const fens = [replay.fen()]
+  const moves: Move[] = []
+  for (const uci of game.moves.trim().split(/\s+/).filter(Boolean)) {
+    try { moves.push(replay.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })) } catch { break }
+    fens.push(replay.fen())
+  }
+
+  // 1. Score every position exactly once (White's point of view). The score after a move is the
+  //    score before the next one, so a game of n moves needs n + 1 searches, not 2n.
+  await engine.newGame()
+  const scores: PositionScore[] = []
+  const walk = new Chess()
+  for (let k = 0; k <= moves.length; k++) {
+    if (signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
+    if (k > 0) walk.move(moves[k - 1].san)
+    scores.push(terminalScore(walk) ?? await engine.analyse(fens[k], msPerPosition))
+    onProgress?.(k + 1, moves.length + 1)
+  }
+  const wins = scores.map(s => Math.round(winPercent(s.cp) * 10) / 10)
+  const mat: number[] = []
+  const m2 = new Chess(); mat.push(materialBalance(m2))
+  for (const mv of moves) { m2.move(mv.san); mat.push(materialBalance(m2)) }
+
+  // 2. Grade every half-move and collect measurements of the user's own play.
+  const sign = user === 'w' ? 1 : -1
+  const mine = (k: number) => (user === 'w' ? wins[k] : 100 - wins[k])
+  const features: GameFeatures = {
+    moves: 0, captures: 0, checks: 0, trades: 0, pressure: 0, sacrifices: 0, castledPly: 0,
+    worse: tally(), better: tally(), byPhase: { Opening: tally(), Middlegame: tally(), Endgame: tally() },
+    squandered: false, firstMoves: [],
+  }
+  const plies: PlyReview[] = []
+  const colors: Color[] = []
+  const board = new Chess()
+  let hadWinning = false
+  for (let i = 0; i < moves.length; i++) {
+    const mv = moves[i]
+    const moverWhite = mv.color === 'w'
+    const before = moverWhite ? wins[i] : 100 - wins[i]
+    const after = moverWhite ? wins[i + 1] : 100 - wins[i + 1]
+    const winLoss = Math.max(0, before - after)
+    const cpBefore = (moverWhite ? 1 : -1) * clampCp(scores[i].cp)
+    const cpAfter = (moverWhite ? 1 : -1) * clampCp(scores[i + 1].cp)
+    const uci = `${mv.from}${mv.to}${mv.promotion ?? ''}`
+    const isBest = scores[i].best === uci
+    const grade = gradeFor(winLoss, isBest)
+    const phase = phaseOf(board, i)
+    let bestSan: string | undefined
+    if (!isBest && winLoss >= 5 && scores[i].best) {
+      try { bestSan = new Chess(fens[i]).move({ from: scores[i].best!.slice(0, 2), to: scores[i].best!.slice(2, 4), promotion: scores[i].best![4] }).san } catch { /* ignore */ }
+    }
+    const tags: string[] = []
+    if (mv.captured) tags.push('Capture')
+    if (mv.san.includes('#')) tags.push('Mate')
+    else if (mv.san.includes('+')) tags.push('Check')
+    if (mv.isKingsideCastle() || mv.isQueensideCastle()) tags.push('Castle')
+    if (mv.promotion) tags.push('Promotion')
+    plies.push({ ply: i + 1, san: mv.san, uci, color: mv.color, grade, loss: Math.round(Math.max(0, cpBefore - cpAfter)), winLoss: Math.round(winLoss * 10) / 10, best: bestSan, phase, tags })
+    colors.push(mv.color)
+    board.move(mv.san)
+
+    if (mv.color !== user) continue
+    features.moves++
+    if (features.firstMoves.length < 3) features.firstMoves.push(uci)
+    if (mv.captured) {
+      features.captures++
+      const reply = moves[i + 1]
+      if (reply?.captured && reply.to === mv.to) features.trades++
+    }
+    if (mv.san.includes('+') || mv.san.includes('#')) features.checks++
+    if ((mv.isKingsideCastle() || mv.isQueensideCastle()) && !features.castledPly) features.castledPly = i + 1
+    const enemyKing = kingSquare(board, user === 'w' ? 'b' : 'w')
+    if (i >= 8 && mv.piece !== 'k' && enemyKing && chebyshev(mv.to, enemyKing) <= 2) features.pressure++
+    // Gave up material (as it stands after the reply) yet the engine still rates you about as well off.
+    if (i + 2 < mat.length && sign * (mat[i + 2] - mat[i]) <= -2 && mine(i + 2) >= mine(i) - 10) features.sacrifices++
+    const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * winLoss) - 3.1668))
+    add(features.byPhase[phase], acc)
+    if (mine(i) <= 35) add(features.worse, acc)
+    else if (mine(i) >= 65) add(features.better, acc)
+    if (mine(i) >= 75) hadWinning = true
+    else if (hadWinning && mine(i + 1) <= 55) features.squandered = true
+  }
+
+  const mineList = plies.filter(p => p.color === user)
+  const opening = game.opening || classifyOpening(plies.slice(0, 14).map(p => p.san))
+  return {
+    gameId: game.id, version: REVIEW_VERSION,
+    accuracy: gameAccuracy(wins, colors, user),
+    opponentAccuracy: gameAccuracy(wins, colors, user === 'w' ? 'b' : 'w'),
+    blunders: mineList.filter(p => p.grade === 'Blunder').length,
+    mistakes: mineList.filter(p => p.grade === 'Mistake').length,
+    inaccuracies: mineList.filter(p => p.grade === 'Inaccuracy').length,
+    opening, plies, wins, features,
+  }
 }

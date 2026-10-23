@@ -1167,7 +1167,7 @@ header {
 /* ── mode navigation ────────────────────────────────────────────────────── */
 .mode-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));   /* Computer / Online / Puzzles / My style */
   gap: 0.4rem;
 }
 
@@ -1340,7 +1340,7 @@ header {
   .setup-card--home .home-intro { margin: 0.85rem 0 0.75rem; }
   .home-head { gap: 0.55rem; }
   .mode-nav { gap: 0.3rem; }
-  .mode-nav-btn { min-height: 54px; gap: 0.25rem; padding: 0.45rem 0.2rem; font-size: 0.72rem; }
+  .mode-nav-btn { min-height: 54px; gap: 0.25rem; padding: 0.45rem 0.1rem; font-size: 0.7rem; }
   .mode-nav-icon { width: 19px; height: 19px; }
   .home-actions { padding-top: 0.45rem; }
   .setup-card--home .begin-game { min-height: 48px; }
@@ -1460,7 +1460,7 @@ header {
     justify-content: space-between;
     gap: 2rem;
   }
-  .mode-nav { width: 400px; flex-shrink: 0; }
+  .mode-nav { width: 460px; flex-shrink: 0; }
 
   .setup-card--home .home-intro {
     margin: 2rem 0 1.6rem;

@@ -40,6 +40,32 @@ const settings: Record<Difficulty, { skill: number; time: number }> = {
   Expert:  { skill: 20, time: 1600 },
 }
 
+/** White's point of view: cp > 0 favours White. mate > 0 means White mates in that many moves. */
+export interface PositionScore { cp: number; mate: number | null; best: string | null }
+
+/** A score as the engine reports it: relative to the side to move. */
+export interface SideScore { cp: number; mate: number | null }
+
+/** Reads a UCI "info" line. Returns null when it carries no final score (bounds, no score). */
+export function parseInfoScore(line: string): SideScore | null {
+  if (!line.startsWith('info ') || !line.includes(' score ') || /\b(lowerbound|upperbound)\b/.test(line)) return null
+  const cp = line.match(/\bscore cp (-?\d+)/)
+  const mate = line.match(/\bscore mate (-?\d+)/)
+  if (cp) return { cp: Number(cp[1]), mate: null }
+  if (mate) return { cp: 0, mate: Number(mate[1]) }
+  return null
+}
+
+/** Converts a side-to-move score into White's point of view (mate becomes +/-(10000 - 10 * distance)). */
+export function whitePov(fen: string, score: SideScore, best: string | null): PositionScore {
+  const sign = fen.split(' ')[1] === 'b' ? -1 : 1
+  if (score.mate !== null) {
+    const magnitude = 10000 - 10 * Math.abs(score.mate)
+    return { cp: sign * Math.sign(score.mate) * magnitude, mate: sign * score.mate, best }
+  }
+  return { cp: sign * score.cp, mate: null, best }
+}
+
 export class StockfishClient {
   private readonly worker: Worker
   // Shared Promise - resolves once on 'readyok', safe to await multiple times.
@@ -66,7 +92,7 @@ export class StockfishClient {
 
   private handle(line: string) {
     if (line === 'uciok')   { this.send('isready'); return }
-    if (line === 'readyok') { this.resolveReady(); return }
+    if (line === 'readyok') this.resolveReady()
     this.listeners.forEach(listener => listener(line))
   }
 
@@ -94,31 +120,49 @@ export class StockfishClient {
     return move && move !== '(none)' ? move : null
   }
 
-  /** Return the final UCI score in centipawns from White's perspective. */
-  async evaluate(fen: string, time = 120): Promise<number> {
+  /** Clear the engine's hash between unrelated games (once per game, not once per position). */
+  async newGame(): Promise<void> {
     await this.readyPromise
     this.send('ucinewgame')
-    this.send(`position fen ${fen}`)
-    let score = 0
-    const sideToMove: 'w' | 'b' = fen.split(' ')[1] === 'b' ? 'b' : 'w'
-    const done = new Promise<void>(resolve => {
+    const ready = this.until(line => line === 'readyok')
+    this.send('isready')
+    await ready
+  }
+
+  /**
+   * Analyse one position. UCI scores are relative to the SIDE TO MOVE; this converts
+   * them to White's point of view so callers never have to think about whose turn it was.
+   * Mate scores become +/-(10000 - 10 * distance), and the engine's best move is returned.
+   * (A position that is already checkmate or stalemate has no search result: callers
+   * must score those themselves.)
+   */
+  async analyse(fen: string, time = 150): Promise<PositionScore> {
+    await this.readyPromise
+    let latest: SideScore = { cp: 0, mate: null }
+    const finished = new Promise<string | null>(resolve => {
       const listen = (line: string) => {
-        if (line.startsWith('info ') && line.includes(' score ')) {
-          const cp = line.match(/\bscore cp (-?\d+)/)
-          const mate = line.match(/\bscore mate (-?\d+)/)
-          if (cp) score = Number(cp[1]) * (sideToMove === 'w' ? 1 : -1)
-          if (mate) score = Math.sign(Number(mate[1])) * 100000 * (sideToMove === 'w' ? 1 : -1)
+        const score = parseInfoScore(line)
+        if (score) latest = score
+        if (line.startsWith('bestmove ')) {
+          this.listeners.delete(listen)
+          const best = line.split(' ')[1]
+          resolve(best && best !== '(none)' ? best : null)
         }
-        if (line.startsWith('bestmove ')) { this.listeners.delete(listen); resolve() }
       }
       this.listeners.add(listen)
     })
+    this.send(`position fen ${fen}`)
     this.send(`go movetime ${time}`)
-    await done
-    return score
+    return whitePov(fen, latest, await finished)
+  }
+
+  /** Score a position from White's perspective (centipawns). */
+  async evaluate(fen: string, time = 120): Promise<number> {
+    return (await this.analyse(fen, time)).cp
   }
 
   async bestScore(fen: string, time = 120): Promise<number> {
-    return this.evaluate(fen, time)
+    const score = await this.evaluate(fen, time)
+    return -score
   }
 }
