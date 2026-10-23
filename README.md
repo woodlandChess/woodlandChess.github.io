@@ -48,11 +48,12 @@
 <a id="overview"></a>
 ## <img src="assets/icons/board.svg" width="24" height="24" align="absmiddle" alt=""/> Overview
 
-**Woodland Chess** is a mobile-first, browser-native chess application with a handcrafted dark design system. It has three modes that share one visual language:
+**Woodland Chess** is a mobile-first, browser-native chess application with a handcrafted dark design system. It has four modes that share one visual language:
 
 - **Computer** plays against Stockfish 18 Lite, running locally as a WebAssembly Web Worker. Ten playing schools shape its opening repertoire and three difficulty tiers set its strength.
 - **Play online** pairs you with real opponents through your Lichess account, using OAuth with PKCE and the Lichess Board API.
 - **Puzzles** serves rated tactics from the Lichess puzzle database, with hints, scoring, streaks, a daily challenge and achievements.
+- **My style** reviews your Lichess and computer games with Stockfish on your device, estimates your playing style, and lets you study each game move by move.
 
 There is no backend of our own. Computer mode needs no account and makes no network calls beyond loading fonts. Online play and puzzles talk directly to `lichess.org` from the browser.
 
@@ -143,7 +144,7 @@ The visual design inherits the *Abyssal Liturgy* aesthetic: near-black surfaces,
 
 ![Architecture diagram](assets/architecture.svg)
 
-The application has a thin shared layer and three independent modes.
+The application has a thin shared layer and four independent modes.
 
 **Routing.** `App.tsx` maps the URL path to a mode: `/ai` (Computer), `/multiplayer` (Online) and `/puzzle` (Puzzles). It uses the History API with no router dependency. Opening `/` redirects to `/ai`, and the deploy workflow copies `index.html` to `404.html` so every route loads directly on GitHub Pages.
 
@@ -213,6 +214,51 @@ Progress lives in `localStorage` under `woodland.puzzle.progress.v1`. Fetched pu
 ---
 
 <a id="design-system"></a>
+## <img src="assets/icons/user.svg" width="24" height="24" align="absmiddle" alt=""/> My style
+
+The **My style** tab turns your games into a study. Import public Lichess games (no account permission needed) or finish games against the computer; Stockfish reviews them in a Web Worker on your device and nothing is uploaded.
+
+### How a game is reviewed
+
+- **One search per position.** A game of *n* moves needs *n + 1* searches: the score after a move is the score before the next. Stockfish reports scores from the side to move, so every score is converted to White's point of view before use (`parseInfoScore` / `whitePov` in `stockfish.ts`). Checkmate and stalemate positions are scored directly because the engine returns 0 for them.
+- **Winning chances, not raw centipawns.** Scores become winning chances with the Lichess logistic model. A move is graded by the winning chances it gave up: **Inaccuracy** 5 points, **Mistake** 10, **Blunder** 15 (Lichess' thresholds). **Best** means the engine's own choice.
+- **Accuracy.** Each move scores `103.1668 * exp(-0.04354 * drop) - 3.1668`; the game accuracy is the mean of a volatility-weighted average and the harmonic mean, as on Lichess.
+- **Phases** come from the pieces left on the board (opening until about move 10 with most pieces home; endgame with six or fewer pieces besides pawns and kings).
+- **Opening names** come from Lichess when the game has one, otherwise from a small built-in table.
+
+### How the style read works
+
+Three measured axes use the same 0-10 scale as the computer's playing schools:
+
+| Axis | Measured from |
+|---|---|
+| Attack | Captures, checks, moves landing near the enemy king, sound sacrifices |
+| Focus | Accuracy overall, in the opening, and when converting an advantage |
+| Defend | Accuracy when worse, willingness to trade, early castling, quiet play |
+
+With few moves the read is pulled toward the middle, and it is labelled **Early read**, **Developing** or **Established** by how many moves were analysed. Each school is compared with your axes (opening choices nudge the match slightly) and tied to the player it is named for:
+
+| School | Player | Known for |
+|---|---|---|
+| Attacking | Mikhail Tal | Sacrificial attacks and the initiative |
+| Dynamic | Garry Kasparov | Active pieces and relentless pressure |
+| Positional | José Raúl Capablanca | Clear structure and endgame technique |
+| Defensive | Tigran Petrosian | Prophylaxis and solid defence |
+| Russian (Soviet) | Mikhail Botvinnik | Rigorous preparation, balanced calculation |
+| British | Michael Adams | Practical, resilient play, sound endgames |
+| Hungarian | Lajos Portisch | Solid structures, restrained risk |
+| Classical German | Siegbert Tarrasch | Central control, fast development |
+| American | Bobby Fischer | Objective calculation, precise conversion |
+| Universal | Magnus Carlsen | Adapting to any position, grinding small edges |
+
+This is an estimate from a small sample, not a verdict. Advice tips quote the numbers behind them and only appear when there is enough evidence; general habits are marked as such.
+
+### Game study
+
+Tapping a game opens a study view built for phones: the board, the current move and the move buttons stay pinned while the graph, key moments and move list scroll. Swipe along the move list or use the buttons (arrow keys, Home and End also work), jump between your errors, and reveal the engine's preferred move.
+
+---
+
 ## <img src="assets/icons/palette.svg" width="24" height="24" align="absmiddle" alt=""/> Design system
 
 ![Design system](assets/design-system.svg)
@@ -375,9 +421,18 @@ woodlandChess.github.io/
 │   ├── pieces.ts                    Piece SVGs as data URIs
 │   ├── components/
 │   │   ├── HomeFrame.tsx            Shared menu frame
-│   │   ├── ModeNav.tsx              Computer, Online, Puzzles navigation
+│   │   ├── ModeNav.tsx              Computer, Online, Puzzles, My style navigation
+│   │   ├── Controls.tsx             Shared Segmented control and WeightBar
 │   │   ├── ModeIcons.tsx            Mode and utility icons
 │   │   └── GameScreen.tsx           Shared in-game layout, ConfirmButton
+│   ├── profile/
+│   │   ├── PlayerProfile.tsx        My style screen: import, summary, games
+│   │   ├── GameStudy.tsx            Move-by-move study view
+│   │   ├── analysis.ts              Game import and Stockfish review
+│   │   ├── stats.ts                 Winning chances, grading, accuracy
+│   │   ├── style.ts                 Style axes, school matching, advice
+│   │   ├── openings.ts              Opening names
+│   │   └── store.ts                 Saved games and reviews (localStorage)
 │   ├── puzzle/
 │   │   ├── PuzzleMode.tsx           Puzzle mode entry
 │   │   ├── components/              Intro, game, win, board, header, info, toast, icons/
@@ -385,7 +440,13 @@ woodlandChess.github.io/
 │   │   ├── engine/                  Board, MoveGenerator, ChessEngine
 │   │   ├── hooks/                   useGameEngine
 │   │   └── types/                   Shared puzzle types
-│   ├── styles.css                   Design system and all component styles
+│   ├── lazyModes.ts                 Lazy-loaded screens and prefetching
+│   ├── styles/
+│   │   ├── base.css                 Design system, menus, shared board (loaded first)
+│   │   ├── game.css                 Game screen (loaded with a game)
+│   │   ├── online.css               Online mode
+│   │   ├── puzzle.css               Puzzle mode
+│   │   └── profile.css              My style and game study
 │   └── main.tsx                     React entry point
 ├── .github/workflows/deploy.yml     CI/CD to GitHub Pages
 ├── index.html                       Vite entry point
@@ -501,6 +562,7 @@ Material values are P 100, N 320, B 330, R 500, Q 900 and K 20 000, with piece-s
 | Lichess access token | `localStorage` | Stay signed in until expiry |
 | PKCE verifier and state | `sessionStorage` | Complete the sign-in, then removed |
 | Puzzle progress and caches | `localStorage` | Score history, achievements, offline fallback |
+| Saved games and reviews (My style) | `localStorage` | Your style read and game study, up to 100 games, on this device only |
 | Network requests | `lichess.org`, Google Fonts | Online play, puzzles, typefaces |
 
 There is no analytics code and no server of our own. Clearing site data removes everything above.

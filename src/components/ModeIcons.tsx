@@ -49,13 +49,14 @@ export function IconPuzzle(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-/** Player profile — a rook silhouette in a framed study. */
+/** Player profile / style: a pawn, the piece that stands for "the player". */
 export function IconProfile(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M9 5.5h1.5V8h3V5.5H15V9l-1 1v4l1.5 2v1.5h-7V16L10 14v-4L9 9z" />
-      <path d="M8.5 17h7" />
+      <circle cx="12" cy="7.2" r="2.7" />
+      <path d="M9.4 11.6h5.2" />
+      <path d="M10.3 11.6c-.1 2.4-.6 4.6-1.7 6.4h6.8c-1.1-1.8-1.6-4-1.7-6.4" />
+      <path d="M7.4 18h9.2v2.3H7.4z" />
     </svg>
   )
 }

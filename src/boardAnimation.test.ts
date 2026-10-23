@@ -14,6 +14,23 @@ describe('squareAt', () => {
   })
 })
 
+describe('diffMoves capture flag (only captures vibrate the board)', () => {
+  const flag = (fen: string, san: string) => {
+    const c = new Chess(fen); const before = grid(c); c.move(san)
+    return (diffMoves(before, grid(c)) ?? []).map(s => s.capture)
+  }
+  it('is false for quiet moves, castling and promotion', () => {
+    expect(flag(new Chess().fen(), 'e4')).toEqual([false])
+    expect(flag('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', 'O-O')).toEqual([false, false])
+    expect(flag('8/4P3/8/8/8/8/k6K/8 w - - 0 1', 'e8=Q')).toEqual([false])
+  })
+  it('is true for captures, en passant and capturing promotions', () => {
+    expect(flag('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', 'exd5')).toEqual([true])
+    expect(flag('rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3', 'exf6')).toEqual([true])
+    expect(flag('1n6/P7/8/8/8/8/k6K/8 w - - 0 1', 'axb8=Q')).toEqual([true])
+  })
+})
+
 describe('diffMoves', () => {
   it('finds a plain move (same result whichever side the board is viewed from)', () => {
     const c = new Chess(); const before = grid(c)
