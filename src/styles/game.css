@@ -280,6 +280,8 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
 .gm-history-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; grid-area: top; }
 .gm-history .gm-label { flex-shrink: 0; margin: 0; }
 .gm-material { display: flex; gap: 0.6rem; color: var(--text-3); font-size: 0.62rem; white-space: nowrap; }
+.gm-material b[data-sign="1"] { color: var(--w-defend); }
+.gm-material b[data-sign="-1"] { color: var(--w-attack); }
 .gm-material b { display: inline-block; min-width: 2ch; text-align: right; color: var(--text); font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
 .gm-moves {
   list-style: none;

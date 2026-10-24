@@ -161,12 +161,14 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
 
 
           <div className="study-info">
-            <div className="study-chips" aria-label="Your move quality">
-              <span className="grade-blunder">Blunders <b>{review.blunders}</b></span>
-              <span className="grade-mistake">Mistakes <b>{review.mistakes}</b></span>
-              <span className="grade-inaccuracy">Inaccuracies <b>{review.inaccuracies}</b></span>
+            <div className="study-moves-wrap">
+              <span className="field-label">Moves</span>
+              <ol className="study-moves" ref={movesRef} aria-label="Move list">
+                {Array.from({ length: rows }, (_, i) => (
+                  <li key={i}><span className="study-no">{i + 1}.</span>{cell(plies[i * 2])}{cell(plies[i * 2 + 1])}</li>
+                ))}
+              </ol>
             </div>
-            <EvalGraph review={review} user={user} ply={ply} onSeek={go} />
             <div className="study-jump">
               <button type="button" className="btn-ghost" onClick={() => jumpError(-1)} disabled={!mineErrors.some(p => p.ply < ply)}>‹ Previous error</button>
               <button type="button" className="btn-ghost" onClick={() => jumpError(1)} disabled={!mineErrors.some(p => p.ply > ply)}>Next error ›</button>
@@ -176,6 +178,12 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
                 {showBest ? 'Hide best move' : `Show best move (${current.best})`}
               </button>
             )}
+            <EvalGraph review={review} user={user} ply={ply} onSeek={go} />
+            <div className="study-chips" aria-label="Your move quality">
+              <span className="grade-blunder">Blunders <b>{review.blunders}</b></span>
+              <span className="grade-mistake">Mistakes <b>{review.mistakes}</b></span>
+              <span className="grade-inaccuracy">Inaccuracies <b>{review.inaccuracies}</b></span>
+            </div>
             {keyMoments.length > 0 && (
               <div className="study-moments">
                 <span className="field-label">Key moments</span>
@@ -188,14 +196,6 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
                 </div>
               </div>
             )}
-            <div className="study-moves-wrap">
-              <span className="field-label">Moves</span>
-              <ol className="study-moves" ref={movesRef} aria-label="Move list">
-                {Array.from({ length: rows }, (_, i) => (
-                  <li key={i}><span className="study-no">{i + 1}.</span>{cell(plies[i * 2])}{cell(plies[i * 2 + 1])}</li>
-                ))}
-              </ol>
-            </div>
           </div>
         </div>
       </section>
