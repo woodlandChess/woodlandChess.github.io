@@ -66,7 +66,7 @@ export function parseLichessNdjson(text: string, username: string): ProfileGame[
 
 /** What the reviewer needs from an engine (Stockfish in the app, a script in tests). */
 export interface ReviewEngine {
-  newGame(): Promise<void>
+  newGame(multiPv?: number): Promise<void>
   analyse(fen: string, ms: number): Promise<PositionScore>
 }
 
@@ -82,6 +82,13 @@ const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0
 export function materialBalance(chess: Chess): number {
   let total = 0
   for (const row of chess.board()) for (const sq of row) if (sq) total += (sq.color === 'w' ? 1 : -1) * PIECE_VALUE[sq.type]
+  return total
+}
+
+/** Everything still on the board except kings, in pawns (the starting position is 78). */
+export function materialTotal(chess: Chess): number {
+  let total = 0
+  for (const row of chess.board()) for (const sq of row) if (sq) total += PIECE_VALUE[sq.type]
   return total
 }
 
@@ -112,6 +119,13 @@ function terminalScore(chess: Chess): PositionScore | null {
   return null
 }
 
+/** The position after the first `k` moves. */
+function replayAt(moves: Move[], k: number): Chess {
+  const c = new Chess()
+  for (let i = 0; i < k; i++) c.move(moves[i].san)
+  return c
+}
+
 export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: ReviewOptions = {}): Promise<GameReview> {
   const { signal, msPerPosition = 150, onProgress } = opts
   const user = game.userColor
@@ -123,9 +137,11 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     fens.push(replay.fen())
   }
 
+  if (!moves.length) throw new Error('This game has no readable moves.')
+
   // 1. Score every position exactly once (White's point of view). The score after a move is the
   //    score before the next one, so a game of n moves needs n + 1 searches, not 2n.
-  await engine.newGame()
+  await engine.newGame(2)          // two lines: the best move and the runner-up (how forcing was the position?)
   const scores: PositionScore[] = []
   const walk = new Chess()
   for (let k = 0; k <= moves.length; k++) {
@@ -134,10 +150,17 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     scores.push(terminalScore(walk) ?? await engine.analyse(fens[k], msPerPosition))
     onProgress?.(k + 1, moves.length + 1)
   }
+  // A healthy engine disagrees with itself from position to position. Identical scores all game long
+  // mean no search result came back, and grading that would award a fake 100%.
+  const searched = scores.filter((_, k) => !terminalScore(replayAt(moves, k)))
+  if (searched.length >= 8 && searched.every(s => s.cp === searched[0].cp && s.mate === searched[0].mate)) {
+    throw new Error('The engine did not return usable scores. Reload the page and try again.')
+  }
   const wins = scores.map(s => Math.round(winPercent(s.cp) * 10) / 10)
   const mat: number[] = []
-  const m2 = new Chess(); mat.push(materialBalance(m2))
-  for (const mv of moves) { m2.move(mv.san); mat.push(materialBalance(m2)) }
+  const total: number[] = []
+  const m2 = new Chess(); mat.push(materialBalance(m2)); total.push(materialTotal(m2))
+  for (const mv of moves) { m2.move(mv.san); mat.push(materialBalance(m2)); total.push(materialTotal(m2)) }
 
   // 2. Grade every half-move and collect measurements of the user's own play.
   const sign = user === 'w' ? 1 : -1
@@ -145,7 +168,8 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
   const features: GameFeatures = {
     moves: 0, captures: 0, checks: 0, trades: 0, pressure: 0, sacrifices: 0, castledPly: 0,
     worse: tally(), better: tally(), byPhase: { Opening: tally(), Middlegame: tally(), Endgame: tally() },
-    squandered: false, firstMoves: [],
+    squandered: false, firstMoves: [], firstPawn: '', material: tally(), gap: tally(),
+    critical: { n: 0, found: 0 }, tacticalErrors: 0, quietErrors: 0,
   }
   const plies: PlyReview[] = []
   const colors: Color[] = []
@@ -180,6 +204,18 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     if (mv.color !== user) continue
     features.moves++
     if (features.firstMoves.length < 3) features.firstMoves.push(uci)
+    if (!features.firstPawn && mv.piece === 'p') features.firstPawn = uci
+    add(features.material, total[i])
+    // How forcing was the position? The engine's best versus second-best line (Guid & Bratko's difficulty measure).
+    const second = scores[i].second
+    if (second !== undefined && second !== null && scores[i].best) {
+      const bestW = moverWhite ? wins[i] : 100 - wins[i]
+      const secondW = winPercent((moverWhite ? 1 : -1) * second)
+      const gap = Math.max(0, Math.min(40, bestW - secondW))
+      add(features.gap, gap)
+      if (gap >= 15) { features.critical.n++; if (isBest) features.critical.found++ }
+    }
+    if (winLoss >= 5 && bestSan) { if (/[x+#]/.test(bestSan)) features.tacticalErrors++; else features.quietErrors++ }
     if (mv.captured) {
       features.captures++
       const reply = moves[i + 1]

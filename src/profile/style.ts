@@ -1,5 +1,6 @@
 import { schools, type ChessSchool } from '../stockfish'
 import { openingFamily } from './openings'
+import { AXES, PLAYERS, playerVector, type Axis, type PlayerRef, type StyleVector } from './players'
 import type { GameReview, ProfileGame, Tally } from './store'
 
 /**
@@ -41,12 +42,26 @@ export interface StyleMetrics {
   phaseAccuracy: Partial<Record<'Opening' | 'Middlegame' | 'Endgame', number>>
   squandered: number
   games: number
+  /** Share of your positions where only one move held up, and how many of those you solved. */
+  criticalShare: number
+  criticalN: number
+  criticalSolved: number | null
+  meanGap: number
+  /** Average material on the board at your moves (starting position = 78). */
+  avgMaterial: number
+  avgCastlePly: number
+  endgameShare: number
+  endgameEdge: number
+  openShare: number
+  tacticalErrors: number
+  quietErrors: number
 }
 
 export interface StyleSummary {
   school: ChessSchool | null
   label: string
-  players: string
+  /** The player the closest school is named for (school scale). */
+  schoolPlayer: string
   why: string
   axes: Axes
   matches: SchoolMatch[]
@@ -57,6 +72,10 @@ export interface StyleSummary {
   moves: number
   confidence: 'Early read' | 'Developing' | 'Established'
   metrics: StyleMetrics | null
+  /** Seven-axis fingerprint and the closest players (best first). */
+  fingerprint: StyleVector | null
+  players: PlayerMatch[]
+  tactics: TacticsReport | null
 }
 
 const clamp = (x: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x))
@@ -64,7 +83,7 @@ const norm = (x: number, lo: number, hi: number) => clamp((x - lo) / (hi - lo))
 const avg = (t: Tally) => (t.n ? t.sum / t.n : null)
 const sumTally = (xs: Tally[]): Tally => xs.reduce((a, t) => ({ sum: a.sum + t.sum, n: a.n + t.n }), { sum: 0, n: 0 })
 
-export function metricsOf(all: GameReview[]): StyleMetrics | null {
+export function metricsOf(all: GameReview[], games: ProfileGame[] = []): StyleMetrics | null {
   const reviews = all.filter(r => r && r.features)
   const f = reviews.map(r => r.features)
   const moves = f.reduce((n, x) => n + x.moves, 0)
@@ -87,6 +106,45 @@ export function metricsOf(all: GameReview[]): StyleMetrics | null {
     betterAccuracy: better !== null && nBetter >= 8 ? better : null,
     phaseAccuracy: { Opening: phase('Opening'), Middlegame: phase('Middlegame'), Endgame: phase('Endgame') },
     squandered: f.filter(x => x.squandered).length,
+    ...extraMetrics(reviews, moves, games),
+  }
+}
+
+/** First pawn push -> how "open" the player's games start: e-pawn and ...c5 are open, d/c-pawn and flank moves closed. */
+export function openness(firstPawn: string, color: 'w' | 'b'): number | null {
+  if (!firstPawn) return null
+  const file = firstPawn[0], from = firstPawn[1], to = firstPawn[3]
+  if (file === 'e') return 1
+  if (color === 'b' && file === 'c' && from === '7' && to === '5') return 0.9     // Sicilian-type
+  if (file === 'd') return color === 'w' ? 0.2 : 0.3
+  if (file === 'c') return 0.3
+  return 0.4                                                                      // flank pawn moves
+}
+
+function openShareOf(reviews: GameReview[], games: ProfileGame[]): number {
+  const color = new Map(games.map(g => [g.id, g.userColor]))
+  const v = reviews.map(r => openness(r.features.firstPawn, color.get(r.gameId) ?? 'w')).filter((x): x is number => x !== null)
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0.5
+}
+
+function extraMetrics(reviews: GameReview[], moves: number, games: ProfileGame[]) {
+  const f = reviews.map(r => r.features)
+  const gap = sumTally(f.map(x => x.gap)), mat = sumTally(f.map(x => x.material))
+  const critN = f.reduce((n, x) => n + x.critical.n, 0), critFound = f.reduce((n, x) => n + x.critical.found, 0)
+  const castles = f.map(x => x.castledPly).filter(p => p > 0)
+  const endMoves = f.reduce((n, x) => n + x.byPhase.Endgame.n, 0)
+  const endAcc = sumTally(f.map(x => x.byPhase.Endgame)), all = sumTally(f.flatMap(x => Object.values(x.byPhase)))
+  const edge = endAcc.n >= 8 && all.n ? endAcc.sum / endAcc.n - all.sum / all.n : 0
+  return {
+    criticalShare: gap.n ? critN / gap.n : 0.14, criticalN: critN,
+    criticalSolved: critN >= 4 ? critFound / critN : null,
+    meanGap: gap.n ? gap.sum / gap.n : 8,
+    avgMaterial: mat.n ? mat.sum / mat.n : 52,
+    avgCastlePly: castles.length ? castles.reduce((a, b) => a + b, 0) / castles.length : 26,
+    endgameShare: moves ? endMoves / moves : 0.15, endgameEdge: edge,
+    openShare: openShareOf(reviews, games),
+    tacticalErrors: f.reduce((n, x) => n + x.tacticalErrors, 0),
+    quietErrors: f.reduce((n, x) => n + x.quietErrors, 0),
   }
 }
 
@@ -110,46 +168,30 @@ export function axesOf(m: StyleMetrics): Axes {
   return { attack: shrink(attack), focus: shrink(focus), defend: shrink(defend) }
 }
 
-/** Share of the school's opening moves (for your colour) that you actually played in your first three moves. */
-function repertoireOverlap(school: ChessSchool, games: ProfileGame[], reviews: GameReview[]): number {
-  const byId = new Map(games.map(g => [g.id, g]))
-  let total = 0, count = 0
-  for (const r of reviews) {
-    const g = byId.get(r.gameId)
-    if (!g) continue
-    const first = new Set(r.features.firstMoves)
-    for (const line of schools[school].book) {
-      const moves = line.split(' ').filter((_, i) => (i % 2 === 0) === (g.userColor === 'w'))
-      if (!moves.length) continue
-      total += moves.filter(mv => first.has(mv)).length / Math.min(3, moves.length)
-      count++
-    }
-  }
-  return count ? total / count : 0
-}
-
-/** How quickly a match falls off with distance (axis points): 1 point away ~93%, 3 ~51%, 5 ~16%. */
-const MATCH_SPREAD = 2.6
-
-export function matchSchools(axes: Axes, games: ProfileGame[], reviews: GameReview[]): SchoolMatch[] {
-  return (Object.keys(schools) as ChessSchool[]).map(school => {
-    const w = schools[school].weights
-    const d = Math.hypot(axes.attack - w.attack, axes.focus - w.focus, axes.defend - w.defend)
-    // Opening choices are a recognised style signal; they nudge, never decide (at most 1 point of distance).
-    const adjusted = Math.max(0, d - repertoireOverlap(school, games, reviews))
-    return { school, label: schools[school].label, match: Math.round(100 * Math.exp(-(adjusted ** 2) / (2 * MATCH_SPREAD ** 2))), ...FAMOUS[school] }
-  }).sort((a, b) => b.match - a.match)
+/**
+ * The school ranking comes from the player ranking, so the two can never disagree: a school's score is
+ * its best-matching player's score, and the closest school is the closest player's school.
+ */
+export function schoolsFromPlayers(players: PlayerMatch[]): SchoolMatch[] {
+  const best = new Map<ChessSchool, PlayerMatch>()
+  for (const m of players) if (!best.has(m.player.school) || m.match > best.get(m.player.school)!.match) best.set(m.player.school, m)
+  return [...best.entries()].map(([school, m]) => ({
+    school, label: schools[school].label, match: m.match, players: m.player.name, why: FAMOUS[school].why,
+  })).sort((a, b) => b.match - a.match)
 }
 
 export function summarizeStyle(games: ProfileGame[], reviews: GameReview[]): StyleSummary {
-  const metrics = metricsOf(reviews)
+  const metrics = metricsOf(reviews, games)
   const base = { games: games.length, analyzed: reviews.length, moves: metrics?.moves ?? 0 }
   if (!metrics) {
-    return { school: null, label: 'Still taking shape', players: '', why: '', axes: { attack: 5, focus: 5, defend: 5 },
-      matches: [], strengths: [], focus: 'Analyze a few games to see how you play.', confidence: 'Early read', metrics: null, ...base }
+    return { school: null, label: 'Still taking shape', schoolPlayer: '', why: '', axes: { attack: 5, focus: 5, defend: 5 },
+      matches: [], strengths: [], focus: 'Analyze a few games to see how you play.', confidence: 'Early read', metrics: null,
+      fingerprint: null, players: [], tactics: null, ...base }
   }
   const axes = axesOf(metrics)
-  const matches = matchSchools(axes, games, reviews)
+  const fingerprint = styleAxes(metrics)
+  const players = matchPlayers(fingerprint)
+  const matches = schoolsFromPlayers(players)
   const top = matches[0]
   const strengths: string[] = []
   if (metrics.accuracy >= 80) strengths.push(`Consistent move quality (${metrics.accuracy}% average accuracy)`)
@@ -162,10 +204,90 @@ export function summarizeStyle(games: ProfileGame[], reviews: GameReview[]): Sty
   if (!strengths.length) strengths.push('Keep building a sample: the read sharpens with more games')
   const tips = makeTips(games, reviews, metrics)
   return {
-    school: top.school, label: top.label, players: top.players, why: top.why, axes, matches,
+    school: top.school, label: top.label, schoolPlayer: players[0].player.name, why: players[0].player.known, axes, matches,
     strengths: strengths.slice(0, 3), focus: tips[0]?.title ?? 'Keep building a representative game sample',
-    confidence: metrics.moves < 60 ? 'Early read' : metrics.moves < 250 ? 'Developing' : 'Established', metrics, ...base,
+    confidence: metrics.moves < 60 ? 'Early read' : metrics.moves < 250 ? 'Developing' : 'Established', metrics,
+    fingerprint, players, tactics: tacticsReport(metrics), ...base,
   }
+}
+
+// ── Style fingerprint and the closest players ───────────────────────────────
+
+const MIN_SHRINK = 150
+
+/**
+ * Seven style axes on the same 0-10 scale as the reference roster. Skill is left out on purpose:
+ * accuracy tells you how well you play, not how. With few moves the read is pulled toward 5.
+ */
+export function styleAxes(m: StyleMetrics): StyleVector {
+  const quiet = 1 - clamp(m.captureRate + m.checkRate, 0, 1)
+  void quiet
+  const raw: StyleVector = {
+    attack: 10 * (0.35 * norm(m.captureRate, 0.08, 0.30) + 0.25 * norm(m.checkRate, 0.02, 0.14)
+      + 0.25 * norm(m.pressureRate, 0.08, 0.35) + 0.15 * norm(m.sacrificesPer100, 0, 3)),
+    sharpness: 10 * (0.6 * norm(m.criticalShare, 0.05, 0.28) + 0.4 * norm(m.meanGap, 3, 13)),
+    simplify: 10 * (0.5 * norm(78 - m.avgMaterial, 14, 42) + 0.5 * norm(m.tradeRate, 0.3, 0.8)),
+    risk: 10 * (0.75 * norm(m.sacrificesPer100, 0, 2) + 0.25 * (1 - m.castledShare)),
+    safety: 10 * (0.55 * m.castledShare + 0.45 * norm(26 - m.avgCastlePly, 0, 16)),
+    endgame: 10 * (0.5 * norm(m.endgameShare, 0.05, 0.35) + 0.5 * norm(m.endgameEdge, -12, 12)),
+    open: 10 * m.openShare,
+  }
+  const trust = Math.min(1, m.moves / MIN_SHRINK)
+  const out = {} as StyleVector
+  for (const a of AXES) out[a] = Math.round((5 + (raw[a] - 5) * trust) * 10) / 10
+  return out
+}
+
+/** How much each axis counts when comparing. Opening choice is the least reliable signal, attack the most. */
+const AXIS_WEIGHT: Record<Axis, number> = { attack: 1.2, sharpness: 1.0, simplify: 1.0, risk: 1.0, safety: 0.8, endgame: 0.7, open: 0.5 }
+/** Match falls off with distance: 1 axis-point apart ~90%, 2 ~66%, 3 ~39%, 4 ~19%. */
+const PLAYER_SPREAD = 2.2
+
+export interface PlayerMatch {
+  player: PlayerRef
+  /** 0-100 */
+  match: number
+  /** Root-mean-square distance in axis points (0 = identical). */
+  distance: number
+  /** The axes where you and this player are closest, and the one where you differ most. */
+  alike: Axis[]
+  differs: Axis
+  vector: StyleVector
+}
+
+export function distance(a: StyleVector, b: StyleVector): number {
+  let sum = 0, w = 0
+  for (const k of AXES) { sum += AXIS_WEIGHT[k] * (a[k] - b[k]) ** 2; w += AXIS_WEIGHT[k] }
+  return Math.sqrt(sum / w)
+}
+
+/** Ranks every player in the roster by how close their style is to yours. */
+export function matchPlayers(you: StyleVector, roster: PlayerRef[] = PLAYERS): PlayerMatch[] {
+  return roster.map(player => {
+    const vector = playerVector(player)
+    const d = distance(you, vector)
+    const diffs = AXES.map(k => [k, Math.abs(you[k] - vector[k])] as const)
+    const strong = diffs.filter(([k]) => Math.abs(you[k] - 5) >= 1.2 && Math.abs(vector[k] - 5) >= 1.2 && Math.sign(you[k] - 5) === Math.sign(vector[k] - 5))
+    const alike = (strong.length ? strong : diffs).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([k]) => k)
+    const differs = [...diffs].sort((a, b) => b[1] - a[1])[0][0]
+    return { player, match: Math.round(100 * Math.exp(-(d ** 2) / (2 * PLAYER_SPREAD ** 2))), distance: d, alike, differs, vector }
+  }).sort((a, b) => b.match - a.match || a.distance - b.distance)
+}
+
+export interface TacticsReport {
+  criticalN: number
+  criticalSolved: number | null
+  tacticalErrors: number
+  quietErrors: number
+  /** Which kind of mistake dominates, when there are enough to say. */
+  lean: 'tactics' | 'strategy' | 'balanced' | null
+}
+
+export function tacticsReport(m: StyleMetrics | null): TacticsReport | null {
+  if (!m) return null
+  const total = m.tacticalErrors + m.quietErrors
+  const lean = total < 5 ? null : m.tacticalErrors / total >= 0.6 ? 'tactics' : m.quietErrors / total >= 0.6 ? 'strategy' : 'balanced'
+  return { criticalN: m.criticalN, criticalSolved: m.criticalSolved, tacticalErrors: m.tacticalErrors, quietErrors: m.quietErrors, lean }
 }
 
 // ── Advice ────────────────────────────────────────────────────────────────────
@@ -211,6 +333,18 @@ export function makeTips(games: ProfileGame[], reviews: GameReview[], metrics = 
     }
   }
   if (metrics) {
+    const errors = metrics.tacticalErrors + metrics.quietErrors
+    if (metrics.tacticalErrors >= 3 && metrics.tacticalErrors / errors >= 0.55) {
+      tips.push({ title: 'Train tactics', weight: 14, evidence: true,
+        body: `${metrics.tacticalErrors} of your ${errors} costly moves missed a capture, check or mate that the engine saw. Solve a few tactical puzzles daily, and before each move look at every check, capture and threat.` })
+    } else if (metrics.quietErrors >= 3 && metrics.quietErrors / errors >= 0.55) {
+      tips.push({ title: 'Improve positional judgement', weight: 14, evidence: true,
+        body: `${metrics.quietErrors} of your ${errors} costly moves were quiet-move errors: the engine's choice was a plan or a piece placement, not a tactic. Study pawn structure, piece activity and typical plans for your openings.` })
+    }
+    if (metrics.criticalSolved !== null && metrics.criticalSolved < 0.45) {
+      tips.push({ title: 'Find the only move', weight: 13, evidence: true,
+        body: `In ${metrics.criticalN} positions where only one move held up, you found it ${Math.round(metrics.criticalSolved * 100)}% of the time. In sharp positions list every forcing reply before choosing.` })
+    }
     if (metrics.squandered >= 1 && metrics.games >= 3) {
       tips.push({ title: 'Convert winning positions', weight: 10 + metrics.squandered * 4, evidence: true,
         body: `You were clearly winning in ${metrics.squandered} of ${metrics.games} games and let it slip. When ahead: trade pieces, remove counterplay, and avoid new complications.` })
