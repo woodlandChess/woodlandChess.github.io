@@ -1,3 +1,4 @@
+import { formatBalance, type MaterialScore } from '../material'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { clockTone, formatClock } from '../clock'
 
@@ -49,7 +50,8 @@ interface GameScreenProps {
   moves: string[]
   selectedPly?: number
   onSelectPly?: (ply: number) => void
-  material?: { white: number; black: number }
+  /** Points won by each side and the balance, all from the player's own side (see material.ts). */
+  material?: MaterialScore
   /** Optional profile block (e.g. school weights). Collapsible on phones. */
   profile?: ReactNode
   profileLabel?: string
@@ -290,7 +292,13 @@ export function GameScreen({
         </div>
 
         <div className="gm-card gm-history">
-          <div className="gm-history-top"><p className="gm-label">Moves</p>{material && <div className="gm-material" aria-label="Material score"><span>White <b>{material.white}</b></span><span>Black <b>{material.black}</b></span><span>Balance <b>{material.white - material.black > 0 ? '+' : ''}{material.white - material.black}</b></span></div>}</div>
+          <div className="gm-history-top"><p className="gm-label">Moves</p>{material && (
+            <div className="gm-material" aria-label={`Material: you ${material.you}, opponent ${material.opponent}, balance ${formatBalance(material.balance)}`}>
+              <span>You <b>{material.you}</b></span>
+              <span>Opponent <b>{material.opponent}</b></span>
+              <span>Balance <b data-sign={Math.sign(material.balance)}>{formatBalance(material.balance)}</b></span>
+            </div>
+          )}</div>
           <MoveList moves={moves} selectedPly={selectedPly} onSelectPly={onSelectPly} />
           {onSelectPly && (
             <div className="gm-review">

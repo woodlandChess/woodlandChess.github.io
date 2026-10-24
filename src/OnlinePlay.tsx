@@ -8,6 +8,7 @@ import {
 import { ChessBoard, PromotionModal, type TrailMove } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
+import { materialScore } from './material'
 import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
 import { BrandMark } from './components/BrandMark'
 import { GameResultDialog, type RematchState } from './components/GameResultDialog'
@@ -630,12 +631,11 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     () => moveHistory.slice(Math.max(0, viewedPly - 2), viewedPly).reverse().map(m => ({ from: m.from, to: m.to, color: m.color })),
     [moveHistory, viewedPly],
   )
-  const material = useMemo(() => {
-    const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
-    const totals = { w: 0, b: 0 }
-    viewedGame.board().flat().forEach(piece => { if (piece) totals[piece.color] += values[piece.type] ?? 0 })
-    return { white: totals.w, black: totals.b }
-  }, [viewedGame])
+  // Material from MY side (so it starts at 0 and is right for Black as well as White).
+  const material = useMemo(
+    () => materialScore(moveHistory.slice(0, viewedPly), viewedGame, liveGame?.myColor ?? 'w'),
+    [moveHistory, viewedPly, viewedGame, liveGame?.myColor],
+  )
   const myTurn        = !!liveGame && game.turn() === liveGame.myColor
   const plies         = moveHistory.length
 
