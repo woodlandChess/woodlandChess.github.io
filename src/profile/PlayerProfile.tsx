@@ -1,7 +1,7 @@
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { StockfishClient } from '../stockfish'
 import { HomeFrame } from '../components/HomeFrame'
-import { Segmented, WeightBar } from '../components/Controls'
+import { Segmented } from '../components/Controls'
 import type { ModeId } from '../components/ModeNav'
 import { getStoredToken, LichessClient } from '../lichess'
 import { parseLichessNdjson, reviewGame } from './analysis'
@@ -186,18 +186,27 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
       {summary.metrics && summary.fingerprint && summary.players.length > 0 && (
         <>
           <section className="profile-section">
-            <div className="profile-section-head"><h3>Your style</h3><span>0–10 · tick = {summary.players[0].player.name.split(' ').slice(-1)[0]}</span></div>
+            <div className="profile-section-head"><h3>Your style</h3><span>0–10</span></div>
+            <div className="profile-legend" aria-hidden="true">
+              <span><i className="profile-swatch profile-swatch--you" />You</span>
+              <span><i className="profile-swatch profile-swatch--pin" />{summary.players[0].player.name}</span>
+            </div>
             <div className="profile-axes" role="list">
-              {AXES.map(k => (
-                <div key={k} className="profile-axis" role="listitem" title={AXIS_HINT[k]}>
-                  <span className="profile-axis-name">{AXIS_LABEL[k]}<small>{AXIS_HINT[k]}</small></span>
-                  <div className="weight-track">
-                    <div className="weight-fill" style={{ width: `${summary.fingerprint![k] * 10}%`, background: 'var(--accent-bright)' }} />
-                    <i className="profile-axis-tick" style={{ left: `${summary.players[0].vector[k] * 10}%` }} aria-hidden="true" />
+              {AXES.map(k => {
+                const you = summary.fingerprint![k], them = summary.players[0].vector[k]
+                return (
+                  <div key={k} className="profile-axis" role="listitem"
+                    aria-label={`${AXIS_LABEL[k]}: you ${you.toFixed(1)}, ${summary.players[0].player.name} ${them.toFixed(1)}`}>
+                    <span className="profile-axis-name">{AXIS_LABEL[k]}<small>{AXIS_HINT[k]}</small></span>
+                    <div className="weight-track">
+                      <div className="weight-fill" style={{ width: `${you * 10}%` }} />
+                      <i className="profile-axis-gap" style={{ left: `${Math.min(you, them) * 10}%`, width: `${Math.abs(you - them) * 10}%` }} />
+                      <i className="profile-axis-pin" style={{ left: `${them * 10}%` }} />
+                    </div>
+                    <span className="profile-axis-nums"><b>{you.toFixed(1)}</b><em>{them.toFixed(1)}</em></span>
                   </div>
-                  <span className="weight-value">{summary.fingerprint![k].toFixed(1)}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
             <p className="profile-note">
               Style, not strength: how you play, never how well. You and {summary.players[0].player.name} are most alike in {summary.players[0].alike.map(a => AXIS_LABEL[a].toLowerCase()).join(' and ')}, and differ most in {AXIS_LABEL[summary.players[0].differs].toLowerCase()}.
@@ -231,13 +240,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           )}
 
           <section className="profile-section">
-            <div className="profile-section-head"><h3>Closest schools</h3><span>best player match</span></div>
-            <p className="profile-note profile-note--tight">On the Computer-mode scale (the same bars as its playing schools):</p>
-            <div className="school-weights" aria-label="Your attack, focus and defend scores">
-              <WeightBar label="Attack" value={summary.axes.attack} color="var(--w-attack)" />
-              <WeightBar label="Focus" value={summary.axes.focus} color="var(--w-focus)" />
-              <WeightBar label="Defend" value={summary.axes.defend} color="var(--w-defend)" />
-            </div>
+            <div className="profile-section-head"><h3>Closest schools</h3><span>from the player match</span></div>
             <div className="profile-matches profile-matches--schools">
               {summary.matches.slice(0, 3).map((m, i) => (
                 <div key={m.school} className={`profile-match${i === 0 ? ' is-top' : ''}`}>
@@ -249,16 +252,10 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
             </div>
           </section>
 
-          <div className="profile-lower">
-            <section className="profile-section">
-              <div className="profile-section-head"><h3>Strengths</h3></div>
-              <ul className="profile-list">{summary.strengths.map(s => <li key={s}>{s}</li>)}</ul>
-            </section>
-            <section className="profile-section">
-              <div className="profile-section-head"><h3>Work on next</h3></div>
-              <p className="profile-note">{summary.focus}</p>
-            </section>
-          </div>
+          <section className="profile-section">
+            <div className="profile-section-head"><h3>Strengths</h3></div>
+            <ul className="profile-list">{summary.strengths.map(s => <li key={s}>{s}</li>)}</ul>
+          </section>
         </>
       )}
 

@@ -228,28 +228,25 @@ The **My style** tab turns your games into a study. Import public Lichess games 
 
 ### How the style read works
 
-Three measured axes use the same 0-10 scale as the computer's playing schools:
+Seven **style axes** (0-10, where 5 is a typical elite player) describe *how* you play. Strength is deliberately left out: strong players play strong moves in any style, so including it would only match you with weaker players.
 
 | Axis | Measured from |
 |---|---|
 | Attack | Captures, checks, moves landing near the enemy king, sound sacrifices |
-| Focus | Accuracy overall, in the opening, and when converting an advantage |
-| Defend | Accuracy when worse, willingness to trade, early castling, quiet play |
+| Sharpness | How often only one move held up (the engine's best line versus its runner-up) |
+| Simplify | Material left on the board at your moves, and how often you recapture and trade |
+| Risk | Sacrifices the engine still rates as sound, and late castling |
+| Safety | Castling early, and how early |
+| Endgame | Time spent in endgames and accuracy there compared with the rest of your play |
+| Open play | Whether your first pawn move is the e-pawn (open games) or a d/c/flank pawn |
 
-With few moves the read is pulled toward the middle, and it is labelled **Early read**, **Developing** or **Established** by how many moves were analysed. Each school is compared with your axes (opening choices nudge the match slightly) and tied to the player it is named for:
+The position-difficulty and material measures follow Guid and Bratko's computer studies of world champions (positions are judged by how far the best move stands out from the second best, and the inclination to simplify by the average material on the board). With few moves the read is pulled toward the middle and labelled **Early read**, **Developing** or **Established** by how many moves were analysed.
 
-| School | Player | Known for |
-|---|---|---|
-| Attacking | Mikhail Tal | Sacrificial attacks and the initiative |
-| Dynamic | Garry Kasparov | Active pieces and relentless pressure |
-| Positional | José Raúl Capablanca | Clear structure and endgame technique |
-| Defensive | Tigran Petrosian | Prophylaxis and solid defence |
-| Russian (Soviet) | Mikhail Botvinnik | Rigorous preparation, balanced calculation |
-| British | Michael Adams | Practical, resilient play, sound endgames |
-| Hungarian | Lajos Portisch | Solid structures, restrained risk |
-| Classical German | Siegbert Tarrasch | Central control, fast development |
-| American | Bobby Fischer | Objective calculation, precise conversion |
-| Universal | Magnus Carlsen | Adapting to any position, grinding small edges |
+**Closest players.** Your fingerprint is compared with a roster of 57 players from Anderssen to Gukesh (`src/profile/players.ts`) using a weighted distance, and the match falls smoothly with distance (one axis-point apart is about 90%, two about 66%, three about 39%), so small differences change the order. The closest school is simply the closest player's school, so the two can never disagree. The roster values are calibrated reference profiles built from the published studies and the standard characterisation of each player and repertoire; they are not measurements. `scripts/measure-players.mjs` measures the engine-free axes from any PGN file (`node scripts/measure-players.mjs "Carlsen" games.pgn`), so individual entries can be replaced with real data.
+
+**Tactics and strategy.** Your costly moves are split by what the engine wanted instead: a capture, check or mate (a tactical oversight) or a quiet move (a positional error). The study also reports how many only-move positions you solved.
+
+**Analysis depth.** Quick (100 ms), Standard (200 ms) and Deep (450 ms) per position. Deeper searches misjudge fewer moves but take longer; everything runs in a Web Worker on your device.
 
 This is an estimate from a small sample, not a verdict. Advice tips quote the numbers behind them and only appear when there is enough evidence; general habits are marked as such.
 
@@ -410,6 +407,8 @@ woodlandChess.github.io/
 │   ├── stockfish-18-lite-single.js  Stockfish loader
 │   ├── stockfish-18-lite-single.wasm  Engine binary (about 7 MB)
 │   └── stockfish-COPYING.txt        GPLv3 text
+├── scripts/
+│   └── measure-players.mjs          Measure style axes from PGN files
 ├── src/
 │   ├── App.tsx                      Router, Computer mode, setup UI
 │   ├── OnlinePlay.tsx               Online mode: login, seek, live game
@@ -432,6 +431,7 @@ woodlandChess.github.io/
 │   │   ├── stats.ts                 Winning chances, grading, accuracy
 │   │   ├── style.ts                 Style axes, school matching, advice
 │   │   ├── openings.ts              Opening names
+│   │   ├── players.ts               Roster of 57 players and the seven style axes
 │   │   └── store.ts                 Saved games and reviews (localStorage)
 │   ├── puzzle/
 │   │   ├── PuzzleMode.tsx           Puzzle mode entry
