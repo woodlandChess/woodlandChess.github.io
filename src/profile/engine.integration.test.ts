@@ -36,17 +36,18 @@ class NodeEngine implements ReviewEngine {
       this.listeners.add(l)
     })
   }
-  async newGame() { const r = this.until(l => l === 'readyok'); this.p.stdin.write('ucinewgame\nisready\n'); await r }
+  async newGame(multiPv = 1) { const r = this.until(l => l === 'readyok'); this.p.stdin.write(`setoption name MultiPV value ${multiPv}\nucinewgame\nisready\n`); await r }
   async analyse(fen: string, ms: number): Promise<PositionScore> {
     let latest: SideScore = { cp: 0, mate: null }
-    const sniff = (line: string) => { const s = parseInfoScore(line); if (s) latest = s }
+    let second: SideScore | null = null
+    const sniff = (line: string) => { const s = parseInfoScore(line); if (s) { if (s.line === 2) second = s; else latest = s } }
     this.listeners.add(sniff)
     const done = this.until(l => l.startsWith('bestmove'))
     this.p.stdin.write(`position fen ${fen}\ngo movetime ${ms}\n`)
     const line = await done
     this.listeners.delete(sniff)
     const best = line.split(' ')[1]
-    return whitePov(fen, latest, best && best !== '(none)' ? best : null)
+    return whitePov(fen, latest, best && best !== '(none)' ? best : null, second)
   }
 }
 
@@ -69,6 +70,17 @@ describe.skipIf(!present)('review with the real Stockfish', () => {
     expect(asBlack.accuracy).toBeGreaterThan(85)
     expect(asBlack.blunders + asBlack.mistakes).toBe(0)
     expect(asWhite.opening).toBe('Ruy Lopez')
+    expect(asWhite.features.gap.n).toBeGreaterThan(0)              // the runner-up line was measured
+    expect(asWhite.features.material.n).toBe(asWhite.features.moves)
+  }, 60000)
+
+  it('finds the only-move positions and counts tactical oversights (Opera Game, Black)', async () => {
+    const opera = 'e4 e5 Nf3 d6 d4 Bg4 dxe5 Bxf3 Qxf3 dxe5 Bc4 Nf6 Qb3 Qe7 Nc3 c6 Bg5 b5 Nxb5 cxb5 Bxb5+ Nbd7 O-O-O Rd8 Rxd7 Rxd7 Rd1 Qe6 Bxd7+ Nxd7 Qb8+ Nxb8 Rd8#'.split(' ')
+    const r = await reviewGame(game(opera, 'b'), engine, { msPerPosition: 100 })
+    expect(r.features.critical.n).toBeGreaterThan(0)
+    expect(r.features.critical.found).toBeLessThanOrEqual(r.features.critical.n)
+    expect(r.features.tacticalErrors + r.features.quietErrors).toBeGreaterThan(0)
+    expect(r.features.firstPawn).toBe('e7e5')
   }, 60000)
 
   it("fool's mate: White's f3/g4 are blunders, Black's Qh4# is not", async () => {

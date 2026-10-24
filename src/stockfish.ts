@@ -41,29 +41,33 @@ const settings: Record<Difficulty, { skill: number; time: number }> = {
 }
 
 /** White's point of view: cp > 0 favours White. mate > 0 means White mates in that many moves. */
-export interface PositionScore { cp: number; mate: number | null; best: string | null }
+export interface PositionScore {
+  cp: number; mate: number | null; best: string | null
+  /** The second-best line's score (White's point of view, same units as `cp`); absent with one legal move or no MultiPV. */
+  second?: number | null
+}
 
-/** A score as the engine reports it: relative to the side to move. */
-export interface SideScore { cp: number; mate: number | null }
+/** A score as the engine reports it: relative to the side to move. `line` is the MultiPV rank (1 = best). */
+export interface SideScore { cp: number; mate: number | null; line?: number }
 
 /** Reads a UCI "info" line. Returns null when it carries no final score (bounds, no score). */
 export function parseInfoScore(line: string): SideScore | null {
   if (!line.startsWith('info ') || !line.includes(' score ') || /\b(lowerbound|upperbound)\b/.test(line)) return null
+  const rank = Number(line.match(/\bmultipv (\d+)/)?.[1] ?? 1)
   const cp = line.match(/\bscore cp (-?\d+)/)
   const mate = line.match(/\bscore mate (-?\d+)/)
-  if (cp) return { cp: Number(cp[1]), mate: null }
-  if (mate) return { cp: 0, mate: Number(mate[1]) }
+  if (cp) return { cp: Number(cp[1]), mate: null, line: rank }
+  if (mate) return { cp: 0, mate: Number(mate[1]), line: rank }
   return null
 }
 
 /** Converts a side-to-move score into White's point of view (mate becomes +/-(10000 - 10 * distance)). */
-export function whitePov(fen: string, score: SideScore, best: string | null): PositionScore {
+export function whitePov(fen: string, score: SideScore, best: string | null, second?: SideScore | null): PositionScore {
   const sign = fen.split(' ')[1] === 'b' ? -1 : 1
-  if (score.mate !== null) {
-    const magnitude = 10000 - 10 * Math.abs(score.mate)
-    return { cp: sign * Math.sign(score.mate) * magnitude, mate: sign * score.mate, best }
-  }
-  return { cp: sign * score.cp, mate: null, best }
+  const cpOf = (x: SideScore) => (x.mate !== null ? sign * Math.sign(x.mate) * (10000 - 10 * Math.abs(x.mate)) : sign * x.cp)
+  const out: PositionScore = { cp: cpOf(score), mate: score.mate !== null ? sign * score.mate : null, best }
+  if (second !== undefined) out.second = second ? cpOf(second) : null
+  return out
 }
 
 export class StockfishClient {
@@ -75,10 +79,10 @@ export class StockfishClient {
   private resolveReady!: () => void
   private listeners = new Set<(line: string) => void>()
 
-  constructor() {
+  constructor(worker?: Worker) {
     this.readyPromise = new Promise<void>(resolve => { this.resolveReady = resolve })
     const root = import.meta.env.BASE_URL
-    this.worker = new Worker(
+    this.worker = worker ?? new Worker(
       `${root}stockfish-18-lite-single.js#${root}stockfish-18-lite-single.wasm`
     )
     this.worker.onmessage = ({ data }) => this.handle(String(data))
@@ -121,8 +125,9 @@ export class StockfishClient {
   }
 
   /** Clear the engine's hash between unrelated games (once per game, not once per position). */
-  async newGame(): Promise<void> {
+  async newGame(multiPv = 1): Promise<void> {
     await this.readyPromise
+    this.send(`setoption name MultiPV value ${multiPv}`)
     this.send('ucinewgame')
     const ready = this.until(line => line === 'readyok')
     this.send('isready')
@@ -139,10 +144,11 @@ export class StockfishClient {
   async analyse(fen: string, time = 150): Promise<PositionScore> {
     await this.readyPromise
     let latest: SideScore = { cp: 0, mate: null }
+    let second: SideScore | null = null
     const finished = new Promise<string | null>(resolve => {
       const listen = (line: string) => {
         const score = parseInfoScore(line)
-        if (score) latest = score
+        if (score) { if (score.line === 2) second = score; else if (!score.line || score.line === 1) latest = score }
         if (line.startsWith('bestmove ')) {
           this.listeners.delete(listen)
           const best = line.split(' ')[1]
@@ -153,7 +159,10 @@ export class StockfishClient {
     })
     this.send(`position fen ${fen}`)
     this.send(`go movetime ${time}`)
-    return whitePov(fen, latest, await finished)
+    // Wait first, then read `latest`: arguments are evaluated left to right, so reading it in the
+    // same expression as the await would capture the score from before the search.
+    const best = await finished
+    return whitePov(fen, latest, best, second)
   }
 
   /** Score a position from White's perspective (centipawns). */

@@ -7,6 +7,7 @@ import { getStoredToken, LichessClient } from '../lichess'
 import { parseLichessNdjson, reviewGame } from './analysis'
 import { clearProfile, readProfile, saveProfile, type GameReview, type PlayerProfileData, type ProfileGame } from './store'
 import { makeTips, summarizeStyle } from './style'
+import { AXES, AXIS_HINT, AXIS_LABEL } from './players'
 import { GameStudy } from './GameStudy'
 import '../styles/profile.css'
 
@@ -14,6 +15,9 @@ const MAX_PER_RUN = 30
 const COUNTS = ['5', '10', '20', '50'] as const
 type Count = (typeof COUNTS)[number]
 const SHOWN = 8
+/** Search time per position. Deeper = fewer misjudged moves, but a longer wait. */
+const DEPTHS = { quick: 100, standard: 200, deep: 450 } as const
+type Depth = keyof typeof DEPTHS
 
 interface Progress { game: number; of: number; done: number; total: number }
 
@@ -33,6 +37,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
   const dataRef = useRef(data)
   const [username, setUsername] = useState(data.username)
   const [count, setCount] = useState<Count>('10')
+  const [depth, setDepth] = useState<Depth>('standard')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -70,7 +75,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
       if (!batch.length) { setStatus('Everything is already analyzed.'); return }
       for (let i = 0; i < batch.length; i++) {
         const review = await reviewGame(batch[i], engine, {
-          signal: controller.signal, msPerPosition: 150,
+          signal: controller.signal, msPerPosition: DEPTHS[depth],
           onProgress: (done, total) => setProgress({ game: i + 1, of: batch.length, done, total }),
         })
         commit({ ...dataRef.current, reviews: [...dataRef.current.reviews.filter(r => r.gameId !== review.gameId), review], updatedAt: Date.now() })
@@ -149,6 +154,8 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
         </label>
         <Segmented<Count> legend="Games to import" name="profile-count" value={count} disabled={busy}
           onChange={setCount} options={COUNTS.map(c => ({ value: c, label: c }))} />
+        <Segmented<Depth> legend="Analysis depth" name="profile-depth" value={depth} disabled={busy}
+          onChange={setDepth} options={[{ value: 'quick', label: 'Quick' }, { value: 'standard', label: 'Standard' }, { value: 'deep', label: 'Deep' }]} />
       </div>
       <p className="profile-privacy">Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
 
@@ -160,12 +167,12 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
       )}
       {error && <p className="profile-error" role="alert">{error}</p>}
 
-      <section className="profile-hero" aria-label="Closest playing school">
+      <section className="profile-hero" aria-label="Closest player">
         <div>
-          <span className="setup-kicker">Closest school</span>
-          <h2>{summary.label}</h2>
-          {summary.school
-            ? <p>Most like <b>{summary.players}</b>: {summary.why}.</p>
+          <span className="setup-kicker">{summary.players[0] ? 'Closest player' : 'Style'}</span>
+          <h2>{summary.players[0] ? summary.players[0].player.name : summary.label}</h2>
+          {summary.players[0]
+            ? <p>{summary.players[0].match}% match · {summary.players[0].player.known}. School: <b>{summary.label}</b>.</p>
             : <p>{summary.focus}</p>}
         </div>
         {summary.school && (
@@ -176,22 +183,63 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
         )}
       </section>
 
-      {summary.metrics && (
+      {summary.metrics && summary.fingerprint && summary.players.length > 0 && (
         <>
           <section className="profile-section">
-            <div className="profile-section-head"><h3>Your profile</h3><span>0–10 · same scale as the schools</span></div>
+            <div className="profile-section-head"><h3>Your style</h3><span>0–10 · tick = {summary.players[0].player.name.split(' ').slice(-1)[0]}</span></div>
+            <div className="profile-axes" role="list">
+              {AXES.map(k => (
+                <div key={k} className="profile-axis" role="listitem" title={AXIS_HINT[k]}>
+                  <span className="profile-axis-name">{AXIS_LABEL[k]}<small>{AXIS_HINT[k]}</small></span>
+                  <div className="weight-track">
+                    <div className="weight-fill" style={{ width: `${summary.fingerprint![k] * 10}%`, background: 'var(--accent-bright)' }} />
+                    <i className="profile-axis-tick" style={{ left: `${summary.players[0].vector[k] * 10}%` }} aria-hidden="true" />
+                  </div>
+                  <span className="weight-value">{summary.fingerprint![k].toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="profile-note">
+              Style, not strength: how you play, never how well. You and {summary.players[0].player.name} are most alike in {summary.players[0].alike.map(a => AXIS_LABEL[a].toLowerCase()).join(' and ')}, and differ most in {AXIS_LABEL[summary.players[0].differs].toLowerCase()}.
+            </p>
+          </section>
+
+          <section className="profile-section">
+            <div className="profile-section-head"><h3>Closest players</h3><span>match %</span></div>
+            <div className="profile-matches">
+              {summary.players.slice(0, 6).map((m, i) => (
+                <div key={m.player.name} className={`profile-match${i === 0 ? ' is-top' : ''}`}>
+                  <span className="profile-match-name">{m.player.name}<small>{m.player.years} · {m.player.known}</small></span>
+                  <div className="weight-track"><div className="weight-fill" style={{ width: `${m.match}%` }} /></div>
+                  <span className="weight-value">{m.match}</span>
+                </div>
+              ))}
+            </div>
+            <p className="profile-note">Compared with {summary.players.length} players. These are reference profiles, so treat the order as a guide, not a verdict.</p>
+          </section>
+
+          {summary.tactics && (
+            <section className="profile-section">
+              <div className="profile-section-head"><h3>Tactics &amp; strategy</h3><span>from your errors</span></div>
+              <div className="profile-stats">
+                <div><strong>{summary.tactics.criticalSolved === null ? '—' : `${Math.round(summary.tactics.criticalSolved * 100)}%`}</strong><span>Only-move positions solved{summary.tactics.criticalN ? ` (of ${summary.tactics.criticalN})` : ''}</span></div>
+                <div><strong>{summary.tactics.tacticalErrors}</strong><span>Missed a capture, check or mate</span></div>
+                <div><strong>{summary.tactics.quietErrors}</strong><span>Missed a quiet move or plan</span></div>
+                <div><strong>{summary.tactics.lean === 'tactics' ? 'Tactics' : summary.tactics.lean === 'strategy' ? 'Strategy' : summary.tactics.lean === 'balanced' ? 'Balanced' : '—'}</strong><span>Where you lose most</span></div>
+              </div>
+            </section>
+          )}
+
+          <section className="profile-section">
+            <div className="profile-section-head"><h3>Closest schools</h3><span>best player match</span></div>
+            <p className="profile-note profile-note--tight">On the Computer-mode scale (the same bars as its playing schools):</p>
             <div className="school-weights" aria-label="Your attack, focus and defend scores">
               <WeightBar label="Attack" value={summary.axes.attack} color="var(--w-attack)" />
               <WeightBar label="Focus" value={summary.axes.focus} color="var(--w-focus)" />
               <WeightBar label="Defend" value={summary.axes.defend} color="var(--w-defend)" />
             </div>
-            <p className="profile-note">Attack: captures, checks, pressure near the enemy king. Focus: accuracy overall, in the opening and when ahead. Defend: accuracy when worse, willingness to trade, early castling.</p>
-          </section>
-
-          <section className="profile-section">
-            <div className="profile-section-head"><h3>Closest schools</h3><span>match %</span></div>
-            <div className="profile-matches">
-              {summary.matches.slice(0, 5).map((m, i) => (
+            <div className="profile-matches profile-matches--schools">
+              {summary.matches.slice(0, 3).map((m, i) => (
                 <div key={m.school} className={`profile-match${i === 0 ? ' is-top' : ''}`}>
                   <span className="profile-match-name">{m.label}<small>{m.players}</small></span>
                   <div className="weight-track"><div className="weight-fill" style={{ width: `${m.match}%` }} /></div>

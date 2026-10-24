@@ -59,9 +59,20 @@ export interface GameFeatures {
   squandered: boolean
   /** Your first three moves (UCI), for opening-repertoire matching. */
   firstMoves: string[]
+  /** Your first pawn move (UCI), e.g. "e2e4": open games (e-pawn) versus closed or flank openings. */
+  firstPawn: string
+  /** Material on the board (both sides, pawns and pieces, kings excluded) at each of your moves. */
+  material: Tally
+  /** How far the engine's best move was ahead of its second best (winning-chance points) at your moves. Small = many good options. */
+  gap: Tally
+  /** Positions where only one move held up (gap of 15 points or more) and how many of them you solved. */
+  critical: { n: number; found: number }
+  /** Your errors where the engine's move was a capture, check or mate (tactical) versus a quiet move (positional). */
+  tacticalErrors: number
+  quietErrors: number
 }
 
-export const REVIEW_VERSION = 3
+export const REVIEW_VERSION = 4
 
 export interface GameReview {
   gameId: string
@@ -103,7 +114,8 @@ export function isValidReview(r: unknown): r is GameReview {
     && !!f && isNum(f.moves) && isNum(f.captures) && isNum(f.checks) && isNum(f.trades) && isNum(f.pressure)
     && isNum(f.sacrifices) && isTally(f.worse) && isTally(f.better)
     && !!f.byPhase && isTally(f.byPhase.Opening) && isTally(f.byPhase.Middlegame) && isTally(f.byPhase.Endgame)
-    && Array.isArray(f.firstMoves)
+    && Array.isArray(f.firstMoves) && typeof f.firstPawn === 'string' && isTally(f.material) && isTally(f.gap)
+    && !!f.critical && isNum(f.critical.n) && isNum(f.critical.found) && isNum(f.tacticalErrors) && isNum(f.quietErrors)
 }
 
 /** Forgets everything saved by My style (used when stored data cannot be read). */
