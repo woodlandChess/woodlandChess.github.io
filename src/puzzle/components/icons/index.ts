@@ -7,3 +7,4 @@ export { IconSeal } from './IconSeal';
 export { IconTide } from './IconTide';
 export { IconKey } from './IconKey';
 export { IconSound } from './IconSound';
+export { IconBack } from './IconBack';

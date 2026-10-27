@@ -1,5 +1,5 @@
 import type { GameEngine, GameSnapshot } from '../core/GameEngine';
-import { IconSound } from './icons';
+import { IconSound, IconBack } from './icons';
 
 interface PuzzleHeaderProps {
   engine: GameEngine;
@@ -13,7 +13,7 @@ export function PuzzleHeader({ engine, snapshot, onBack }: PuzzleHeaderProps) {
   return (
     <header className="hdr">
       <button type="button" className="hdr-back" aria-label="Back to puzzle menu" onClick={onBack}>
-        <span aria-hidden="true">←</span>
+        <IconBack className="hdr-back-icon" />
         <span>Back</span>
       </button>
       <div className="hdr-center">
