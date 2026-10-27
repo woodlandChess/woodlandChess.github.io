@@ -5,6 +5,11 @@ const API_BASE = 'https://lichess.org/api';
 const PUZZLE_CACHE_KEY = 'woodland-chess:lichess-puzzle-cache-v2';
 const FALLBACK_CACHE_KEY = 'woodland-chess:lichess-puzzle-fallback-v2';
 const DAILY_CACHE_KEY = 'woodland-chess:lichess-daily-puzzle-v2';
+const QUEUE_KEY = 'woodland-chess:lichess-puzzle-queue-v1';
+const POOL_KEY = 'woodland-chess:lichess-puzzle-pool-v1';
+const BATCH_SIZE = 30;
+const POOL_MAX = 80;
+const LOW_WATER = 5;
 
 interface LichessPuzzleResponse {
   game: { id: string; pgn: string; clock?: string };
@@ -77,22 +82,115 @@ function cachedPuzzles(): Puzzle[] {
   return [];
 }
 
-export async function fetchLichessPuzzle(daily = false): Promise<Puzzle> {
-  if (daily) {
-    const cachedDaily = localStorage.getItem(DAILY_CACHE_KEY);
-    if (cachedDaily) {
-      try {
-        const entry = JSON.parse(cachedDaily) as { date: string; puzzle: Puzzle };
-        if (entry.date === new Date().toISOString().slice(0, 10) && isPlayablePuzzle(entry.puzzle)) return entry.puzzle;
-      } catch { /* refresh corrupt cache */ }
+function readList(key: string): Puzzle[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(key) ?? '[]') as Puzzle[];
+    return Array.isArray(list) ? list.filter(isPlayablePuzzle) : [];
+  } catch { return []; }
+}
+function writeList(key: string, list: Puzzle[]): void {
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch { /* storage full or unavailable */ }
+}
+
+let queue: Puzzle[] | null = null;
+let refill: Promise<void> | null = null;
+let lastServedId: number | null = null;
+
+function getQueue(): Puzzle[] {
+  if (!queue) queue = readList(QUEUE_KEY);
+  return queue;
+}
+
+/**
+ * Lichess rate-limits anonymous /puzzle/next hard (it started failing after ~a dozen puzzles),
+ * so puzzles are fetched in batches of 30 with a single request and served from a local queue.
+ */
+async function fetchBatch(): Promise<Puzzle[]> {
+  const response = await fetch(`${API_BASE}/puzzle/batch/mix?nb=${BATCH_SIZE}`, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Lichess puzzle service returned ${response.status}`);
+  const body = await response.json() as { puzzles?: LichessPuzzleResponse[] };
+  const out: Puzzle[] = [];
+  for (const item of body.puzzles ?? []) {
+    try {
+      const puzzle = createLichessPuzzle(item);
+      if (isPlayablePuzzle(puzzle)) out.push(puzzle);
+    } catch { /* skip an unusable puzzle */ }
+  }
+  if (!out.length) throw new Error('Lichess returned no playable puzzles');
+  return out;
+}
+
+async function fetchSingle(): Promise<Puzzle> {
+  const response = await fetch(`${API_BASE}/puzzle/next`, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Lichess puzzle service returned ${response.status}`);
+  const puzzle = createLichessPuzzle(await response.json() as LichessPuzzleResponse);
+  if (!isPlayablePuzzle(puzzle)) throw new Error('Lichess returned a puzzle that failed position validation');
+  return puzzle;
+}
+
+function refillQueue(): Promise<void> {
+  if (!refill) {
+    refill = (async () => {
+      let fresh: Puzzle[];
+      try { fresh = await fetchBatch(); } catch { fresh = [await fetchSingle()]; }
+      const q = getQueue();
+      const known = new Set([...q, ...readList(POOL_KEY)].map(p => p.id));
+      for (const p of fresh) if (!known.has(p.id)) q.push(p);
+      writeList(QUEUE_KEY, q);
+    })().finally(() => { refill = null; });
+  }
+  return refill;
+}
+
+function remember(puzzle: Puzzle): void {
+  const pool = readList(POOL_KEY).filter(p => p.id !== puzzle.id);
+  pool.push(puzzle);
+  writeList(POOL_KEY, pool.slice(-POOL_MAX));
+  try { localStorage.setItem(FALLBACK_CACHE_KEY, JSON.stringify(puzzle)); } catch { /* ignore */ }
+  lastServedId = puzzle.id;
+}
+
+/** Never leave the player stranded: when Lichess is unreachable, replay one already seen. */
+function fromPool(): Puzzle | null {
+  const pool = readList(POOL_KEY).filter(p => p.id !== lastServedId);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+async function nextQueued(): Promise<Puzzle> {
+  const q = getQueue();
+  if (!q.length) {
+    try { await refillQueue(); } catch (error) {
+      const fallback = fromPool();
+      if (fallback) return fallback;
+      throw error;
     }
   }
-  const response = await fetch(`${API_BASE}/puzzle/${daily ? 'daily' : 'next'}`, { headers: { Accept: 'application/json' } });
+  const puzzle = getQueue().shift();
+  writeList(QUEUE_KEY, getQueue());
+  if (!puzzle) { const fallback = fromPool(); if (fallback) return fallback; throw new Error('No puzzles available'); }
+  if (getQueue().length < LOW_WATER) void refillQueue().catch(() => { /* background top-up; ignore failures */ });
+  return puzzle;
+}
+
+export async function fetchLichessPuzzle(daily = false): Promise<Puzzle> {
+  if (!daily) {
+    const puzzle = await nextQueued();
+    remember(puzzle);
+    return puzzle;
+  }
+  const cachedDaily = localStorage.getItem(DAILY_CACHE_KEY);
+  if (cachedDaily) {
+    try {
+      const entry = JSON.parse(cachedDaily) as { date: string; puzzle: Puzzle };
+      if (entry.date === new Date().toISOString().slice(0, 10) && isPlayablePuzzle(entry.puzzle)) return entry.puzzle;
+    } catch { /* refresh corrupt cache */ }
+  }
+  const response = await fetch(`${API_BASE}/puzzle/daily`, { headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`Lichess puzzle service returned ${response.status}`);
   const puzzle = createLichessPuzzle(await response.json() as LichessPuzzleResponse);
   if (!isPlayablePuzzle(puzzle)) throw new Error('Lichess returned a puzzle that failed position validation');
   localStorage.setItem(FALLBACK_CACHE_KEY, JSON.stringify(puzzle));
-  if (daily) localStorage.setItem(DAILY_CACHE_KEY, JSON.stringify({ date: new Date().toISOString().slice(0, 10), puzzle }));
+  localStorage.setItem(DAILY_CACHE_KEY, JSON.stringify({ date: new Date().toISOString().slice(0, 10), puzzle }));
   return puzzle;
 }
 

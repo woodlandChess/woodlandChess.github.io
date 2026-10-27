@@ -15,7 +15,7 @@ export function PuzzleMode({ onBack, onNavigate }: PuzzleModeProps) {
   const { engine, snapshot } = useGameEngine();
 
   if (snapshot.screen === 'game') {
-    if (snapshot.loading) return <div className="puzzle-loading-screen" role="status"><div className="puzzle-loading-card"><span className="puzzle-loading-mark" aria-hidden="true">♜</span><span className="puzzle-loading-title">WOODLAND</span><span className="puzzle-loading-rule" /><span className="puzzle-loading-message">Loading puzzle from Lichess</span><span className="puzzle-loading-dots" aria-hidden="true"><i /><i /><i /></span></div></div>;
+    if (snapshot.loading) return <div className="puzzle-loading-screen" role="status"><div className="puzzle-loading-card"><button type="button" className="puzzle-loading-back" onClick={() => engine.goHome()}>← Back</button><span className="puzzle-loading-mark" aria-hidden="true">♜</span><span className="puzzle-loading-title">WOODLAND</span><span className="puzzle-loading-rule" /><span className="puzzle-loading-message">Loading puzzle from Lichess</span><span className="puzzle-loading-dots" aria-hidden="true"><i /><i /><i /></span></div></div>;
     return (
       <PuzzleGameScreen
         engine={engine}
