@@ -154,8 +154,7 @@
 }
 .study:focus { outline: none; }
 /* Installed app: keep the study header out of the blurred strip under the status bar (see the menu screens). */
-@media (display-mode: standalone) { .study { padding-top: calc(var(--safe-top) + 0.5rem); } }
-html.is-standalone .study { padding-top: calc(var(--safe-top) + 0.5rem); }
+@media (max-width: 699.98px) { .study { padding-top: var(--app-top); } }
 
 .study-bar { position: relative; flex: none; padding: 0.5rem 3.2rem 0.5rem 0.9rem; border-bottom: 1px solid var(--border); }
 .study-bar h2 { margin: 0; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 1.15rem; line-height: 1.2; color: var(--text-2); }
