@@ -319,3 +319,18 @@
   .puzzle-shell .stat-row { margin-top: 0; padding-top: 0.5rem; }
   .puzzle-shell .stat-n { font-size: 1.15rem; }
 }
+/* ── Back button (puzzle header + loading screen) ─────────── */
+.hdr-back {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  min-height: 40px; padding: 0.35rem 0.7rem 0.35rem 0.1rem;
+  background: none; border: 0; color: var(--text-2);
+  font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase;
+}
+.hdr-back:hover { color: var(--text); }
+.hdr-back span:first-child { font-size: 1rem; letter-spacing: 0; }
+.puzzle-loading-back {
+  position: fixed; top: calc(0.9rem + env(safe-area-inset-top, 0px)); left: 0.9rem;
+  background: none; border: 0; padding: 0.5rem; color: var(--text-2);
+  font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer;
+}
+.puzzle-loading-back:hover { color: var(--text); }
