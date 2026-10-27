@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color, type Square } from 'chess.js'
 import {
   getStoredToken, startLogin, handleAuthRedirect, logout, canChallenge, MissingScopeError,
-  LichessClient, PERF_META, PERF_ORDER, TIME_CONTROLS, timeControlsFor,
+  LichessClient, MoveRejectedError, PERF_META, PERF_ORDER, TIME_CONTROLS, timeControlsFor,
   type Perf, type TimeControl, type LichessProfile,
 } from './lichess'
 import { ChessBoard, PromotionModal, type TrailMove } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { materialScore } from './material'
+import { backoff, isNetworkError, startWatchdog, STALE_AFTER_MS, watchNetwork } from './connection'
 import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
 import { BrandMark } from './components/BrandMark'
 import { GameResultDialog, type RematchState } from './components/GameResultDialog'
@@ -159,6 +160,12 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const gameAbortRef   = useRef<AbortController | null>(null)
   const seekAbortRef   = useRef<AbortController | null>(null)
   const pendingMoveRef = useRef<string | null>(null)
+  // Connection health. `gameLost`: the live game stream has gone quiet. `eventLost`: same for the account stream.
+  const [gameLost, setGameLost] = useState(false)
+  const [eventLost, setEventLost] = useState(false)
+  const eventAttemptRef = useRef<AbortController | null>(null)
+  const gameAttemptRef = useRef<AbortController | null>(null)
+  const wakeRef = useRef(false)                       // the network just came back: reconnect now, no waiting
   const confirmedMovesRef = useRef('')
   const optimisticPlyRef = useRef(0)
 
@@ -194,36 +201,84 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Network changes: reconnect the moment the phone is back online or the tab is shown again ──
+  useEffect(() => watchNetwork(
+    () => {
+      wakeRef.current = true
+      eventAttemptRef.current?.abort()               // each loop notices, skips its back-off wait and reconnects
+      gameAttemptRef.current?.abort()
+      const c = clientRef.current
+      if (c) void resumeOngoing(c)
+    },
+    () => { setGameLost(true); setEventLost(true) },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [])
+
+  /** A game can outlive the page that started it. If one is running, rejoin it instead of showing the menu. */
+  async function resumeOngoing(client: LichessClient): Promise<boolean> {
+    if (!['loading', 'idle', 'seeking'].includes(phaseRef.current)) return false
+    try {
+      const games = await client.getOngoingGames()
+      const g = games.find(x => !x.variant?.key || x.variant.key === 'standard')
+      if (!g || !['loading', 'idle', 'seeking'].includes(phaseRef.current)) return false
+      seekAbortRef.current?.abort()
+      joinGame(client, g.gameId, g.color === 'white' ? 'w' : 'b')
+      return true
+    } catch { return false }
+  }
+
+  /** Shows a message that clears itself, so a stale warning never outlives the problem. */
+  function notify(message: string, ms = 6000) {
+    setError(message)
+    window.setTimeout(() => setError(cur => (cur === message ? null : cur)), ms)
+  }
+
   // ── Account-wide event stream: wait for a match ───────────────────────────
   function listenForGames(client: LichessClient) {
+    eventAbortRef.current?.abort()
     const ac = new AbortController()
     eventAbortRef.current = ac
+    void resumeOngoing(client)
     ;(async () => {
-      try {
-        for await (const evt of client.streamEvents(ac.signal)) {
-          if (evt.type === 'gameStart') {
-            seekAbortRef.current?.abort()
-            const color: Color = evt.game.color === 'white' ? 'w' : 'b'
-            joinGame(client, evt.game.gameId, color)
-          } else if (evt.type === 'challenge') {
-            // The opponent offering a rematch right after a game.
-            const ch = evt.challenge
-            if (phaseRef.current === 'finished' && ch?.id && ch.challenger?.id && ch.challenger.id === opponentIdRef.current) {
-              setIncomingRematch(String(ch.id))
-              setResultOpen(true)
-              sound.play('notify')
-            }
-          } else if (evt.type === 'challengeDeclined') {
-            if (evt.challenge?.id && evt.challenge.id === rematchIdRef.current) setRematch('declined')
-          } else if (evt.type === 'challengeCanceled') {
-            const id = evt.challenge?.id
-            if (id) {
-              setIncomingRematch(cur => (cur === id ? null : cur))
-              if (id === rematchIdRef.current) setRematch('idle')
+      let attempt = 0
+      while (!ac.signal.aborted) {
+        const attemptAc = new AbortController()
+        eventAttemptRef.current = attemptAc
+        const dog = startWatchdog(STALE_AFTER_MS, () => { setEventLost(true); attemptAc.abort() })
+        try {
+          for await (const evt of client.streamEvents(attemptAc.signal, () => { dog.touch(); attempt = 0; setEventLost(false) })) {
+            if (evt.type === 'gameStart') {
+              const gameId = String(evt.game.gameId)
+              // Reconnecting replays gameStart for the game already on screen: do not restart it.
+              if (gameMetaRef.current?.id === gameId && phaseRef.current === 'in-game') continue
+              seekAbortRef.current?.abort()
+              const color: Color = evt.game.color === 'white' ? 'w' : 'b'
+              joinGame(client, gameId, color)
+            } else if (evt.type === 'challenge') {
+              // The opponent offering a rematch right after a game.
+              const ch = evt.challenge
+              if (phaseRef.current === 'finished' && ch?.id && ch.challenger?.id && ch.challenger.id === opponentIdRef.current) {
+                setIncomingRematch(String(ch.id))
+                setResultOpen(true)
+                sound.play('notify')
+              }
+            } else if (evt.type === 'challengeDeclined') {
+              if (evt.challenge?.id && evt.challenge.id === rematchIdRef.current) setRematch('declined')
+            } else if (evt.type === 'challengeCanceled') {
+              const id = evt.challenge?.id
+              if (id) {
+                setIncomingRematch(cur => (cur === id ? null : cur))
+                if (id === rematchIdRef.current) setRematch('idle')
+              }
             }
           }
-        }
-      } catch { /* closed on unmount - fine */ }
+        } catch { /* closed, dropped or aborted: handled below */ }
+        dog.stop()
+        if (ac.signal.aborted) break
+        if (!wakeRef.current) { if (attempt >= 1 || !navigator.onLine) setEventLost(true); await sleep(backoff(attempt)); attempt++ }
+        else { wakeRef.current = false; attempt = 0 }
+        void resumeOngoing(client)                         // a game may have started while we were away
+      }
     })()
   }
 
@@ -281,6 +336,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     soundedPlyRef.current = 0
     firstFullRef.current = true
     setError(null)
+    setGameLost(false)
     chessRef.current = new Chess()
     setFen(chessRef.current.fen())
     pendingMoveRef.current = null
@@ -296,10 +352,18 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       // resyncs board and clocks from scratch.
       let attempt = 0
       while (!ac.signal.aborted) {
+        const attemptAc = new AbortController()
+        gameAttemptRef.current = attemptAc
+        const link = () => attemptAc.abort()
+        ac.signal.addEventListener('abort', link, { once: true })
+        // Silence for 20s (not even a keep-alive) means the link is dead, though the browser may never say so.
+        const dog = startWatchdog(STALE_AFTER_MS, () => { setGameLost(true); attemptAc.abort() })
         try {
-          for await (const evt of client.streamGame(gameId, ac.signal)) {
+          for await (const evt of client.streamGame(gameId, attemptAc.signal, () => dog.touch())) {
             attempt = 0
             if (evt.type === 'gameFull') {
+              setGameLost(false)
+              setError(null)                  // whatever went wrong before the reconnect is history
               const opp = myColor === 'w' ? evt.black : evt.white
               const me  = myColor === 'w' ? evt.white : evt.black
               const label = (pl: any, fallback: string) => {
@@ -340,6 +404,20 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
                 info: `${tc} · ${evt.rated ? 'Rated' : 'Casual'}`,
               })
               confirmedMovesRef.current = moves
+              // A move made just before the connection dropped may still be waiting to be sent: keep showing it.
+              const waiting = pendingMoveRef.current
+              if (waiting) {
+                const served = moves.trim() ? moves.trim().split(/\s+/) : []
+                if (served.includes(waiting) || c.turn() !== myColor) pendingMoveRef.current = null
+                else {
+                  try {
+                    c.move({ from: waiting.slice(0, 2), to: waiting.slice(2, 4), ...(waiting[4] ? { promotion: waiting[4] } : {}) })
+                    optimisticPlyRef.current = c.history().length
+                    soundedPlyRef.current = optimisticPlyRef.current
+                    if (clockRef.current) clockRef.current = { ...freeze(clockRef.current, performance.now()), running: runningSide(optimisticPlyRef.current, false) }
+                  } catch { pendingMoveRef.current = null }
+                }
+              }
               chessRef.current = c
               setFen(c.fen())
               setReviewPly(null)
@@ -375,9 +453,11 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
             }
           }
         } catch { /* aborted or closed - handled below */ }
+        dog.stop()
+        ac.signal.removeEventListener('abort', link)
         if (ac.signal.aborted) break
-        await sleep(Math.min(1000 * 2 ** attempt, 8000))
-        attempt++
+        if (!wakeRef.current) { if (attempt >= 1 || !navigator.onLine) setGameLost(true); await sleep(backoff(attempt)); attempt++ }
+        else { wakeRef.current = false; attempt = 0 }
       }
     })()
   }
@@ -470,7 +550,10 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       // phase to in-game once Lichess announces the game.
     } catch (e) {
       if (ac.signal.aborted) return   // cancelled by us, or matched
-      setError(e instanceof Error ? e.message : 'Could not start a search.')
+      const message = e instanceof Error ? e.message : 'Could not start a search.'
+      // Lichess refuses a search while a game is running. That game is usually the one we lost track of: rejoin it.
+      if (/already playing/i.test(message) && await resumeOngoing(client)) return
+      setError(message)
       // Only fall back to the menu if we are still searching (not already matched).
       setPhase(p => (p === 'seeking' ? 'idle' : p))
     }
@@ -551,7 +634,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     if (answer === 'no') updateDraw('none')
     clientRef.current?.draw(liveGame.id, answer)
       .then(() => { if (answer === 'yes') updateDraw('none') })
-      .catch(() => setError('Could not send your draw response. Try again.'))
+      .catch(() => notify('Could not send your draw response. Try again.'))
   }
 
   function offerDraw() {
@@ -559,7 +642,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     updateDraw('mine')
     clientRef.current?.draw(liveGame.id, 'yes').catch(() => {
       updateDraw('none')
-      setError('Could not offer a draw right now.')
+      notify('Could not offer a draw right now.')
     })
   }
 
@@ -584,14 +667,38 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     }
     setFen(chessRef.current.fen())
     setSelected(null)
-    clientRef.current?.move(liveGame.id, uci).catch(() => {
-      pendingMoveRef.current = null
-      const confirmed = replayMoves(confirmedMovesRef.current)
-      if (clockRef.current) clockRef.current = { ...clockRef.current, running: runningSide(confirmed.history().length, false), at: performance.now() }
-      chessRef.current = confirmed
-      soundedPlyRef.current = confirmed.history().length
-      setFen(confirmed.fen())
-      setError('Move rejected by Lichess. The board has been resynchronized.')
+    postMove(liveGame.id, uci, 0)
+  }
+
+  /** Takes the optimistic move back and shows the real position. */
+  function rollBackMove() {
+    pendingMoveRef.current = null
+    const confirmed = replayMoves(confirmedMovesRef.current)
+    if (clockRef.current) clockRef.current = { ...clockRef.current, running: runningSide(confirmed.history().length, false), at: performance.now() }
+    chessRef.current = confirmed
+    soundedPlyRef.current = confirmed.history().length
+    setFen(confirmed.fen())
+  }
+
+  /**
+   * Sends a move. If Lichess is unreachable the move is kept and sent again as soon as the link works (a move you
+   * made on a flaky connection must not silently vanish). Only a real "no" from Lichess takes the move back.
+   */
+  function postMove(gameId: string, uci: string, attempt: number) {
+    clientRef.current?.move(gameId, uci).then(() => setGameLost(false)).catch(e => {
+      if (pendingMoveRef.current !== uci) return          // the stream already confirmed it, or a new game started
+      if (e instanceof MoveRejectedError || !isNetworkError(e)) {
+        rollBackMove()
+        notify('That move was not accepted. The board shows the current position.')
+        return
+      }
+      setGameLost(true)
+      if (attempt >= 9) {                                  // about a minute of trying
+        rollBackMove()
+        notify('Your move could not be sent. Check your connection.')
+        return
+      }
+      later(wakeRef.current ? 400 : backoff(attempt), () => postMove(gameId, uci, attempt + 1))
     })
   }
 
@@ -673,6 +780,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         actions={<button type="button" className="begin-game" onClick={connect}>Connect with Lichess</button>}
       >
         <div className="home-body">
+          {eventLost && <p className="online-note" role="status">Reconnecting to Lichess…</p>}
           {error && <p className="online-error" role="alert">{error}</p>}
           <ul className="feature-list">
             <li><IconShield className="feature-icon" /><div><strong>Your password stays with Lichess</strong><span>We never see it. You authorize directly on lichess.org.</span></div></li>
@@ -712,6 +820,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               <button type="button" className="online-link" onClick={() => { logout(); clientRef.current = null; setProfile(null); setPhase('login') }}>Sign out</button>
             </div>
           )}
+          {eventLost && <p className="online-note" role="status">Reconnecting to Lichess…</p>}
           {error && <p className="online-error" role="alert">{error}</p>}
 
           <div className="perf-tabs" role="tablist" aria-label="Game speed" onKeyDown={onTabKey}>
@@ -832,7 +941,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       selectedPly={viewedPly}
       onSelectPly={ply => setReviewPly(ply === moveHistory.length ? null : ply)}
       material={material}
-      notice={error}
+      notice={gameLost && inGame ? 'Connection lost. Reconnecting… your clock is still running.' : error}
       extra={inGame && drawOffer === 'theirs' ? (
         <div className="gm-card gm-offer" role="group" aria-label="Draw offer">
           <span>Your opponent offers a draw</span>

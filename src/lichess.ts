@@ -221,7 +221,7 @@ export function timeControlsFor(perf: Perf): TimeControl[] {
 }
 
 /** Parses a fetch Response body as a newline-delimited JSON stream. */
-async function* readNDJSON(res: Response, signal?: AbortSignal): AsyncGenerator<any> {
+async function* readNDJSON(res: Response, signal?: AbortSignal, onActivity?: () => void): AsyncGenerator<any> {
   if (!res.body) return
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
@@ -231,6 +231,7 @@ async function* readNDJSON(res: Response, signal?: AbortSignal): AsyncGenerator<
       if (signal?.aborted) { await reader.cancel(); return }
       const { value, done } = await reader.read()
       if (done) return
+      onActivity?.()                      // anything at all, even a blank keep-alive line, proves the link is alive
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
@@ -243,6 +244,19 @@ async function* readNDJSON(res: Response, signal?: AbortSignal): AsyncGenerator<
   } catch {
     /* stream aborted/closed - normal on cleanup */
   }
+}
+
+export class MoveRejectedError extends Error {
+  constructor(message: string, readonly status: number) { super(message); this.name = 'MoveRejectedError' }
+}
+
+/** One entry of Lichess' "my ongoing games" list (only the fields the app uses). */
+export interface OngoingGame {
+  gameId: string
+  color: 'white' | 'black'
+  isMyTurn?: boolean
+  variant?: { key?: string }
+  opponent?: { username?: string; id?: string }
 }
 
 export class LichessClient {
@@ -259,11 +273,12 @@ export class LichessClient {
   }
 
   /** Streams account-wide events: gameStart, gameFinish, challenge, etc. */
-  streamEvents(signal?: AbortSignal) {
+  streamEvents(signal?: AbortSignal, onActivity?: () => void) {
     return (async function* (this: LichessClient) {
       const res = await fetch(`${API_BASE}/api/stream/event`, { headers: this.headers(), signal })
       if (!res.ok) throw new Error('Failed to open event stream')
-      yield* readNDJSON(res, signal)
+      onActivity?.()
+      yield* readNDJSON(res, signal, onActivity)
     }).call(this)
   }
 
@@ -299,20 +314,40 @@ export class LichessClient {
     try { await res.text() } catch { /* aborted - normal */ }
   }
 
-  streamGame(gameId: string, signal?: AbortSignal) {
+  streamGame(gameId: string, signal?: AbortSignal, onActivity?: () => void) {
     return (async function* (this: LichessClient) {
       const res = await fetch(`${API_BASE}/api/board/game/stream/${gameId}`, { headers: this.headers(), signal })
       if (!res.ok) throw new Error('Failed to open game stream')
-      yield* readNDJSON(res, signal)
+      onActivity?.()
+      yield* readNDJSON(res, signal, onActivity)
     }).call(this)
   }
 
+  /**
+   * Sends a move. Rejects with `MoveRejectedError` when Lichess answers with an error (illegal move, not your turn,
+   * game over...). A failure to reach Lichess at all rejects with the browser's own network error instead, so
+   * the caller can tell "no" from "no connection" and retry only the latter.
+   */
   async move(gameId: string, uci: string) {
     const res = await fetch(`${API_BASE}/api/board/game/${gameId}/move/${uci}`, {
       method: 'POST',
       headers: this.headers(),
     })
-    if (!res.ok) throw new Error('Move rejected by Lichess')
+    if (!res.ok) {
+      let detail = ''
+      try { detail = (await res.json())?.error ?? '' } catch { /* body was not JSON */ }
+      // 5xx and 429 are "try again", not "that move is wrong".
+      if (res.status >= 500 || res.status === 429) throw new TypeError(`Lichess unavailable (${res.status})`)
+      throw new MoveRejectedError(detail || 'Move rejected by Lichess', res.status)
+    }
+  }
+
+  /** Your games in progress (a game can outlive the page that started it). */
+  async getOngoingGames(): Promise<OngoingGame[]> {
+    const res = await fetch(`${API_BASE}/api/account/playing`, { headers: this.headers() })
+    if (!res.ok) throw new Error(`Could not load your ongoing games (${res.status})`)
+    const data = await res.json()
+    return Array.isArray(data?.nowPlaying) ? data.nowPlaying : []
   }
 
   async resign(gameId: string) {

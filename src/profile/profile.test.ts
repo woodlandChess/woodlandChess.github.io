@@ -227,3 +227,39 @@ describe('openness and tactics', () => {
     expect(openness('', 'w')).toBeNull()
   })
 })
+
+describe('Brilliant and Great moves', () => {
+  /** An engine that names a best move and a runner-up at chosen plies (White's point of view; everything else is even). */
+  const picky = (spec: Record<number, { best: string; second: number }>, cp = 30): ReviewEngine => ({
+    newGame: async () => {},
+    analyse: async fen => { const s = spec[plyOf(fen)]; return { cp: cp + (plyOf(fen) % 3), mate: null, best: s?.best ?? null, second: s ? s.second : null } },
+  })
+  const fried = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5', 'd5', 'exd5', 'Nxd5', 'Nxf7', 'Kxf7']
+
+  it('a best move that gives up a knight for a pawn, clearly ahead of the alternatives, is Brilliant', async () => {
+    const r = await reviewGame(game(fried, 'w'), picky({ 10: { best: 'g5f7', second: -60 } }))
+    const sac = r.plies[10]
+    expect(sac.san).toBe('Nxf7')
+    expect(sac.grade).toBe('Brilliant')
+    expect(r.brilliant).toBe(1)
+  })
+  it('the same sacrifice is not Brilliant when the position was already won', async () => {
+    const r = await reviewGame(game(fried, 'w'), picky({ 10: { best: 'g5f7', second: -60 } }, 900))
+    expect(r.plies[10].grade).not.toBe('Brilliant')
+  })
+  it('a sacrifice that is NOT the engine\'s choice and loses chances is no Brilliancy', async () => {
+    const eng: ReviewEngine = { newGame: async () => {}, analyse: async fen => ({ cp: plyOf(fen) >= 11 ? -400 : 30, mate: null, best: plyOf(fen) === 10 ? 'b1c3' : null, second: plyOf(fen) === 10 ? 20 : null }) }
+    const r = await reviewGame(game(fried, 'w'), eng)
+    expect(r.plies[10].grade).toBe('Blunder')
+  })
+  it('the only move that held up is Great', async () => {
+    const r = await reviewGame(game(['e4', 'e5', 'Nf3', 'Nc6'], 'w'), picky({ 2: { best: 'g1f3', second: -400 } }))
+    expect(r.plies[2].grade).toBe('Great')
+    expect(r.great).toBe(1)
+  })
+  it('an obvious recapture is not Great even when it is the only move', async () => {
+    const r = await reviewGame(game(['e4', 'd5', 'exd5', 'Qxd5'], 'b'), picky({ 3: { best: 'd8d5', second: 300 } }, 0))
+    expect(r.plies[3].san).toBe('Qxd5')
+    expect(r.plies[3].grade).not.toBe('Great')
+  })
+})

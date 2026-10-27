@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Square } from 'chess.js'
 import { ChessBoard, type TrailMove } from '../ChessBoard'
-import type { GameReview, Grade, ProfileGame, PlyReview } from './store'
+import type { GameReview, Grade, PlyReview, ProfileGame } from './store'
 
-const NEEDS_ATTENTION: Grade[] = ['Inaccuracy', 'Mistake', 'Blunder']
-const isError = (p: PlyReview) => NEEDS_ATTENTION.includes(p.grade)
+/** Annotation symbols, as printed in chess books. */
+const MARK: Record<Grade, string> = { Brilliant: '!!', Great: '!', Best: '', Good: '', Inaccuracy: '?!', Mistake: '?', Blunder: '??' }
+/** Moves worth jumping to: your best finds and your costly errors. */
+const HIGHLIGHT: Grade[] = ['Brilliant', 'Great', 'Mistake', 'Blunder']
+const isError = (p: PlyReview) => p.grade === 'Inaccuracy' || p.grade === 'Mistake' || p.grade === 'Blunder'
+const cls = (g: Grade) => `grade-${g.toLowerCase()}`
+const label = (p: PlyReview) => `${Math.ceil(p.ply / 2)}${p.color === 'w' ? '.' : '…'} ${p.san}`
 
 /** Keeps the active move inside its own scroller without ever scrolling the page. */
 function reveal(box: HTMLElement | null) {
   const active = box?.querySelector<HTMLElement>('[data-active="true"]')
   if (!box || !active) return
   const c = box.getBoundingClientRect(), a = active.getBoundingClientRect()
-  box.scrollLeft += a.left - c.left - (c.width - a.width) / 2
   if (a.top < c.top + 8) box.scrollTop -= c.top + 8 - a.top
   else if (a.bottom > c.bottom - 8) box.scrollTop += a.bottom - (c.bottom - 8)
 }
@@ -29,15 +33,15 @@ function EvalGraph({ review, user, ply, onSeek }: { review: GameReview; user: 'w
   return (
     <figure className="study-graph">
       <figcaption className="field-label">Your winning chances</figcaption>
-      <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Winning chances through the game"
+      <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Winning chances through the game. Tap to jump."
         onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); seek(e) }}
         onPointerMove={e => { if (e.buttons) seek(e) }}>
         <rect className="study-graph-bg" x="0" y="0" width="100" height="40" />
         <polygon className="study-graph-area" points={`0,40 ${line} 100,40`} />
         <line className="study-graph-mid" x1="0" y1="20" x2="100" y2="20" />
         <polyline className="study-graph-line" points={line} />
-        {review.plies.filter(p => p.color === user && (p.grade === 'Mistake' || p.grade === 'Blunder')).map(p => (
-          <line key={p.ply} className={`study-graph-tick grade-${p.grade.toLowerCase()}`} x1={x(p.ply)} x2={x(p.ply)} y1="0" y2="40" />
+        {review.plies.filter(p => p.color === user && HIGHLIGHT.includes(p.grade)).map(p => (
+          <line key={p.ply} className={`study-graph-tick ${cls(p.grade)}`} x1={x(p.ply)} x2={x(p.ply)} y1="0" y2="40" />
         ))}
         <line className="study-graph-now" x1={x(ply)} x2={x(ply)} y1="0" y2="40" />
       </svg>
@@ -50,8 +54,10 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
   const plies = review.plies
   const [ply, setPly] = useState(0)
   const [showBest, setShowBest] = useState(false)
-  const movesRef = useRef<HTMLOListElement>(null)
+  const [tab, setTab] = useState<'review' | 'moves'>('review')
+  const movesRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
+  const swipe = useRef<{ x: number; y: number } | null>(null)
 
   const fens = useMemo(() => {
     const c = new Chess(); const out = [c.fen()]
@@ -60,11 +66,10 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
   }, [plies])
   const grid = useMemo(() => new Chess(fens[ply]).board(), [fens, ply])
   const current = ply > 0 ? plies[ply - 1] : null
-  const mineErrors = plies.filter(p => p.color === user && isError(p))
-  const keyMoments = [...mineErrors].sort((a, b) => b.winLoss - a.winLoss).slice(0, 4).sort((a, b) => a.ply - b.ply)
+  const highlights = plies.filter(p => p.color === user && HIGHLIGHT.includes(p.grade))
   const mineWin = (k: number) => Math.round(user === 'w' ? review.wins[k] : 100 - review.wins[k])
 
-  // Highlight: the move just played, plus (on request) the engine's preferred move instead.
+  // The move just played, plus (on request) the engine's preferred move.
   const trail = useMemo(() => {
     const out: TrailMove[] = []
     if (current) out.push({ from: current.uci.slice(0, 2) as Square, to: current.uci.slice(2, 4) as Square, color: current.color })
@@ -78,13 +83,13 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
   }, [current, showBest, fens, ply])
 
   const go = (p: number) => { setShowBest(false); setPly(Math.max(0, Math.min(plies.length, p))) }
-  const jumpError = (dir: 1 | -1) => {
-    const list = mineErrors.map(p => p.ply)
+  const jump = (dir: 1 | -1) => {
+    const list = highlights.map(p => p.ply)
     const target = dir === 1 ? list.find(p => p > ply) : [...list].reverse().find(p => p < ply)
     if (target) go(target)
   }
 
-  useEffect(() => { reveal(movesRef.current) }, [ply])
+  useEffect(() => { reveal(movesRef.current) }, [ply, tab])
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null
     const prevOverflow = document.body.style.overflow
@@ -107,95 +112,120 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ply, plies.length])
 
-  const rows = Math.ceil(plies.length / 2)
-  const cell = (p?: PlyReview) => p ? (
-    <button type="button" className={`study-move${ply === p.ply ? ' is-current' : ''}`} data-active={ply === p.ply ? 'true' : undefined}
-      data-grade={p.color === user && isError(p) ? p.grade.toLowerCase() : undefined} aria-current={ply === p.ply ? 'step' : undefined}
-      onClick={() => go(p.ply)}>{p.san}</button>
-  ) : <span />
   const opponent = user === 'w' ? game.black : game.white
   const resultWord = { win: 'Won', loss: 'Lost', draw: 'Drew', unknown: 'Played' }[game.result]
+  const rows = Math.ceil(plies.length / 2)
 
-  const what = !current ? null : current.color !== user ? 'Opponent' : current.grade
-  const moveLabel = current ? `${Math.ceil(current.ply / 2)}${current.color === 'w' ? '.' : '…'} ${current.san}` : 'Starting position'
-  const detail = !current
-    ? `${review.opening} · ${resultWord.toLowerCase()} against ${opponent}`
-    : current.best && isError(current) ? `Cost ${current.winLoss.toFixed(0)}% winning chances. Best was ${current.best}.`
-    : current.grade === 'Best' ? 'The engine\'s top choice.' : current.grade === 'Good' ? 'A good move.'
-    : `Cost ${current.winLoss.toFixed(0)}% winning chances.`
+  const mover = current ? (current.color === user ? 'You' : 'Opponent') : ''
+  const what: Grade | null = current ? current.grade : null
+  const costly = current ? isError(current) : false
+  const detail = !current ? `${review.opening} · ${resultWord.toLowerCase()} against ${opponent}`
+    : current.grade === 'Brilliant' ? 'A brilliant sacrifice: it gives up material and still keeps the best chances.'
+    : current.grade === 'Great' ? 'The only move that held up.'
+    : current.grade === 'Best' ? 'The engine\'s top choice.'
+    : current.grade === 'Good' ? 'A good move.'
+    : `Cost ${mover === 'You' ? 'you' : 'them'} ${current.winLoss.toFixed(0)}% winning chances.${current.best ? ` Best was ${current.best}.` : ''}`
+
+  const cell = (p?: PlyReview) => p ? (
+    <button type="button" className={`study-move${ply === p.ply ? ' is-current' : ''}`} data-active={ply === p.ply ? 'true' : undefined}
+      aria-current={ply === p.ply ? 'step' : undefined} onClick={() => go(p.ply)}>
+      {p.san}{MARK[p.grade] && <i className={`study-mark ${cls(p.grade)}`}>{MARK[p.grade]}</i>}
+    </button>
+  ) : <span />
 
   return (
     <div className="study-backdrop" onClick={onClose}>
       <section className="study" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="study-title" onClick={e => e.stopPropagation()}>
-        <header className="study-head">
+        <header className="study-bar">
           <div>
-            <span className="setup-kicker">Game study</span>
-            <h2 id="study-title">{review.accuracy}% accuracy</h2>
-            <p>{resultWord} vs {opponent} · {review.opening} · opponent {review.opponentAccuracy}%</p>
+            <h2 id="study-title"><span>{review.accuracy}%</span> accuracy</h2>
+            <p title={`${resultWord} vs ${opponent} · ${review.opening}`}>{resultWord} vs {opponent} · {review.opening}</p>
           </div>
           <button type="button" className="study-close" onClick={onClose} aria-label="Close study">×</button>
         </header>
 
-        <div className="study-main">
-          <div className="study-board-wrap">
-            <div className="study-board">
+        <div className="study-body">
+          <div className="study-stage">
+            <div className="study-board"
+              onPointerDown={e => { swipe.current = { x: e.clientX, y: e.clientY } }}
+              onPointerUp={e => {
+                const s = swipe.current; swipe.current = null
+                if (!s) return
+                const dx = e.clientX - s.x, dy = e.clientY - s.y
+                if (Math.abs(dx) > 36 && Math.abs(dy) < 30) go(ply + (dx < 0 ? 1 : -1))     // swipe the board to step through the game
+              }}>
               <ChessBoard board={grid} orientation={user} interactive={false} selected={null} legalTargets={[]} trail={trail}
                 onSquareClick={() => {}} getLegalTargets={() => []} />
             </div>
+
             <div className="study-now" aria-live="polite">
-              <div>
-                <strong>{moveLabel}</strong>
-                {what && <span className={`study-badge${what === 'Opponent' ? '' : ` grade-${what.toLowerCase()}`}`}>{what}</span>}
+              <div className="study-now-line">
+                <strong>{current ? label(current) : 'Start'}{current && MARK[current.grade] && <i className={`study-mark ${cls(current.grade)}`}>{MARK[current.grade]}</i>}</strong>
+                {what && what !== 'Good' && <span className={`study-badge ${cls(what)}`}>{mover === 'Opponent' ? `Opponent · ${what}` : what}</span>}
+                <span className="study-chance">You {mineWin(ply)}%</span>
               </div>
               <p>{detail}</p>
-              <span className="study-chance">You {mineWin(ply)}%</span>
+              {current?.best && costly && current.color === user && (
+                <button type="button" className="study-best" aria-pressed={showBest} onClick={() => setShowBest(v => !v)}>
+                  {showBest ? 'Hide best move' : `Show best: ${current.best}`}
+                </button>
+              )}
             </div>
+
             <div className="study-controls">
-            <button type="button" onClick={() => go(0)} disabled={ply === 0} aria-label="First position">«</button>
-            <button type="button" onClick={() => go(ply - 1)} disabled={ply === 0} aria-label="Previous move">‹</button>
-            <span>{ply} / {plies.length}</span>
-            <button type="button" onClick={() => go(ply + 1)} disabled={ply === plies.length} aria-label="Next move">›</button>
-            <button type="button" onClick={() => go(plies.length)} disabled={ply === plies.length} aria-label="Last position">»</button>
+              <button type="button" onClick={() => go(0)} disabled={ply === 0} aria-label="First position">«</button>
+              <button type="button" onClick={() => go(ply - 1)} disabled={ply === 0} aria-label="Previous move">‹</button>
+              <span>{ply} / {plies.length}</span>
+              <button type="button" onClick={() => go(ply + 1)} disabled={ply === plies.length} aria-label="Next move">›</button>
+              <button type="button" onClick={() => go(plies.length)} disabled={ply === plies.length} aria-label="Last position">»</button>
             </div>
           </div>
 
+          <div className="study-side">
+            <div className="study-tabs" role="tablist" aria-label="Study sections">
+              <button type="button" role="tab" id="tab-review" aria-selected={tab === 'review'} aria-controls="panel-review" onClick={() => setTab('review')}>Review</button>
+              <button type="button" role="tab" id="tab-moves" aria-selected={tab === 'moves'} aria-controls="panel-moves" onClick={() => setTab('moves')}>Moves</button>
+            </div>
 
-          <div className="study-info">
-            <div className="study-moves-wrap">
-              <span className="field-label">Moves</span>
-              <ol className="study-moves" ref={movesRef} aria-label="Move list">
+            <div className="study-panel" id="panel-review" role="tabpanel" aria-labelledby="tab-review" data-panel="review" hidden={tab !== 'review'}>
+              <div className="study-summary">
+                <div className="study-stat"><span>You</span><strong>{review.accuracy}%</strong></div>
+                <div className="study-stat"><span>{opponent}</span><strong>{review.opponentAccuracy}%</strong></div>
+                <div className="study-counts" aria-label="Your move quality">
+                  {review.brilliant > 0 && <span className="grade-brilliant"><i>!!</i> Brilliant <b>{review.brilliant}</b></span>}
+                  {review.great > 0 && <span className="grade-great"><i>!</i> Great <b>{review.great}</b></span>}
+                  <span className="grade-inaccuracy"><i>?!</i> Inaccuracies <b>{review.inaccuracies}</b></span>
+                  <span className="grade-mistake"><i>?</i> Mistakes <b>{review.mistakes}</b></span>
+                  <span className="grade-blunder"><i>??</i> Blunders <b>{review.blunders}</b></span>
+                </div>
+              </div>
+              {highlights.length > 0 ? (
+                <div className="study-moments">
+                  <span className="field-label">Key moments</span>
+                  <div>
+                    {highlights.map(p => (
+                      <button key={p.ply} type="button" className={`study-moment ${cls(p.grade)}${ply === p.ply ? ' is-current' : ''}`} onClick={() => go(p.ply)}>
+                        {label(p)} <small>{p.grade}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : <p className="study-empty">No big errors or standout moves in this game.</p>}
+              <EvalGraph review={review} user={user} ply={ply} onSeek={go} />
+              <div className="study-jump">
+                <button type="button" className="btn-ghost" onClick={() => jump(-1)} disabled={!highlights.some(p => p.ply < ply)}>‹ Previous highlight</button>
+                <button type="button" className="btn-ghost" onClick={() => jump(1)} disabled={!highlights.some(p => p.ply > ply)}>Next highlight ›</button>
+              </div>
+            </div>
+
+            <div className="study-panel" id="panel-moves" role="tabpanel" aria-labelledby="tab-moves" data-panel="moves" hidden={tab !== 'moves'} ref={movesRef}>
+              <span className="field-label study-moves-title">Moves</span>
+              <ol className="study-moves" aria-label="Move list">
                 {Array.from({ length: rows }, (_, i) => (
                   <li key={i}><span className="study-no">{i + 1}.</span>{cell(plies[i * 2])}{cell(plies[i * 2 + 1])}</li>
                 ))}
               </ol>
             </div>
-            <div className="study-jump">
-              <button type="button" className="btn-ghost" onClick={() => jumpError(-1)} disabled={!mineErrors.some(p => p.ply < ply)}>‹ Previous error</button>
-              <button type="button" className="btn-ghost" onClick={() => jumpError(1)} disabled={!mineErrors.some(p => p.ply > ply)}>Next error ›</button>
-            </div>
-            {current?.best && isError(current) && current.color === user && (
-              <button type="button" className="btn-ghost study-best" aria-pressed={showBest} onClick={() => setShowBest(v => !v)}>
-                {showBest ? 'Hide best move' : `Show best move (${current.best})`}
-              </button>
-            )}
-            <EvalGraph review={review} user={user} ply={ply} onSeek={go} />
-            <div className="study-chips" aria-label="Your move quality">
-              <span className="grade-blunder">Blunders <b>{review.blunders}</b></span>
-              <span className="grade-mistake">Mistakes <b>{review.mistakes}</b></span>
-              <span className="grade-inaccuracy">Inaccuracies <b>{review.inaccuracies}</b></span>
-            </div>
-            {keyMoments.length > 0 && (
-              <div className="study-moments">
-                <span className="field-label">Key moments</span>
-                <div>
-                  {keyMoments.map(p => (
-                    <button key={p.ply} type="button" className={`study-moment grade-${p.grade.toLowerCase()}`} onClick={() => go(p.ply)}>
-                      {Math.ceil(p.ply / 2)}{p.color === 'w' ? '.' : '…'} {p.san} <small>{p.grade}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
