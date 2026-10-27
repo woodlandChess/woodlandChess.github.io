@@ -578,6 +578,13 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
   .puzzle-shell .board-wrap { width: min(100%, calc(100dvh - 420px - 1.1rem)); }
 }
 html.is-standalone .gm { padding-top: calc(var(--safe-top) + 1.1rem); }
+/* The same offsets keyed on the class set by main.tsx (navigator.standalone), for iPhones whose
+   (display-mode: standalone) query does not match: without it the puzzle header sat inside the blurred strip. */
+@media (max-width: 699.98px) {
+  html.is-standalone .gm-board .board { width: min(100%, calc(100dvh - 400px - 1.1rem)); }
+  html.is-standalone .puzzle-shell .hdr { padding-top: calc(var(--safe-top) + 1.1rem); }
+  html.is-standalone .puzzle-shell .board-wrap { width: min(100%, calc(100dvh - 420px - 1.1rem)); }
+}
 @media (min-width: 700px) {
   html.is-standalone .gm { padding-top: var(--safe-top); }
 }

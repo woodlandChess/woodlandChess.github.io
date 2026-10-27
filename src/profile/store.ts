@@ -3,7 +3,7 @@ import type { Color } from 'chess.js'
 /** Where a stored game came from. */
 export type GameSource = 'ai' | 'lichess'
 export type Phase = 'Opening' | 'Middlegame' | 'Endgame'
-export type Grade = 'Best' | 'Good' | 'Inaccuracy' | 'Mistake' | 'Blunder'
+export type Grade = 'Brilliant' | 'Great' | 'Best' | 'Good' | 'Inaccuracy' | 'Mistake' | 'Blunder'
 
 export interface ProfileGame {
   id: string
@@ -72,7 +72,7 @@ export interface GameFeatures {
   quietErrors: number
 }
 
-export const REVIEW_VERSION = 4
+export const REVIEW_VERSION = 5
 
 export interface GameReview {
   gameId: string
@@ -82,6 +82,9 @@ export interface GameReview {
   blunders: number
   mistakes: number
   inaccuracies: number
+  /** Your sacrificial best moves, and your only-move finds. */
+  brilliant: number
+  great: number
   opening: string
   plies: PlyReview[]
   /** White's winning chances (0-100) after each ply, index 0 = start position. */
@@ -110,7 +113,7 @@ export function isValidReview(r: unknown): r is GameReview {
   const f = v?.features
   return !!v && v.version === REVIEW_VERSION && typeof v.gameId === 'string'
     && Array.isArray(v.plies) && Array.isArray(v.wins) && v.wins.length === v.plies.length + 1
-    && isNum(v.accuracy) && isNum(v.opponentAccuracy)
+    && isNum(v.accuracy) && isNum(v.opponentAccuracy) && isNum(v.brilliant) && isNum(v.great)
     && !!f && isNum(f.moves) && isNum(f.captures) && isNum(f.checks) && isNum(f.trades) && isNum(f.pressure)
     && isNum(f.sacrifices) && isTally(f.worse) && isTally(f.better)
     && !!f.byPhase && isTally(f.byPhase.Opening) && isTally(f.byPhase.Middlegame) && isTally(f.byPhase.Endgame)

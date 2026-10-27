@@ -3,7 +3,7 @@ import type { PositionScore } from '../stockfish'
 import { classifyOpening } from './openings'
 import { clampCp, gameAccuracy, gradeFor, winPercent } from './stats'
 import {
-  REVIEW_VERSION, type GameFeatures, type GameReview, type Phase, type PlyReview, type ProfileGame, type Tally,
+  REVIEW_VERSION, type GameFeatures, type GameReview, type Grade, type Phase, type PlyReview, type ProfileGame, type Tally,
 } from './store'
 
 export { readProfile, saveProfile, recordComputerGame } from './store'
@@ -126,6 +126,26 @@ function replayAt(moves: Move[], k: number): Chess {
   return c
 }
 
+/**
+ * Brilliant and Great moves: the two ways to be better than "best".
+ *  - Brilliant: the engine's top (or equal-top) move that GIVES UP material (net 2+ pawns over the next two
+ *    plies), is clearly better than the alternatives, and neither starts from an already-won game nor leaves you worse.
+ *  - Great: the only move that held up (everything else loses 15+ winning-chance points) in a game that was still
+ *    undecided (you were not already winning clearly), and not an obvious recapture. It marks a save or a turning point,
+ *    not every forced move of a winning attack.
+ */
+export function highlightGrade(i: {
+  grade: Grade; isBest: boolean; winLoss: number; before: number; after: number; gap: number | null
+  mv: Move; prev?: Move; materialDrop: number
+}): Grade {
+  const { gap } = i
+  if (gap === null) return i.grade
+  if ((i.isBest || i.winLoss < 1.5) && i.materialDrop >= 2 && gap >= 8 && i.before <= 85 && i.after >= 45) return 'Brilliant'
+  const recapture = !!i.prev?.captured && i.prev.to === i.mv.to
+  if (i.isBest && gap >= 15 && i.before <= 75 && i.after >= 30 && !recapture) return 'Great'
+  return i.grade
+}
+
 export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: ReviewOptions = {}): Promise<GameReview> {
   const { signal, msPerPosition = 150, onProgress } = opts
   const user = game.userColor
@@ -185,7 +205,16 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     const cpAfter = (moverWhite ? 1 : -1) * clampCp(scores[i + 1].cp)
     const uci = `${mv.from}${mv.to}${mv.promotion ?? ''}`
     const isBest = scores[i].best === uci
-    const grade = gradeFor(winLoss, isBest)
+    // How forcing was the position? The engine's best versus second-best line (Guid & Bratko's difficulty measure).
+    let gapI: number | null = null
+    const runnerUp = scores[i].second
+    if (runnerUp !== undefined && runnerUp !== null && scores[i].best) {
+      const bestW = moverWhite ? wins[i] : 100 - wins[i]
+      gapI = Math.max(0, Math.min(40, bestW - winPercent((moverWhite ? 1 : -1) * runnerUp)))
+    }
+    let grade: Grade = gradeFor(winLoss, isBest)
+    if (grade === 'Best' || grade === 'Good') grade = highlightGrade({ grade, isBest, winLoss, before, after, gap: gapI, mv, prev: moves[i - 1],
+      materialDrop: i + 2 < mat.length ? -(moverWhite ? 1 : -1) * (mat[i + 2] - mat[i]) : 0 })
     const phase = phaseOf(board, i)
     let bestSan: string | undefined
     if (!isBest && winLoss >= 5 && scores[i].best) {
@@ -206,14 +235,9 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     if (features.firstMoves.length < 3) features.firstMoves.push(uci)
     if (!features.firstPawn && mv.piece === 'p') features.firstPawn = uci
     add(features.material, total[i])
-    // How forcing was the position? The engine's best versus second-best line (Guid & Bratko's difficulty measure).
-    const second = scores[i].second
-    if (second !== undefined && second !== null && scores[i].best) {
-      const bestW = moverWhite ? wins[i] : 100 - wins[i]
-      const secondW = winPercent((moverWhite ? 1 : -1) * second)
-      const gap = Math.max(0, Math.min(40, bestW - secondW))
-      add(features.gap, gap)
-      if (gap >= 15) { features.critical.n++; if (isBest) features.critical.found++ }
+    if (gapI !== null) {
+      add(features.gap, gapI)
+      if (gapI >= 15) { features.critical.n++; if (isBest) features.critical.found++ }
     }
     if (winLoss >= 5 && bestSan) { if (/[x+#]/.test(bestSan)) features.tacticalErrors++; else features.quietErrors++ }
     if (mv.captured) {
@@ -244,6 +268,8 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     blunders: mineList.filter(p => p.grade === 'Blunder').length,
     mistakes: mineList.filter(p => p.grade === 'Mistake').length,
     inaccuracies: mineList.filter(p => p.grade === 'Inaccuracy').length,
+    brilliant: mineList.filter(p => p.grade === 'Brilliant').length,
+    great: mineList.filter(p => p.grade === 'Great').length,
     opening, plies, wins, features,
   }
 }
