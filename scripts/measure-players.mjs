@@ -73,3 +73,7 @@ const out = {
 }
 console.log(`${name}: ${used} games, ${moves} moves`)
 for (const [k, v] of Object.entries(out)) console.log(`  ${k.padEnd(9)} ${v.toFixed(1)}`)
+// Ready-to-paste axes in roster order (attack, sharpness, simplify, risk, safety, endgame, open).
+// sharpness and risk need engine data, so they are left as 5 for you to keep from the existing entry.
+const f = v => v.toFixed(1)
+console.log(`  axes: [${f(out.attack)}, 5.0 /*sharpness: keep*/, ${f(out.simplify)}, 5.0 /*risk: keep*/, ${f(out.safety)}, ${f(out.endgame)}, ${f(out.open)}]`)

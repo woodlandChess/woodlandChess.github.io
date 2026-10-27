@@ -178,7 +178,7 @@ describe('saved data is validated (a bad record must never crash the page)', () 
 describe('player roster and matching', () => {
   it('has a sane roster: unique names, every axis within 0-10, all ten schools represented', async () => {
     const { PLAYERS, AXES } = await import('./players')
-    expect(PLAYERS.length).toBeGreaterThanOrEqual(50)
+    expect(PLAYERS.length).toBeGreaterThanOrEqual(200)
     expect(new Set(PLAYERS.map(p => p.name)).size).toBe(PLAYERS.length)
     for (const p of PLAYERS) {
       expect(p.axes).toHaveLength(AXES.length)
@@ -194,6 +194,38 @@ describe('player roster and matching', () => {
       const top = matchPlayers(playerVector(p))[0]
       expect(top.match).toBe(100)
     }
+  })
+  it('no two players are near-duplicates, so every ranking is meaningful', async () => {
+    const { PLAYERS } = await import('./players')
+    for (let i = 0; i < PLAYERS.length; i++) for (let j = i + 1; j < PLAYERS.length; j++) {
+      const a = PLAYERS[i].axes, b = PLAYERS[j].axes
+      const d = Math.sqrt(a.reduce((t, x, k) => t + (x - b[k]) ** 2, 0) / a.length)
+      expect(d, `${PLAYERS[i].name} vs ${PLAYERS[j].name}`).toBeGreaterThanOrEqual(0.25)
+    }
+  })
+  it('every school has enough players, and every entry is well formed', async () => {
+    const { PLAYERS } = await import('./players')
+    const count = new Map<string, number>()
+    for (const p of PLAYERS) {
+      count.set(p.school, (count.get(p.school) ?? 0) + 1)
+      expect(p.years).toMatch(/^\d{4}–(\d{4})?$/)
+      expect(p.known.length).toBeGreaterThan(8)
+    }
+    for (const [school, n] of count) expect(n, school).toBeGreaterThanOrEqual(5)
+  })
+  it('axis weights stay bounded around the base weights', async () => {
+    const { axisWeights } = await import('./style')
+    const w = axisWeights()
+    for (const v of Object.values(w)) { expect(v).toBeGreaterThan(0.3); expect(v).toBeLessThan(1.8) }
+  })
+  it('a thin sample gives softer matches than a solid one, without changing the order', async () => {
+    const { matchPlayers } = await import('./style')
+    const you = { attack: 7, sharpness: 6.5, simplify: 3.5, risk: 6, safety: 4, endgame: 5, open: 8 }
+    const solid = matchPlayers(you, undefined, { moves: 400 })
+    const thin = matchPlayers(you, undefined, { moves: 30 })
+    expect(thin[0].match).toBeGreaterThanOrEqual(solid[0].match)
+    expect(thin[0].player.name).toBe(solid[0].player.name)
+    expect(solid[0].match).toBeGreaterThan(solid[40].match)
   })
   it('a Tal-like fingerprint matches Tal and a Petrosian-like one matches Petrosian', async () => {
     const { matchPlayers } = await import('./style')
