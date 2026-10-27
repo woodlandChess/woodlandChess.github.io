@@ -250,9 +250,22 @@ The position-difficulty and material measures follow Guid and Bratko's computer 
 
 This is an estimate from a small sample, not a verdict. Advice tips quote the numbers behind them and only appear when there is enough evidence; general habits are marked as such.
 
+### Move ratings
+
+Every move, yours and your opponent's, gets a rating from the winning chances it gave up: **Best**, **Good**, **Inaccuracy** (`?!`), **Mistake** (`?`) and **Blunder** (`??`). Two ratings go beyond "best":
+
+- **Brilliant** (`!!`): the engine's top move that gives up material (two or more pawns' worth over the next two moves), is clearly better than the alternatives, and neither starts from an already-won game nor leaves you worse.
+- **Great** (`!`): the only move that held up (every alternative loses 15 or more winning-chance points) in a game that was still undecided, and not an obvious recapture.
+
 ### Game study
 
 Tapping a game opens a study view built for phones: the board, the current move and the move buttons stay pinned while the graph, key moments and move list scroll. Swipe along the move list or use the buttons (arrow keys, Home and End also work), jump between your errors, and reveal the engine's preferred move.
+
+---
+
+### Staying connected in online games
+
+Lichess streams send a keep-alive line every few seconds, and a phone that loses signal often leaves the request open and silent instead of failing. The app watches for that silence (20 seconds), says "Connection lost. Reconnecting…", and reconnects on its own, immediately when the phone comes back online or the tab is shown again. A game that is still running is rejoined when the Online screen opens, and when Lichess answers "You are already playing…". A move made while offline stays on the board and is sent as soon as the link works; only a real refusal from Lichess takes it back, with a message that clears itself.
 
 ---
 
