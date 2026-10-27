@@ -167,6 +167,7 @@
 .puzzle-shell .btn-next:hover { background: var(--accent); color: var(--bg); }
 .hint-text { min-height: 1.2em; font-size: 0.82rem; font-style: italic; color: var(--text-2); }
 .hint-text:empty { display: none; }
+.puzzle-shell .hint-slot { display: contents; }
 
 .puzzle-shell .move-history { width: 100%; display: flex; flex-direction: column; gap: 0.3rem; }
 .puzzle-shell .move-history:empty { display: none; }
@@ -308,8 +309,13 @@
 
   .puzzle-shell .info-body { display: block; max-height: 3.7rem; padding-right: 0.3rem; overflow-y: auto; overscroll-behavior: contain; }
   .puzzle-shell .puzzle-subtitle { display: none; }
+  /* Fixed-height description area: the layout is pre-planned, nothing below it ever moves. */
+  .puzzle-shell .info-body { height: 3.7rem; }
   .puzzle-shell .puzzle-desc { font-size: 0.8rem; line-height: 1.45; }
-  .puzzle-shell .hint-text { margin-top: 0.3rem; }
+  /* Reserved 2-line hint slot (empty until Hint is pressed). Long hints clamp instead of growing. */
+  .puzzle-shell .hint-slot { display: block; flex: 0 0 auto; height: 2.5em; font-size: 0.82rem; line-height: 1.25; overflow: hidden; }
+  .puzzle-shell .hint-text,
+  .puzzle-shell .hint-text:empty { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; min-height: 0; margin: 0; }
 
   .puzzle-shell .info-foot { display: flex; flex-direction: column; gap: 0.5rem; }
   .puzzle-shell .action-row { flex-wrap: nowrap; gap: 0.5rem; }

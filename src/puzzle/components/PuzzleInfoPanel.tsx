@@ -28,7 +28,6 @@ export function PuzzleInfoPanel({ engine, snapshot }: PuzzleInfoPanelProps) {
       <div className="info-body">
         <div className="puzzle-subtitle">{puzzle.subtitle}</div>
         <p className="puzzle-desc">{puzzle.desc}</p>
-        <div className="hint-text">{snapshot.hintText}</div>
         <div className="move-history">
           {snapshot.moveHistory.map((entry) => (
             <div className="move-entry" key={entry.index}>
@@ -38,6 +37,11 @@ export function PuzzleInfoPanel({ engine, snapshot }: PuzzleInfoPanelProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Always rendered: on phones it is a reserved 2-line slot so showing a hint never moves anything. */}
+      <div className="hint-slot" aria-live="polite">
+        <div className="hint-text">{snapshot.hintText}</div>
       </div>
 
       <div className="info-foot">
