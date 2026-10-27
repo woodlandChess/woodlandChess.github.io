@@ -190,7 +190,7 @@ export function summarizeStyle(games: ProfileGame[], reviews: GameReview[]): Sty
   }
   const axes = axesOf(metrics)
   const fingerprint = styleAxes(metrics)
-  const players = matchPlayers(fingerprint)
+  const players = matchPlayers(fingerprint, PLAYERS, { moves: metrics.moves })
   const matches = schoolsFromPlayers(players)
   const top = matches[0]
   const strengths: string[] = []
@@ -220,8 +220,6 @@ const MIN_SHRINK = 150
  * accuracy tells you how well you play, not how. With few moves the read is pulled toward 5.
  */
 export function styleAxes(m: StyleMetrics): StyleVector {
-  const quiet = 1 - clamp(m.captureRate + m.checkRate, 0, 1)
-  void quiet
   const raw: StyleVector = {
     attack: 10 * (0.35 * norm(m.captureRate, 0.08, 0.30) + 0.25 * norm(m.checkRate, 0.02, 0.14)
       + 0.25 * norm(m.pressureRate, 0.08, 0.35) + 0.15 * norm(m.sacrificesPer100, 0, 3)),
@@ -238,16 +236,25 @@ export function styleAxes(m: StyleMetrics): StyleVector {
   return out
 }
 
-/** How much each axis counts when comparing. Opening choice is the least reliable signal, attack the most. */
+/** Base importance of each axis. Opening choice is the least reliable signal, attack the most. */
 const AXIS_WEIGHT: Record<Axis, number> = { attack: 1.2, sharpness: 1.0, simplify: 1.0, risk: 1.0, safety: 0.8, endgame: 0.7, open: 0.5 }
-/** Match falls off with distance: 1 axis-point apart ~90%, 2 ~66%, 3 ~39%, 4 ~19%. */
-const PLAYER_SPREAD = 2.2
+/**
+ * Match falls off with distance: 1 axis-point apart ~87%, 2 ~58%, 3 ~29%, 4 ~11% (with plenty of data).
+ * Tighter than a small roster would need: with 200+ players someone is always close, so a loose
+ * falloff would hand out near-100% matches to everyone.
+ */
+const PLAYER_SPREAD = 1.9
+
+export interface MatchOptions {
+  /** Moves the fingerprint is based on. Fewer moves means a less certain read, so matches are softer. */
+  moves?: number
+}
 
 export interface PlayerMatch {
   player: PlayerRef
   /** 0-100 */
   match: number
-  /** Root-mean-square distance in axis points (0 = identical). */
+  /** Weighted root-mean-square distance in axis points (0 = identical). */
   distance: number
   /** The axes where you and this player are closest, and the one where you differ most. */
   alike: Axis[]
@@ -255,23 +262,49 @@ export interface PlayerMatch {
   vector: StyleVector
 }
 
-export function distance(a: StyleVector, b: StyleVector): number {
+const weightCache = new WeakMap<PlayerRef[], Record<Axis, number>>()
+
+/**
+ * Axis weights for a roster: the base weights, scaled by how well the axis separates the roster's
+ * players (an axis where everyone scores alike says little about who you resemble, so it counts
+ * less; one that spreads players out counts more). The adjustment is bounded so no axis dominates.
+ */
+export function axisWeights(roster: PlayerRef[] = PLAYERS): Record<Axis, number> {
+  const cached = weightCache.get(roster)
+  if (cached) return cached
+  const vectors = roster.map(playerVector)
+  const sd = {} as Record<Axis, number>
+  for (const a of AXES) {
+    const mean = vectors.reduce((t, v) => t + v[a], 0) / (vectors.length || 1)
+    sd[a] = Math.sqrt(vectors.reduce((t, v) => t + (v[a] - mean) ** 2, 0) / (vectors.length || 1))
+  }
+  const meanSd = AXES.reduce((t, a) => t + sd[a], 0) / AXES.length
+  const out = {} as Record<Axis, number>
+  for (const a of AXES) out[a] = AXIS_WEIGHT[a] * (sd[a] > 0 ? clamp(meanSd / sd[a], 0.7, 1.4) : 1)
+  weightCache.set(roster, out)
+  return out
+}
+
+export function distance(a: StyleVector, b: StyleVector, weights: Record<Axis, number> = AXIS_WEIGHT): number {
   let sum = 0, w = 0
-  for (const k of AXES) { sum += AXIS_WEIGHT[k] * (a[k] - b[k]) ** 2; w += AXIS_WEIGHT[k] }
+  for (const k of AXES) { sum += weights[k] * (a[k] - b[k]) ** 2; w += weights[k] }
   return Math.sqrt(sum / w)
 }
 
 /** Ranks every player in the roster by how close their style is to yours. */
-export function matchPlayers(you: StyleVector, roster: PlayerRef[] = PLAYERS): PlayerMatch[] {
+export function matchPlayers(you: StyleVector, roster: PlayerRef[] = PLAYERS, opts: MatchOptions = {}): PlayerMatch[] {
+  const weights = axisWeights(roster)
+  const trust = opts.moves === undefined ? 1 : Math.min(1, Math.max(0, opts.moves) / MIN_SHRINK)
+  const spread = PLAYER_SPREAD * (1 + 0.5 * (1 - trust))
   return roster.map(player => {
     const vector = playerVector(player)
-    const d = distance(you, vector)
+    const d = distance(you, vector, weights)
     const diffs = AXES.map(k => [k, Math.abs(you[k] - vector[k])] as const)
     const strong = diffs.filter(([k]) => Math.abs(you[k] - 5) >= 1.2 && Math.abs(vector[k] - 5) >= 1.2 && Math.sign(you[k] - 5) === Math.sign(vector[k] - 5))
     const alike = (strong.length ? strong : diffs).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([k]) => k)
     const differs = [...diffs].sort((a, b) => b[1] - a[1])[0][0]
-    return { player, match: Math.round(100 * Math.exp(-(d ** 2) / (2 * PLAYER_SPREAD ** 2))), distance: d, alike, differs, vector }
-  }).sort((a, b) => b.match - a.match || a.distance - b.distance)
+    return { player, match: Math.round(100 * Math.exp(-(d ** 2) / (2 * spread ** 2))), distance: d, alike, differs, vector }
+  }).sort((a, b) => b.match - a.match || a.distance - b.distance || a.player.name.localeCompare(b.player.name))
 }
 
 export interface TacticsReport {

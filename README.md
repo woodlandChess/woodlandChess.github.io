@@ -242,7 +242,7 @@ Seven **style axes** (0-10, where 5 is a typical elite player) describe *how* yo
 
 The position-difficulty and material measures follow Guid and Bratko's computer studies of world champions (positions are judged by how far the best move stands out from the second best, and the inclination to simplify by the average material on the board). With few moves the read is pulled toward the middle and labelled **Early read**, **Developing** or **Established** by how many moves were analysed.
 
-**Closest players.** Your fingerprint is compared with a roster of 57 players from Anderssen to Gukesh (`src/profile/players.ts`) using a weighted distance, and the match falls smoothly with distance (one axis-point apart is about 90%, two about 66%, three about 39%), so small differences change the order. The closest school is simply the closest player's school, so the two can never disagree. The roster values are calibrated reference profiles built from the published studies and the standard characterisation of each player and repertoire; they are not measurements. `scripts/measure-players.mjs` measures the engine-free axes from any PGN file (`node scripts/measure-players.mjs "Carlsen" games.pgn`), so individual entries can be replaced with real data.
+**Closest players.** Your fingerprint is compared with a roster of 211 players, from Staunton and Anderssen to Gukesh and Sindarov and including leading women players (`src/profile/players.ts`). The distance is weighted: each axis starts from a base weight (attack counts most, opening choice least) and is adjusted by how well it separates the roster, so an axis where everyone scores alike counts for less. The match falls smoothly with distance (one axis-point apart is about 87%, two about 58%, three about 29%), and with few analysed moves the percentages are softened because the read is less certain. The closest school is simply the closest player's school, so the two can never disagree. The roster values are calibrated reference profiles built from the published studies and the standard characterisation of each player and repertoire; they are not measurements. Tests keep the roster honest (unique names, every school represented, no near-duplicate profiles). `scripts/measure-players.mjs` measures the engine-free axes from any PGN file (`node scripts/measure-players.mjs "Carlsen" games.pgn`) and prints a ready-to-paste axes line, so individual entries can be replaced with real data.
 
 **Tactics and strategy.** Your costly moves are split by what the engine wanted instead: a capture, check or mate (a tactical oversight) or a quiet move (a positional error). The study also reports how many only-move positions you solved.
 
@@ -444,7 +444,7 @@ woodlandChess.github.io/
 │   │   ├── stats.ts                 Winning chances, grading, accuracy
 │   │   ├── style.ts                 Style axes, school matching, advice
 │   │   ├── openings.ts              Opening names
-│   │   ├── players.ts               Roster of 57 players and the seven style axes
+│   │   ├── players.ts               Roster of 211 players and the seven style axes
 │   │   └── store.ts                 Saved games and reviews (localStorage)
 │   ├── puzzle/
 │   │   ├── PuzzleMode.tsx           Puzzle mode entry
