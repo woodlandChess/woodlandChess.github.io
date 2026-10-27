@@ -43,6 +43,8 @@ interface GameScreenProps {
   /** Optional strip for the local player (shown under the board, with their clock). */
   self?: Player
   selfClock?: ClockView | null
+  /** Keep a clock-sized slot in the player strips while no clock exists yet, so the layout never shifts when it appears. */
+  reserveClocks?: boolean
   status: string
   /** Small mono caption on the right of the status card, e.g. "10+0 · Rapid · Rated". */
   statusMeta?: string
@@ -98,7 +100,7 @@ function GameClock({ view, label }: { view: ClockView; label: string }) {
   )
 }
 
-function PlayerStrip({ player, clock, className }: { player: Player; clock?: ClockView | null; className: string }) {
+function PlayerStrip({ player, clock, className, reserveClock }: { player: Player; clock?: ClockView | null; className: string; reserveClock?: boolean }) {
   return (
     <div className={`gm-card gm-player ${className}${clock?.active ? ' is-on-move' : ''}`}>
       <div className="gm-avatar" aria-hidden="true"><PieceAvatar piece={player.avatar} /></div>
@@ -115,7 +117,9 @@ function PlayerStrip({ player, clock, className }: { player: Player; clock?: Clo
           ) : player.meta}
         </span>
       </div>
-      {clock && <GameClock view={clock} label={player.name} />}
+      {clock
+        ? <GameClock view={clock} label={player.name} />
+        : reserveClock && <span className="gm-clock gm-clock--ok" aria-hidden="true">--:--</span>}
     </div>
   )
 }
@@ -244,7 +248,7 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, className = '' }
  * The "you" strip only exists when `self` is passed (online play, where clocks matter).
  */
 export function GameScreen({
-  exitLabel, exitConfirmLabel, onExit, opponent, opponentClock, self, selfClock,
+  exitLabel, exitConfirmLabel, onExit, opponent, opponentClock, self, selfClock, reserveClocks,
   status, statusMeta, tone, moves, profile, profileLabel = 'Profile',
   notice, extra, actions, children, overlay, selectedPly, onSelectPly, material,
 }: GameScreenProps) {
@@ -274,11 +278,11 @@ export function GameScreen({
       </div>
 
       <div className={`gm-body${self ? ' gm-body--me' : ''}`}>
-        <PlayerStrip player={opponent} clock={opponentClock} className="gm-opp" />
+        <PlayerStrip player={opponent} clock={opponentClock} className="gm-opp" reserveClock={reserveClocks} />
 
         <div className="gm-board">{children}</div>
 
-        {self && <PlayerStrip player={self} clock={selfClock} className="gm-me" />}
+        {self && <PlayerStrip player={self} clock={selfClock} className="gm-me" reserveClock={reserveClocks} />}
 
         <div className="gm-stack">
           <div className={`gm-card gm-status gm-status--${tone}`} role="status" aria-live="polite">

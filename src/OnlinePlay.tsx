@@ -932,8 +932,15 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         meta: liveGame.myRating ? `Lichess rating ${liveGame.myRating}` : 'You',
         avatar: { color: liveGame.myColor, type: 'p' },
         ratingChange: ratingChanges?.me,
-      } : undefined}
+      } : {
+        // Placeholder until the game starts: the strip (and clock slots) must exist from the
+        // first frame so the board never jumps when the game data arrives.
+        name: profile?.username ?? 'You',
+        meta: 'You',
+        avatar: { color: 'w', type: 'p' },
+      }}
       selfClock={liveGame ? clockFor(liveGame.myColor) : null}
+      reserveClocks
       status={resultText ?? myStatus}
       statusMeta={liveGame?.info}
       tone={!inGame ? 'over' : myTurn ? 'turn' : 'wait'}
