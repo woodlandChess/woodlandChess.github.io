@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="assets/banner.svg" width="100%" alt="Woodland Chess banner: Play with intent. Three modes: Computer, Play online and Puzzles."/>
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="assets/banner-static.svg">
+  <img src="assets/banner.svg" width="100%" alt="Woodland Chess banner: Play with intent. Three modes: Computer, Play online and Puzzles."/>
+</picture>
 
 <br/>
 
@@ -411,7 +414,7 @@ The suite in `src/engine.test.ts` covers the reference minimax engine: evaluatio
 
 ```
 woodlandChess.github.io/
-├── assets/                          README artwork (banner, footer, diagrams, badges, icons)
+├── assets/                          README artwork (animated banner and static fallback, footer, diagrams, badges, icons)
 │   ├── badges/                      Brand-styled badge SVGs
 │   └── icons/                       24px icon family used in headings
 ├── public/
