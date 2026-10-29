@@ -9,6 +9,21 @@ const MARK: Record<Grade, string> = { Brilliant: '!!', Great: '!', Best: '', Goo
 const HIGHLIGHT: Grade[] = ['Brilliant', 'Great', 'Mistake', 'Blunder']
 const isError = (p: PlyReview) => p.grade === 'Inaccuracy' || p.grade === 'Mistake' || p.grade === 'Blunder'
 const cls = (g: Grade) => `grade-${g.toLowerCase()}`
+/** Formats a centipawn score (White's view) from your side, e.g. +1.4, -0.8 or M3. */
+function fmtEval(cpWhite: number, user: 'w' | 'b'): string {
+  const cp = user === 'w' ? cpWhite : -cpWhite
+  if (Math.abs(cp) >= 9000) { const n = Math.max(1, Math.round((10000 - Math.abs(cp)) / 10)); return `${cp > 0 ? '+' : '-'}M${n}` }
+  const v = cp / 100
+  return `${v > 0 ? '+' : v < 0 ? '-' : ''}${Math.abs(v).toFixed(1)}`
+}
+/** Older saved reviews have no stored scores: estimate them from the winning chances (inverse of the logistic model). */
+function evalAt(review: GameReview, k: number): number {
+  const stored = review.evals?.[k]
+  if (typeof stored === 'number') return stored
+  const w = Math.min(99.5, Math.max(0.5, review.wins[k]))
+  const x = (w - 50) / 50
+  return Math.max(-1000, Math.min(1000, Math.round(-Math.log(2 / (x + 1) - 1) / 0.00368208)))
+}
 const label = (p: PlyReview) => `${Math.ceil(p.ply / 2)}${p.color === 'w' ? '.' : '…'} ${p.san}`
 
 /** Keeps the active move inside its own scroller without ever scrolling the page. */
@@ -32,7 +47,7 @@ function EvalGraph({ review, user, ply, onSeek }: { review: GameReview; user: 'w
   }
   return (
     <figure className="study-graph">
-      <figcaption className="field-label">Your winning chances</figcaption>
+      <figcaption className="field-label">Your winning chances · eval {fmtEval(evalAt(review, ply), user)}</figcaption>
       <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Winning chances through the game. Tap to jump."
         onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); seek(e) }}
         onPointerMove={e => { if (e.buttons) seek(e) }}>
@@ -116,20 +131,21 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
   const resultWord = { win: 'Won', loss: 'Lost', draw: 'Drew', unknown: 'Played' }[game.result]
   const rows = Math.ceil(plies.length / 2)
 
-  const mover = current ? (current.color === user ? 'You' : 'Opponent') : ''
-  const what: Grade | null = current ? current.grade : null
-  const costly = current ? isError(current) : false
+  const currentMine = !!current && current.color === user
+  const what: Grade | null = current && currentMine ? current.grade : null
+  const costly = current && currentMine ? isError(current) : false
   const detail = !current ? `${review.opening} · ${resultWord.toLowerCase()} against ${opponent}`
+    : !currentMine ? 'Opponent move.'
     : current.grade === 'Brilliant' ? 'A brilliant sacrifice: it gives up material and still keeps the best chances.'
     : current.grade === 'Great' ? 'The only move that held up.'
     : current.grade === 'Best' ? 'The engine\'s top choice.'
     : current.grade === 'Good' ? 'A good move.'
-    : `Cost ${mover === 'You' ? 'you' : 'them'} ${current.winLoss.toFixed(0)}% winning chances.${current.best ? ` Best was ${current.best}.` : ''}`
+    : `Cost you ${current.winLoss.toFixed(0)}% winning chances.${current.best ? ` Best was ${current.best}.` : ''}`
 
   const cell = (p?: PlyReview) => p ? (
     <button type="button" className={`study-move${ply === p.ply ? ' is-current' : ''}`} data-active={ply === p.ply ? 'true' : undefined}
       aria-current={ply === p.ply ? 'step' : undefined} onClick={() => go(p.ply)}>
-      {p.san}{MARK[p.grade] && <i className={`study-mark ${cls(p.grade)}`}>{MARK[p.grade]}</i>}
+      {p.san}{p.color === user && MARK[p.grade] && <i className={`study-mark ${cls(p.grade)}`}>{MARK[p.grade]}</i>}
     </button>
   ) : <span />
 
@@ -160,9 +176,9 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
 
             <div className="study-now" aria-live="polite">
               <div className="study-now-line">
-                <strong>{current ? label(current) : 'Start'}{current && MARK[current.grade] && <i className={`study-mark ${cls(current.grade)}`}>{MARK[current.grade]}</i>}</strong>
-                {what && what !== 'Good' && <span className={`study-badge ${cls(what)}`}>{mover === 'Opponent' ? `Opponent · ${what}` : what}</span>}
-                <span className="study-chance">You {mineWin(ply)}%</span>
+                <strong>{current ? label(current) : 'Start'}{current && currentMine && MARK[current.grade] && <i className={`study-mark ${cls(current.grade)}`}>{MARK[current.grade]}</i>}</strong>
+                {what && what !== 'Good' && <span className={`study-badge ${cls(what)}`}>{what}</span>}
+                <span className="study-chance">Eval {fmtEval(evalAt(review, ply), user)} · {mineWin(ply)}%</span>
               </div>
               <p>{detail}</p>
               {current?.best && costly && current.color === user && (
@@ -190,7 +206,7 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
             <div className="study-panel" id="panel-review" role="tabpanel" aria-labelledby="tab-review" data-panel="review" hidden={tab !== 'review'}>
               <div className="study-summary">
                 <div className="study-stat"><span>You</span><strong>{review.accuracy}%</strong></div>
-                <div className="study-stat"><span>{opponent}</span><strong>{review.opponentAccuracy}%</strong></div>
+                <div className="study-stat"><span>Eval now</span><strong>{fmtEval(evalAt(review, ply), user)}</strong></div>
                 <div className="study-counts" aria-label="Your move quality">
                   {review.brilliant > 0 && <span className="grade-brilliant"><i>!!</i> Brilliant <b>{review.brilliant}</b></span>}
                   {review.great > 0 && <span className="grade-great"><i>!</i> Great <b>{review.great}</b></span>}

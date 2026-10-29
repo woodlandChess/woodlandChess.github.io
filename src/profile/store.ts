@@ -89,6 +89,8 @@ export interface GameReview {
   plies: PlyReview[]
   /** White's winning chances (0-100) after each ply, index 0 = start position. */
   wins: number[]
+  /** Engine score in centipawns from White's point of view after each ply (index 0 = start). Mate scores sit near +/-10000. Absent in older saved reviews. */
+  evals?: number[]
   features: GameFeatures
 }
 
