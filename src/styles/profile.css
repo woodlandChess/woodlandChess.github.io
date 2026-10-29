@@ -223,12 +223,22 @@
 
 /* moves: two columns of "n. white black" rows that wrap to the panel width */
 .study-moves-title { margin-bottom: -0.3rem; }
-.study-moves { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: 0.15rem 0.5rem; }
-.study-moves li { display: grid; grid-template-columns: 2rem 1fr 1fr; align-items: center; font-family: var(--font-mono); font-size: 0.86rem; }
-.study-no { color: var(--text-3); font-size: 0.7rem; }
-.study-move { position: relative; min-height: 38px; padding: 0.3rem 0.45rem; background: transparent; border: 0; border-radius: var(--radius-card); color: var(--text-2); font: inherit; text-align: left; }
-.study-move:hover { color: var(--text); }
-.study-move.is-current { background: var(--accent-dim); color: var(--text); }
+.study-moves-head, .study-moves li { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; column-gap: 0.35rem; }
+.study-moves-head { margin-bottom: -0.6rem; padding: 0 0.3rem; font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.study-moves-head span { padding: 0 0.55rem; }
+.study-moves-head span:first-child { padding: 0; text-align: center; }
+/* One full move per row: number, White, Black. Alternating rows and separate cells keep the pairs apart. */
+.study-moves { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-family: var(--font-mono); font-size: 0.9rem; }
+.study-moves li { padding: 0.15rem 0.3rem; border-radius: var(--radius-card); }
+.study-moves li:nth-child(odd) { background: var(--surface); }
+.study-moves li.is-row-current { box-shadow: inset 2px 0 0 var(--accent); }
+.study-no { align-self: center; text-align: center; color: var(--text-3); font-size: 0.7rem; }
+.study-move { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; min-height: 40px; padding: 0.3rem 0.55rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-card); color: var(--text-2); font: inherit; text-align: left; transition: background 0.15s var(--ease), border-color 0.15s var(--ease); }
+.study-move.is-mine { color: var(--text); }
+.study-move:hover { background: var(--accent-dim); color: var(--text); }
+.study-move:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: -1px; }
+.study-move.is-current { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+.study-move .study-mark { margin: 0; flex: none; }
 
 /* Phones on their side: board on the left, tabs on the right. */
 @media (orientation: landscape) and (max-height: 560px) and (max-width: 859px) {

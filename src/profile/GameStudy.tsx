@@ -143,9 +143,9 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
     : `Cost you ${current.winLoss.toFixed(0)}% winning chances.${current.best ? ` Best was ${current.best}.` : ''}`
 
   const cell = (p?: PlyReview) => p ? (
-    <button type="button" className={`study-move${ply === p.ply ? ' is-current' : ''}`} data-active={ply === p.ply ? 'true' : undefined}
+    <button type="button" className={`study-move${ply === p.ply ? ' is-current' : ''}${p.color === user ? ' is-mine' : ''}`} data-active={ply === p.ply ? 'true' : undefined}
       aria-current={ply === p.ply ? 'step' : undefined} onClick={() => go(p.ply)}>
-      {p.san}{p.color === user && MARK[p.grade] && <i className={`study-mark ${cls(p.grade)}`}>{MARK[p.grade]}</i>}
+      <span className="study-san">{p.san}</span>{p.color === user && MARK[p.grade] && <i className={`study-mark ${cls(p.grade)}`}>{MARK[p.grade]}</i>}
     </button>
   ) : <span />
 
@@ -236,9 +236,10 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
 
             <div className="study-panel" id="panel-moves" role="tabpanel" aria-labelledby="tab-moves" data-panel="moves" hidden={tab !== 'moves'} ref={movesRef}>
               <span className="field-label study-moves-title">Moves</span>
+              <div className="study-moves-head" aria-hidden="true"><span>#</span><span>White{user === 'w' ? ' · you' : ''}</span><span>Black{user === 'b' ? ' · you' : ''}</span></div>
               <ol className="study-moves" aria-label="Move list">
                 {Array.from({ length: rows }, (_, i) => (
-                  <li key={i}><span className="study-no">{i + 1}.</span>{cell(plies[i * 2])}{cell(plies[i * 2 + 1])}</li>
+                  <li key={i} className={plies[i * 2]?.ply === ply || plies[i * 2 + 1]?.ply === ply ? 'is-row-current' : undefined}><span className="study-no">{i + 1}.</span>{cell(plies[i * 2])}{cell(plies[i * 2 + 1])}</li>
                 ))}
               </ol>
             </div>
