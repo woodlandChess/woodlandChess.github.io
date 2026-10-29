@@ -271,5 +271,6 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
     brilliant: mineList.filter(p => p.grade === 'Brilliant').length,
     great: mineList.filter(p => p.grade === 'Great').length,
     opening, plies, wins, features,
+    evals: scores.map(s => Math.max(-10000, Math.min(10000, Math.round(s.cp)))),
   }
 }
