@@ -1378,6 +1378,30 @@ header {
   align-self: stretch;
 }
 
+/* ── pinned action bar on phones: opaque, so scrolling content never shows through the buttons ──
+   Before, the bar faded to transparent and both buttons were see-through, so text and cards
+   underneath ran into them. Now the bar is a solid surface with a clear edge, and the two
+   buttons have their own opaque fills: primary = brighter border and text, secondary = quieter. */
+@media (max-width: 699.98px) {
+  .home-actions {
+    background: var(--bg);
+    border-top: 1px solid var(--border-hover);
+    box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.6);
+  }
+  .home-actions > .begin-game {
+    background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--bg-3);
+    border-color: var(--accent-bright);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .home-actions > .btn-ghost {
+    background: var(--bg-2);
+    border-color: var(--border-hover);
+    color: var(--text-2);
+  }
+  .home-actions > .begin-game:disabled { opacity: 0.6; border-color: var(--border-hover); cursor: default; }
+}
+
 /* ── keyboard focus (the global reset removes outlines; restore them here) ─ */
 .setup-card--home :is(button, .dropdown-trigger):focus-visible,
 .setup-card--home .seg-opt:has(input:focus-visible) .seg-face {
