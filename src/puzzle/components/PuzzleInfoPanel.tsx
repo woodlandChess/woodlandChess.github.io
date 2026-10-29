@@ -1,5 +1,5 @@
 import type { GameEngine, GameSnapshot } from '../core/GameEngine';
-import { IconScroll, IconTide, IconKey, IconDroplet } from './icons';
+import { IconScroll, IconTide, IconKey, IconDroplet, IconCrown } from './icons';
 
 interface PuzzleInfoPanelProps {
   engine: GameEngine;
@@ -56,8 +56,8 @@ export function PuzzleInfoPanel({ engine, snapshot }: PuzzleInfoPanelProps) {
           </button>
           {snapshot.puzzleDone && (
             <button type="button" className="btn-next" onClick={() => engine.nextPuzzle()}>
-              Next Puzzle
-              <IconKey style={{ width: 13, height: 13 }} />
+              {snapshot.mode === 'daily' ? 'Finish Daily' : 'Next Puzzle'}
+              {snapshot.mode === 'daily' ? <IconCrown style={{ width: 13, height: 13 }} /> : <IconKey style={{ width: 13, height: 13 }} />}
             </button>
           )}
         </div>

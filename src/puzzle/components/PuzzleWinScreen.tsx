@@ -26,7 +26,7 @@ export function PuzzleWinScreen({ engine, snapshot, onBack }: PuzzleWinScreenPro
         </div>
         <div className="win-actions">
           <button type="button" className="begin-game" onClick={() => engine.startRun()}>
-            Play Again
+            {isDaily ? 'Practice More Puzzles' : 'Play Again'}
           </button>
           <button type="button" className="new-game" onClick={onBack}>
             Return Home
