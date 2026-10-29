@@ -27,9 +27,9 @@ import type { Color, Square } from 'chess.js'
 //                      brightness(1.28) hue-rotate(196deg) saturate(0.72)
 //
 // Accessibility (WCAG non-text contrast ≥ 3:1):
-//   Ivory  #e6e3da vs light sq #1a2027 → ~11:1  ✓ AAA
+//   Ivory  #e6e3da vs light sq #2e373f → ~9.4:1 ✓ AAA
 //   Ivory  #e6e3da vs dark sq  #0d1013 → ~16:1  ✓ AAA
-//   Steel  #9aa3a8 vs light sq #1a2027 → ~4.8:1 ✓ AA+
+//   Steel  #9aa3a8 vs light sq #2e373f → ~4.7:1 ✓ AA
 //   Steel  #9aa3a8 vs dark sq  #0d1013 → ~6.6:1 ✓ AA+
 // ─────────────────────────────────────────────────────────────────────────────
 
