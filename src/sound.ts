@@ -58,8 +58,16 @@ function roomImpulse(c: AudioContext): AudioBuffer {
   return buf
 }
 
+/** True once the page has had a real user gesture. Creating an AudioContext earlier only makes the browser log a warning. */
+let gestured = false
+function hasUserActivation(): boolean {
+  const ua = typeof navigator !== 'undefined' ? (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation : undefined
+  return ua ? ua.hasBeenActive : gestured
+}
+
 function ensure(): AudioContext | null {
   if (!ctx) {
+    if (!hasUserActivation()) return null
     ctx = createContext()
     if (!ctx) return null
     const master = ctx.createGain()
@@ -76,7 +84,9 @@ function ensure(): AudioContext | null {
     dry.connect(master)
     const send = ctx.createGain()
     const verb = ctx.createConvolver()
-    verb.buffer = roomImpulse(ctx)
+    const room = ctx
+    // Built a moment later: generating the impulse takes long enough to stall the tap that unlocked audio.
+    setTimeout(() => { try { verb.buffer = roomImpulse(room) } catch { /* the dry signal still plays */ } }, 0)
     const wet = ctx.createGain()
     wet.gain.value = 0.55
     send.connect(verb)
@@ -118,7 +128,8 @@ function resumeFromGesture(): Promise<void> {
 
 // Browsers only allow audio after a gesture: prepare the context on the first one.
 if (typeof window !== 'undefined') {
-  const unlock = () => {
+  const unlock = (e: Event) => {
+    if (e.type !== 'touchstart') gestured = true     // a touch only counts as a gesture when it ends
     void resumeFromGesture()
   }
   for (const ev of ['pointerdown', 'touchstart', 'touchend', 'keydown']) window.addEventListener(ev, unlock, { passive: true })
