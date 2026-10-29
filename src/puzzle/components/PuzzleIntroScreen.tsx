@@ -3,6 +3,7 @@ import { HomeFrame } from '../../components/HomeFrame';
 import type { ModeId } from '../../components/ModeNav';
 import { IconCalendar, IconOnline, IconPuzzle, IconVolume } from '../../components/ModeIcons';
 import { sound } from '../../sound';
+import { AchievementsPanel } from './AchievementsPanel';
 
 interface PuzzleIntroScreenProps {
   engine: GameEngine;
@@ -48,6 +49,7 @@ export function PuzzleIntroScreen({ engine, soundEnabled, onNavigate, loadError 
         </ul>
         <p className="home-hint">A single position. A forced line. No room to improvise.</p>
       </div>
+      <AchievementsPanel />
     </HomeFrame>
   );
 }
