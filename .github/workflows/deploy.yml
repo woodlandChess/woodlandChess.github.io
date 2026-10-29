@@ -32,7 +32,14 @@ jobs:
         env:
           VITE_BASE_PATH: ${{ steps.base.outputs.path }}
       - name: Enable direct mode URLs on GitHub Pages
-        run: cp dist/index.html dist/404.html
+        # Real files for every mode URL, so opening or reloading /ai, /puzzle, /multiplayer or /profile
+        # answers 200 instead of the 404 fallback (which also logs a red error in the console).
+        run: |
+          cp dist/index.html dist/404.html
+          for route in ai puzzle multiplayer profile; do
+            mkdir -p "dist/$route"
+            cp dist/index.html "dist/$route/index.html"
+          done
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:
