@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Outcome } from '../sound'
+import { lazy, Suspense } from 'react'
+import type { PostGameInput } from '../profile/PostGameAnalysis'
 import { PieceAvatar, type AvatarPiece } from './PieceAvatar'
 import '../styles/game.css'
+
+const PostGameAnalysis = lazy(() => import('../profile/PostGameAnalysis').then(m => ({ default: m.PostGameAnalysis })))
 
 export type RematchState = 'idle' | 'sending' | 'waiting' | 'declined' | 'needs-permission' | 'error'
 
@@ -42,6 +46,8 @@ interface GameResultDialogProps {
   onGrantPermission: () => void
   onNewGame: () => void
   onHome: () => void
+  /** The finished game, to analyze right here (same review as My style). Omit to hide the analysis. */
+  analysis?: PostGameInput
   /** Dismiss and look at the final position. */
   onClose: () => void
 }
@@ -159,6 +165,10 @@ export function GameResultDialog(p: GameResultDialogProps) {
           <PlayerRow player={p.me}  winner={winnerMe}  rated={p.rated} pending={p.ratingsPending} showScore={showRatings} />
           <PlayerRow player={p.opp} winner={winnerOpp} rated={p.rated} pending={p.ratingsPending} showScore={showRatings} />
         </ul>
+
+        {p.analysis && p.outcome !== 'aborted' && p.analysis.moves.length >= 2 && (
+          <Suspense fallback={null}><PostGameAnalysis input={p.analysis} /></Suspense>
+        )}
 
         {note && <p className="gr-note" aria-live="polite">{note}</p>}
         {rematchHint && <p className="gr-note gr-note--accent" role="status">{rematchHint}</p>}

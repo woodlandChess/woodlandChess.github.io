@@ -586,3 +586,16 @@ html.is-game body { height: 100dvh; min-height: 0; overflow: hidden; }
 @media (min-width: 700px) {
   html.is-standalone .gm { padding-top: var(--safe-top); }
 }
+/* ── Post-game analysis inside the result dialog ─────────────────────────── */
+.gr-card { max-height: 100dvh; overflow-y: auto; overscroll-behavior: contain; }
+.gr-analysis { display: grid; gap: 0.7rem; margin: 0 0 1rem; padding: 0.85rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.gr-analysis-title { margin: 0; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.gr-analysis .gr-note { margin: 0; }
+.gr-analysis-wait { display: grid; gap: 0.5rem; }
+.gr-progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.gr-progress span { display: block; height: 100%; background: var(--accent-bright); transition: width 0.2s var(--ease); }
+.gr-analysis-top { display: grid; gap: 0.6rem; }
+.gr-acc { display: flex; align-items: baseline; gap: 0.5rem; }
+.gr-acc strong { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 400; color: var(--text); }
+.gr-acc span { font-size: 0.78rem; color: var(--text-3); }
+.gr-btn--analysis { min-height: 44px; }

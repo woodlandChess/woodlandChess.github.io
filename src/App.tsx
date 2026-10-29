@@ -6,7 +6,7 @@ import { ChessBoard, PromotionModal } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { Segmented, WeightBar } from './components/Controls'
-import { recordComputerGame } from './profile/store'
+import { computerGameId, recordComputerGame } from './profile/store'
 import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, PlayerProfile, warmUpWhenIdle } from './lazyModes'
 import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 
@@ -307,6 +307,8 @@ export function App() {
             <Suspense fallback={null}>
             <GameResultDialog
               ratings={false}
+              analysis={{ moves: history.map(m => `${m.from}${m.to}${m.promotion ?? ''}`), userColor: player, opponentName: 'Computer',
+                result: game.isCheckmate() ? (game.turn() === player ? 'loss' : 'win') : 'draw', profileId: computerGameId(player, history.map(m => `${m.from}${m.to}${m.promotion ?? ''}`)) }}
               outcome={(game.isCheckmate() ? (game.turn() === player ? 'loss' : 'win') : 'draw') as Outcome}
               reason={game.isCheckmate() ? 'Checkmate' : game.isStalemate() ? 'Stalemate' : game.isThreefoldRepetition() ? 'Repetition' : game.isInsufficientMaterial() ? 'Insufficient material' : 'Fifty-move rule'}
               info={`${schools[school].label} · ${difficulty}`}

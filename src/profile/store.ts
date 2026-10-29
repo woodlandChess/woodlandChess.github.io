@@ -150,6 +150,9 @@ export function saveProfile(data: PlayerProfileData): void {
   } catch { /* storage can be unavailable or full */ }
 }
 
+/** Id of a game against the computer; depends only on who you played as and the moves. */
+export const computerGameId = (userColor: Color, moves: string[]) => `ai-${userColor}-${moves.join('')}`
+
 /** Stores a finished game against the computer. The id depends only on the moves, so saving twice is harmless. */
 export function recordComputerGame(g: {
   userColor: Color
@@ -158,7 +161,7 @@ export function recordComputerGame(g: {
   playedAt?: number
 }): void {
   if (g.moves.length < 2) return
-  const id = `ai-${g.userColor}-${g.moves.join('')}`
+  const id = computerGameId(g.userColor, g.moves)
   const data = readProfile()
   if (data.games.some(x => x.id === id)) return
   const game: ProfileGame = {

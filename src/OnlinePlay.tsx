@@ -990,6 +990,8 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
           {phase === 'finished' && result && resultOpen && liveGame && (
             <GameResultDialog
               outcome={result.outcome}
+              analysis={{ moves: moveHistory.map(m => `${m.from}${m.to}${m.promotion ?? ''}`), userColor: liveGame.myColor, opponentName: liveGame.opponentName,
+                result: result.outcome === 'win' || result.outcome === 'loss' || result.outcome === 'draw' ? result.outcome : 'unknown' }}
               reason={result.reason}
               info={liveGame.info}
               rated={liveGame.rated}
