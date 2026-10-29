@@ -25,7 +25,7 @@
   --accent-bright:#c9cfd2;
 
   /* Board-specific tokens */
-  --sq-light:     #1a2027;
+  --sq-light:     #2e373f;   /* lifted from #1a2027: same slate hue, squares now 1.58:1 apart (was 1.16:1) */
   --sq-dark:      #0d1013;
   --sq-border:    rgba(214, 219, 222, 0.04);
   --sq-selected:  rgba(201, 207, 210, 0.18);
@@ -668,11 +668,12 @@ header {
 .square.dark  { background: var(--sq-dark);  }
 
 .square.last  {
-  background: var(--sq-last);
+  /* tint over the square colour (not instead of it) so the checker pattern survives on highlighted squares */
+  background-image: linear-gradient(var(--sq-last), var(--sq-last));
 }
 
 .square.selected {
-  background: var(--sq-selected);
+  background-image: linear-gradient(var(--sq-selected), var(--sq-selected));
 }
 
 .piece {
@@ -857,7 +858,7 @@ header {
    SCHOOL WEIGHT TOKENS  +  PIECE FILTER TOKENS
    ============================================================
    Color theory rationale for piece filters:
-   Board squares: --sq-light #1a2027 (rgb 26,32,39) and --sq-dark #0d1013 (rgb 13,16,19)
+   Board squares: --sq-light #2e373f (rgb 46,55,63) and --sq-dark #0d1013 (rgb 13,16,19)
    Both are very dark blue-gray. Pieces must read against these.
 
    WHITE pieces (cburnett "lt" = white fill + black outline):
@@ -982,10 +983,11 @@ header {
    Result: ~#9ba4a9 - within 1 ΔE of brand --text-2 #9aa3a8 ✓
 
    WCAG non-text contrast ≥ 3:1 (graphics guideline):
-     Ivory  vs light sq #1a2027 → ~11:1  ✓ AAA
+     Ivory  vs light sq #2e373f → ~9.4:1 ✓ AAA
      Ivory  vs dark sq  #0d1013 → ~16:1  ✓ AAA
-     Steel  vs light sq #1a2027 → ~4.8:1 ✓ AA+
-     Steel  vs dark sq  #0d1013 → ~6.6:1 ✓ AA+
+     Steel  vs light sq #2e373f → ~4.7:1 ✓ AA
+     Steel  vs dark sq  #0d1013 → ~7.4:1 ✓ AA+
+     Light sq vs dark sq        → ~1.6:1 (was 1.16:1; OKLab L 0.33 vs 0.17)
      White-vs-black side:        ~2.7:1  (supplemented by shape cues)
    ============================================================ */
 
