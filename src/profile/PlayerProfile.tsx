@@ -1,7 +1,6 @@
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { StockfishClient } from '../stockfish'
+import { EnginePool, REVIEW_DEPTH, REVIEW_MAX_MS } from './enginePool'
 import { HomeFrame } from '../components/HomeFrame'
-import { Segmented } from '../components/Controls'
 import type { ModeId } from '../components/ModeNav'
 import { getStoredToken, LichessClient } from '../lichess'
 import { parseLichessNdjson, reviewGame } from './analysis'
@@ -12,12 +11,9 @@ import { GameStudy } from './GameStudy'
 import '../styles/profile.css'
 
 const MAX_PER_RUN = 30
-const COUNTS = ['5', '10', '20', '50'] as const
-type Count = (typeof COUNTS)[number]
+/** Most recent Lichess games fetched per import. */
+const IMPORT_COUNT = '50'
 const SHOWN = 8
-/** Search time per position. Deeper = fewer misjudged moves, but a longer wait. */
-const DEPTHS = { quick: 100, standard: 200, deep: 450 } as const
-type Depth = keyof typeof DEPTHS
 
 interface Progress { game: number; of: number; done: number; total: number }
 
@@ -36,8 +32,6 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
   const [data, setData] = useState<PlayerProfileData>(readProfile)
   const dataRef = useRef(data)
   const [username, setUsername] = useState(data.username)
-  const [count, setCount] = useState<Count>('10')
-  const [depth, setDepth] = useState<Depth>('standard')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -68,14 +62,14 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
     const controller = new AbortController()
     runRef.current = controller
     setBusy(true); setError('')
-    const engine = new StockfishClient()
+    const engine = new EnginePool()
     try {
       const known = new Set(dataRef.current.reviews.map(r => r.gameId))
       const batch = games.filter(g => !known.has(g.id)).slice(0, MAX_PER_RUN)
       if (!batch.length) { setStatus('Everything is already analyzed.'); return }
       for (let i = 0; i < batch.length; i++) {
         const review = await reviewGame(batch[i], engine, {
-          signal: controller.signal, msPerPosition: DEPTHS[depth],
+          signal: controller.signal, msPerPosition: REVIEW_MAX_MS, depth: REVIEW_DEPTH, concurrency: engine.size,
           onProgress: (done, total) => setProgress({ game: i + 1, of: batch.length, done, total }),
         })
         commit({ ...dataRef.current, reviews: [...dataRef.current.reviews.filter(r => r.gameId !== review.gameId), review], updatedAt: Date.now() })
@@ -96,7 +90,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
     setBusy(true); setError(''); setStatus('Loading public games from Lichess…')
     try {
       const url = new URL(`https://lichess.org/api/games/user/${encodeURIComponent(name)}`)
-      url.searchParams.set('max', count); url.searchParams.set('moves', 'true')
+      url.searchParams.set('max', IMPORT_COUNT); url.searchParams.set('moves', 'true')
       url.searchParams.set('clocks', 'false'); url.searchParams.set('evals', 'false'); url.searchParams.set('opening', 'true')
       const token = getStoredToken()
       const response = await fetch(url, {
@@ -152,12 +146,8 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
             onKeyDown={e => { if (e.key === 'Enter' && !busy) importAndAnalyze() }} />
           {connected && <small className="profile-hint">Connected through Multiplayer</small>}
         </label>
-        <Segmented<Count> legend="Games to import" name="profile-count" value={count} disabled={busy}
-          onChange={setCount} options={COUNTS.map(c => ({ value: c, label: c }))} />
-        <Segmented<Depth> legend="Analysis depth" name="profile-depth" value={depth} disabled={busy}
-          onChange={setDepth} options={[{ value: 'quick', label: 'Quick' }, { value: 'standard', label: 'Standard' }, { value: 'deep', label: 'Deep' }]} />
       </div>
-      <p className="profile-privacy">Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
+      <p className="profile-privacy">Your last 50 Lichess games are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
 
       {(busy || status) && !error && (
         <div className="profile-progress" role="status" aria-live="polite">

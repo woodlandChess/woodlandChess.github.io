@@ -141,7 +141,7 @@ export class StockfishClient {
    * (A position that is already checkmate or stalemate has no search result: callers
    * must score those themselves.)
    */
-  async analyse(fen: string, time = 150): Promise<PositionScore> {
+  async analyse(fen: string, time = 150, depth?: number): Promise<PositionScore> {
     await this.readyPromise
     let latest: SideScore = { cp: 0, mate: null }
     let second: SideScore | null = null
@@ -158,7 +158,9 @@ export class StockfishClient {
       this.listeners.add(listen)
     })
     this.send(`position fen ${fen}`)
-    this.send(`go movetime ${time}`)
+    // With a depth the search stops as soon as it gets there (easy positions finish fast, every device reaches
+    // the same quality) and `time` is only the safety cap for slow devices.
+    this.send(depth ? `go depth ${depth} movetime ${time}` : `go movetime ${time}`)
     // Wait first, then read `latest`: arguments are evaluated left to right, so reading it in the
     // same expression as the await would capture the score from before the search.
     const best = await finished
