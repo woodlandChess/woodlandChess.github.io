@@ -72,7 +72,7 @@ export interface GameFeatures {
   quietErrors: number
 }
 
-export const REVIEW_VERSION = 5
+export const REVIEW_VERSION = 6
 
 export interface GameReview {
   gameId: string

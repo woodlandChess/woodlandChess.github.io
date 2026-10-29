@@ -67,12 +67,17 @@ export function parseLichessNdjson(text: string, username: string): ProfileGame[
 /** What the reviewer needs from an engine (Stockfish in the app, a script in tests). */
 export interface ReviewEngine {
   newGame(multiPv?: number): Promise<void>
-  analyse(fen: string, ms: number): Promise<PositionScore>
+  /** `depth` stops the search early once reached (`ms` is then only a cap); `lane` keeps related positions on one worker. */
+  analyse(fen: string, ms: number, opts?: { depth?: number; lane?: number }): Promise<PositionScore>
 }
 
 export interface ReviewOptions {
   signal?: AbortSignal
   msPerPosition?: number
+  /** Search depth per position (stops early when reached; `msPerPosition` becomes the cap). */
+  depth?: number
+  /** Engines working at once, each on its own stretch of the game. */
+  concurrency?: number
   onProgress?: (done: number, total: number) => void
 }
 
@@ -147,7 +152,7 @@ export function highlightGrade(i: {
 }
 
 export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: ReviewOptions = {}): Promise<GameReview> {
-  const { signal, msPerPosition = 150, onProgress } = opts
+  const { signal, msPerPosition = 150, depth, concurrency = 1, onProgress } = opts
   const user = game.userColor
   const replay = new Chess()
   const fens = [replay.fen()]
@@ -162,14 +167,29 @@ export async function reviewGame(game: ProfileGame, engine: ReviewEngine, opts: 
   // 1. Score every position exactly once (White's point of view). The score after a move is the
   //    score before the next one, so a game of n moves needs n + 1 searches, not 2n.
   await engine.newGame(2)          // two lines: the best move and the runner-up (how forcing was the position?)
-  const scores: PositionScore[] = []
+  // Finished positions (mate, stalemate, draws by repetition) are scored directly; the rest are searched.
+  const fixed: (PositionScore | null)[] = []
   const walk = new Chess()
   for (let k = 0; k <= moves.length; k++) {
-    if (signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
     if (k > 0) walk.move(moves[k - 1].san)
-    scores.push(terminalScore(walk) ?? await engine.analyse(fens[k], msPerPosition))
-    onProgress?.(k + 1, moves.length + 1)
+    fixed.push(terminalScore(walk))
   }
+  // Each engine takes one unbroken stretch of the game, so the position it searches next is
+  // close to the one before and its hash table is still useful.
+  const positions = moves.length + 1
+  const scores: PositionScore[] = new Array(positions)
+  const lanes = Math.max(1, Math.min(Math.floor(concurrency), positions))
+  const stretch = Math.ceil(positions / lanes)
+  let done = 0
+  let failed = false
+  await Promise.all(Array.from({ length: lanes }, async (_, lane) => {
+    for (let k = lane * stretch; k < Math.min(positions, (lane + 1) * stretch); k++) {
+      if (failed) return
+      if (signal?.aborted) { failed = true; throw new DOMException('Analysis cancelled', 'AbortError') }
+      try { scores[k] = fixed[k] ?? await engine.analyse(fens[k], msPerPosition, { depth, lane }) } catch (e) { failed = true; throw e }
+      onProgress?.(++done, positions)
+    }
+  }))
   // A healthy engine disagrees with itself from position to position. Identical scores all game long
   // mean no search result came back, and grading that would award a fake 100%.
   const searched = scores.filter((_, k) => !terminalScore(replayAt(moves, k)))

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Chess, type Color } from 'chess.js'
-import { StockfishClient } from '../stockfish'
+import { EnginePool, REVIEW_DEPTH, REVIEW_MAX_MS } from './enginePool'
 import { reviewGame } from './analysis'
 import { GameStudy } from './GameStudy'
 import { readProfile, saveProfile, type GameReview, type ProfileGame } from './store'
@@ -17,8 +17,6 @@ export interface PostGameInput {
   profileId?: string
 }
 
-/** Same strength as the profile's "Standard" depth, so a review made here is identical to one made there. */
-const MS_PER_POSITION = 200
 const cache = new Map<string, GameReview>()
 
 export function PostGameAnalysis({ input }: { input: PostGameInput }) {
@@ -38,10 +36,10 @@ export function PostGameAnalysis({ input }: { input: PostGameInput }) {
     const cached = cache.get(key)
     if (cached) { setReview(cached); return }
     const controller = new AbortController()
-    const engine = new StockfishClient()
+    const engine = new EnginePool()
     setReview(null); setError('')
     reviewGame(game, engine, {
-      signal: controller.signal, msPerPosition: MS_PER_POSITION,
+      signal: controller.signal, msPerPosition: REVIEW_MAX_MS, depth: REVIEW_DEPTH, concurrency: engine.size,
       onProgress: (done, total) => setProgress({ done, total }),
     }).then(r => {
       cache.set(key, r)
