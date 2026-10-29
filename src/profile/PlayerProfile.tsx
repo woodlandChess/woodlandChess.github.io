@@ -10,9 +10,9 @@ import { AXES, AXIS_HINT, AXIS_LABEL } from './players'
 import { GameStudy } from './GameStudy'
 import '../styles/profile.css'
 
-const MAX_PER_RUN = 30
+const MAX_PER_RUN = 100
 /** Most recent Lichess games fetched per import. */
-const IMPORT_COUNT = '50'
+const IMPORT_COUNT = '100'
 const SHOWN = 8
 
 interface Progress { game: number; of: number; done: number; total: number }
@@ -147,7 +147,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           {connected && <small className="profile-hint">Connected through Multiplayer</small>}
         </label>
       </div>
-      <p className="profile-privacy">Your last 50 Lichess games are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
+      <p className="profile-privacy">Your last 100 Lichess games are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
 
       {(busy || status) && !error && (
         <div className="profile-progress" role="status" aria-live="polite">
