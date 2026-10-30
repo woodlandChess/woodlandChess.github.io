@@ -1,0 +1,151 @@
+/* Woodland Chess - primary navigation: bottom tab bar on phones, floating dock on larger screens.
+   [ai] [multi] [home] [analyze] [learn]  (home is the raised seal in the middle).
+   Built from the Abyssal Liturgy tokens: hairline borders, one light source, slow liturgy easing. */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  height: var(--tab-h);
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: linear-gradient(to top, rgba(8, 9, 11, 0.99), rgba(8, 9, 11, 0.93));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  animation: tabbarIn 0.7s var(--ease-liturgy) backwards;
+}
+@keyframes tabbarIn { from { opacity: 0; transform: translateY(14px); } }
+
+/* ── sliding light: one hairline and a faint cone under the active tab ─── */
+.tabbar-indicator {
+  position: absolute;
+  top: -1px;
+  bottom: 0;
+  left: var(--safe-left);
+  width: calc((100% - var(--safe-left) - var(--safe-right)) / 5);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 0.6s var(--ease-liturgy);
+  pointer-events: none;
+}
+.tabbar-indicator::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 90% at 50% 0%, rgba(201, 207, 210, 0.10), transparent 72%);
+}
+.tabbar-indicator::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 30px;
+  height: 2px;
+  margin-left: -15px;
+  background: linear-gradient(90deg, transparent, var(--accent-bright), transparent);
+  box-shadow: 0 0 14px 1px rgba(201, 207, 210, 0.3);
+}
+
+/* ── tabs ──────────────────────────────────────────────────────────────── */
+.tab {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  padding-top: 0.55rem;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: color 0.3s var(--ease);
+}
+.tab-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  transition: transform 0.45s var(--ease-liturgy);
+}
+.tab-glyph { width: 22px; height: 22px; flex-shrink: 0; transition: color 0.3s var(--ease); }
+.tab-label { transition: transform 0.45s var(--ease-liturgy); }
+
+.tab:hover { color: var(--text-2); }
+.tab:active .tab-icon { transform: scale(0.9); }
+.tab[aria-current="page"] { color: var(--text); }
+.tab[aria-current="page"] .tab-glyph { color: var(--accent-bright); }
+.tab:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: -5px; border-radius: var(--radius-card); }
+
+/* ── the home seal: raised, ringed, quietly haloed when active ─────────── */
+.tab--home .tab-icon {
+  width: 46px;
+  height: 46px;
+  margin: -10px 0;
+  transform: translateY(-9px);
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1px solid var(--border-hover);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(214, 219, 222, 0.06);
+  transition: transform 0.45s var(--ease-liturgy), border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.tab--home .tab-glyph { width: 24px; height: 24px; }
+.tab--home:active .tab-icon { transform: translateY(-9px) scale(0.93); }
+.tab--home:hover .tab-icon { border-color: rgba(214, 219, 222, 0.3); }
+.tab--home[aria-current="page"] .tab-icon { border-color: var(--accent-bright); }
+.tab--home[aria-current="page"] .tab-icon::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 62%, rgba(201, 207, 210, 0.6) 86%, transparent 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  animation: sealOrbit 9s linear infinite;
+}
+@keyframes sealOrbit { to { transform: rotate(360deg); } }
+
+/* ── desktop: a floating dock, centred ─────────────────────────────────── */
+@media (min-width: 700px) {
+  .tabbar {
+    left: 50%;
+    right: auto;
+    width: min(30rem, calc(100% - 2rem));
+    height: 3.9rem;
+    bottom: max(1rem, var(--safe-bottom));
+    padding: 0;
+    transform: translateX(-50%);
+    border: 1px solid var(--border-hover);
+    border-radius: 16px;
+    box-shadow: var(--shadow-hover);
+    animation-name: dockIn;
+  }
+  .tabbar-indicator { left: 0; width: 20%; }
+  .tab { font-size: 0.72rem; padding-top: 0.6rem; }
+}
+@keyframes dockIn { from { opacity: 0; transform: translate(-50%, 14px); } }
+
+/* ── short landscape phones: icons only, lower bar ─────────────────────── */
+@media (max-height: 460px) and (orientation: landscape) and (max-width: 899px) {
+  :root { --tab-h: calc(2.9rem + var(--safe-bottom)); }
+  .tab { justify-content: center; padding-top: 0; }
+  .tab-label { display: none; }
+  .tab--home .tab-icon { width: 38px; height: 38px; margin: 0; transform: none; }
+  .tab--home:active .tab-icon { transform: scale(0.93); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabbar, .tabbar-indicator, .tab, .tab-icon, .tab-glyph { animation: none; transition: none; }
+  .tab--home[aria-current="page"] .tab-icon::before { animation: none; }
+}
