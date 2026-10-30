@@ -3,11 +3,14 @@ import { Chess, type Color, type Move, type Square } from 'chess.js'
 import { gameStatus, schoolWeights, type Difficulty } from './engine'
 import { schoolBookMove, schools, StockfishClient, type ChessSchool } from './stockfish'
 import { ChessBoard, PromotionModal } from './ChessBoard'
-import type { ModeId } from './components/ModeNav'
+import type { ModeId } from './routes'
+import { modeFromPath, pathForMode, MODE_TITLES } from './routes'
 import { HomeFrame } from './components/HomeFrame'
+import { MenuFallback } from './components/MenuFallback'
+import { HomePage } from './home/HomePage'
 import { Segmented, WeightBar } from './components/Controls'
 import { computerGameId, recordComputerGame } from './profile/store'
-import { GameResultDialog, GameScreen, OnlinePlay, PuzzleMode, PlayerProfile, warmUpWhenIdle } from './lazyModes'
+import { GameResultDialog, GameScreen, LearnPage, OnlinePlay, PuzzleMode, PlayerProfile, warmUpWhenIdle } from './lazyModes'
 import { sound, soundForMove, soundForOutcome, type Outcome } from './sound'
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
@@ -70,24 +73,24 @@ function Dropdown({ label, value, options, onChange }: {
 // ── App ───────────────────────────────────────────────────────────────────────
 export function App() {
   type Mode = ModeId
-  const modeFromPath = (path: string): Mode => path.replace(/\/$/, '') === '/puzzle' ? 'puzzle' : path.replace(/\/$/, '') === '/multiplayer' ? 'online' : path.replace(/\/$/, '') === '/profile' ? 'profile' : 'ai'
-  const pathForMode = (next: Mode) => next === 'puzzle' ? '/puzzle' : next === 'online' ? '/multiplayer' : next === 'profile' ? '/profile' : '/ai'
+  const base = import.meta.env.BASE_URL
   const [mode, setMode] = useState<Mode>(() => {
     if (new URLSearchParams(window.location.search).has('code') && sessionStorage.getItem('woodland-chess:oauth-return-path') === '/multiplayer') return 'online'
-    return modeFromPath(window.location.pathname)
+    return modeFromPath(window.location.pathname, base)
   })
 
   useEffect(() => { warmUpWhenIdle() }, [])
 
   useEffect(() => {
-    if (window.location.pathname === '/' && !window.location.search) window.history.replaceState({}, '', '/ai')
-    const onPopState = () => setMode(modeFromPath(window.location.pathname))
+    const onPopState = () => setMode(modeFromPath(window.location.pathname, base))
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  }, [base])
+
+  useEffect(() => { document.title = MODE_TITLES[mode] }, [mode])
 
   const navigateMode = (next: Mode) => {
-    window.history.pushState({}, '', pathForMode(next))
+    if (next !== mode || window.location.pathname !== pathForMode(next, base)) window.history.pushState({}, '', pathForMode(next, base))
     setMode(next)
   }
 
@@ -150,6 +153,13 @@ export function App() {
   }
 
   const over = game.isGameOver()
+
+  /** From Home or Learn: open the computer setup with a school already chosen. */
+  const playSchool = (next: ChessSchool) => {
+    setSchool(next)
+    setSetupOpen(true)
+    navigateMode('ai')
+  }
   useEffect(() => {
     if (!over || history.length < 2) return
     recordComputerGame({
@@ -197,18 +207,35 @@ export function App() {
 
   const trail = history.slice(-2).reverse().map(m => ({ from: m.from, to: m.to, color: m.color }))
 
-  // ── ONLINE MODE ────────────────────────────────────────────────────────────
-  // Hands off entirely to OnlinePlay, which owns its own connect/seek/game
-  // screens. Selecting "Back" there returns here with mode reset to 'ai'.
+  // ── OTHER TABS ─────────────────────────────────────────────────────────────
+  // Home, Online, Learn, Puzzles and Analyze each own their screens. The tab bar
+  // lives inside them, and MenuFallback keeps it on screen while a chunk loads.
+  const fallback = <MenuFallback mode={mode} onNavigate={navigateMode} />
+
+  if (mode === 'home') {
+    const inProgress = !setupOpen && !over && history.length > 0
+    return (
+      <HomePage
+        onNavigate={navigateMode}
+        onPlaySchool={playSchool}
+        resume={inProgress ? { moves: history.length } : null}
+      />
+    )
+  }
+
   if (mode === 'online') {
-    return <Suspense fallback={null}><OnlinePlay onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
+    return <Suspense fallback={fallback}><OnlinePlay onBack={() => navigateMode('home')} onNavigate={navigateMode} /></Suspense>
   }
 
   if (mode === 'puzzle') {
-    return <Suspense fallback={null}><PuzzleMode onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
+    return <Suspense fallback={fallback}><PuzzleMode onBack={() => navigateMode('learn')} onNavigate={navigateMode} /></Suspense>
   }
 
-  if (mode === 'profile') return <Suspense fallback={null}><PlayerProfile onBack={() => navigateMode('ai')} onNavigate={navigateMode} /></Suspense>
+  if (mode === 'learn') {
+    return <Suspense fallback={fallback}><LearnPage onNavigate={navigateMode} onPlaySchool={playSchool} /></Suspense>
+  }
+
+  if (mode === 'profile') return <Suspense fallback={fallback}><PlayerProfile onBack={() => navigateMode('home')} onNavigate={navigateMode} /></Suspense>
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
   const sideLabel = sideChoice === 'w' ? 'White' : sideChoice === 'b' ? 'Black' : 'Random side'

@@ -61,6 +61,40 @@ export function IconProfile(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+/** Home: a gatehouse: peaked roof, crenellation notch and an arched door. */
+export function IconHome(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 11.2 12 4l8.5 7.2" />
+      <path d="M6 9.6v10h12v-10" />
+      <path d="M9.8 19.6v-4.1a2.2 2.2 0 0 1 4.4 0v4.1" />
+      <path d="M10.6 9.2h2.8" />
+    </svg>
+  )
+}
+
+/** Analyze: a lens over an evaluation line. */
+export function IconAnalyze(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5.2 5.2" />
+      <path d="M7.4 12.9l2.1-2.5 1.6 1.3 2.4-3.1" />
+    </svg>
+  )
+}
+
+/** Learn: a mortarboard; its diamond echoes the board squares. */
+export function IconLearn(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 4.8 3 9.5l9 4.7 9-4.7-9-4.7z" />
+      <path d="M7 12.2v4.1c0 1.3 2.2 2.6 5 2.6s5-1.3 5-2.6v-4.1" />
+      <path d="M21 9.5v5.2" />
+    </svg>
+  )
+}
+
 /** Calendar — daily challenge. */
 export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   return (

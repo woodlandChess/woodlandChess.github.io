@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BrandMark } from './BrandMark'
 import { ModeNav, type ModeId } from './ModeNav'
+import { pathForMode } from '../routes'
 
 interface HomeFrameProps {
   mode: ModeId
@@ -20,8 +21,8 @@ interface HomeFrameProps {
 }
 
 /**
- * The shared frame for every menu-level screen: brand lockup, mode
- * navigation, intro block, content and action bar. Keeping this in one
+ * The shared frame for every menu-level screen: brand lockup, intro block,
+ * content and action bar, with the bottom tab bar pinned below. Keeping this in one
  * place is what makes Computer, Online and Puzzles feel like one product.
  */
 export function HomeFrame({
@@ -37,13 +38,17 @@ export function HomeFrame({
       >
         <div className="home-head">
           <div className="home-top">
-            <div className="brand">
+            <a className="brand" href={pathForMode('home', import.meta.env.BASE_URL)} aria-label="Woodland Chess, home"
+              onClick={e => {
+                if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                e.preventDefault()
+                onNavigate('home')
+              }}>
               <BrandMark />
               <span className="brand-name">Woodland Chess</span>
-            </div>
+            </a>
             {headExtra}
           </div>
-          <ModeNav current={mode} onSelect={onNavigate} />
         </div>
 
         <div className="home-intro">
@@ -56,6 +61,7 @@ export function HomeFrame({
 
         {actions && <div className="home-actions">{actions}</div>}
       </section>
+      <ModeNav current={mode} onSelect={onNavigate} />
     </main>
   )
 }
