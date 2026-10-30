@@ -18,6 +18,7 @@ export function PuzzleIntroScreen({ engine, soundEnabled, onNavigate, loadError 
       mode="puzzle"
       onNavigate={onNavigate}
       compact
+      fit
       titleId="puzzle-title"
       kicker="Tactics"
       title={<><span className="title-upright">Check</span><em>mate</em></>}

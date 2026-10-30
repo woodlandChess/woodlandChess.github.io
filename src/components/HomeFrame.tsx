@@ -13,6 +13,8 @@ interface HomeFrameProps {
   /** Single-column card (Online / Puzzle menus). Default is the wide two-column card. */
   compact?: boolean
   busy?: boolean
+  /** Phones: the whole screen fits the viewport with no scrolling (short menus like Puzzles). */
+  fit?: boolean
   /** Small control shown opposite the brand (e.g. a sound toggle). */
   headExtra?: ReactNode
   /** Pinned action bar: thumb-zone on phones, footer row on larger screens. */
@@ -27,12 +29,12 @@ interface HomeFrameProps {
  */
 export function HomeFrame({
   mode, onNavigate, kicker, title, titleId = 'home-title', copy,
-  compact = false, busy = false, headExtra, actions, children,
+  compact = false, busy = false, fit = false, headExtra, actions, children,
 }: HomeFrameProps) {
   return (
-    <main className="setup-shell setup-shell--home">
+    <main className={`setup-shell setup-shell--home${fit ? ' setup-shell--fit' : ''}`}>
       <section
-        className={`setup-card setup-card--home${compact ? ' setup-card--compact' : ''}`}
+        className={`setup-card setup-card--home${compact ? ' setup-card--compact' : ''}${fit ? ' setup-card--fit' : ''}`}
         aria-labelledby={titleId}
         aria-busy={busy || undefined}
       >

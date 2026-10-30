@@ -8,10 +8,10 @@ export type { ModeId } from '../routes'
 
 type TabId = Exclude<ModeId, 'puzzle'>
 
-/** Left to right: [ai][multi][home][analyze][learn]. Home sits in the middle. */
+/** Left to right: [ai][multiplayer][home][analyze][learn]. Home sits in the middle. */
 const tabs: { id: TabId; label: string; full: string; Icon: typeof IconHome }[] = [
   { id: 'ai',      label: 'AI',      full: 'Play the computer',   Icon: IconComputer },
-  { id: 'online',  label: 'Multi',   full: 'Play online',         Icon: IconOnline },
+  { id: 'online',  label: 'Multiplayer', full: 'Multiplayer',         Icon: IconOnline },
   { id: 'home',    label: 'Home',    full: 'Home',                Icon: IconHome },
   { id: 'profile', label: 'Analyze', full: 'Analyze your games',  Icon: IconAnalyze },
   { id: 'learn',   label: 'Learn',   full: 'Learn and practice',  Icon: IconLearn },

@@ -1819,3 +1819,26 @@ html.is-standalone .setup-card--home .home-intro { margin-top: 0.9rem; margin-bo
   .seg-opt:has(input:focus-visible) .seg-face,
   .tc-opt input:focus-visible + .tc-face { outline: none !important; }
 }
+
+/* ── fit-to-screen menus on phones (Puzzles): no scrolling ─────────────────── */
+@media (max-width: 699.98px) {
+  .setup-shell--fit { overflow: hidden; }
+  .setup-card--fit { height: 100dvh; min-height: 0; padding-bottom: calc(5.2rem + var(--tab-h)); overflow: hidden; }
+  .setup-card--fit .home-intro { margin: 0.7rem 0 0.6rem; }
+  .setup-card--fit .home-body { padding-bottom: 0.7rem; }
+  .setup-card--fit .home-hint { display: none; }
+  .setup-card--fit .feature-list { gap: 0.4rem; }
+  .setup-card--fit .feature-list li { padding-block: 0.5rem; }
+}
+@media (max-width: 699.98px) and (max-height: 780px) {
+  .setup-card--fit .setup-copy { display: none; }
+}
+@media (max-width: 699.98px) and (max-height: 700px) {
+  .setup-card--fit .feature-list span { display: none; }
+  .setup-card--fit .home-intro { margin: 0.5rem 0; }
+}
+@media (max-width: 699.98px) and (max-height: 700px) {
+  .setup-card--fit .home-body { display: block; }
+  .setup-card--fit .feature-list li:nth-child(n + 3) { display: grid; }
+  .setup-card--fit .feature-list li { padding-block: 0.4rem; }
+}
