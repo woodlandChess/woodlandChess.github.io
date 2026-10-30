@@ -9,9 +9,9 @@
   "background_color": "#08090b",
   "theme_color": "#08090b",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "icons/trident-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/trident-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/trident-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/trident.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }
