@@ -31,7 +31,7 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - var(--tab-h) + 1.2rem);
+  min-height: calc(100dvh - var(--tab-h));
   overflow: hidden;
 }
 
@@ -62,7 +62,7 @@
   position: relative;
   z-index: 2;
   margin-top: -3.2rem;
-  padding: 0 var(--hm-pad-r) 1.6rem var(--hm-pad);
+  padding: 0 var(--hm-pad-r) 2.6rem var(--hm-pad);   /* clears the raised Home seal */
 }
 
 .hm-kicker {

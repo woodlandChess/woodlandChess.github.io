@@ -83,7 +83,7 @@ function SoundButton() {
 
 const ways: { id: Exclude<ModeId, 'home' | 'puzzle'>; no: string; title: string; copy: string; meta: string; Icon: typeof IconComputer }[] = [
   { id: 'ai',      no: '01', title: 'Computer', copy: 'Face Stockfish 18 across ten playing schools and three strengths.', meta: 'On your device', Icon: IconComputer },
-  { id: 'online',  no: '02', title: 'Multi',    copy: 'Seek real opponents through your Lichess account.',                  meta: 'Lichess',        Icon: IconOnline },
+  { id: 'online',  no: '02', title: 'Multiplayer', copy: 'Seek real opponents through your Lichess account.',                  meta: 'Lichess',        Icon: IconOnline },
   { id: 'profile', no: '03', title: 'Analyze',  copy: 'Review your games move by move and see how your style reads.',       meta: 'Private',        Icon: IconAnalyze },
   { id: 'learn',   no: '04', title: 'Learn',    copy: 'Rated puzzles, tactic motifs and every school, explained.',          meta: 'Puzzles · Motifs', Icon: IconLearn },
 ]
@@ -197,8 +197,8 @@ export function HomePage({ onNavigate, onPlaySchool, resume }: HomePageProps) {
         <ul className="hm-stats" ref={statsRef}>
           <Stat value={schoolList.length} label="Playing schools" run={statsSeen} />
           <Stat value={3} label="Strength tiers" run={statsSeen} />
+          <Stat value={MOTIFS.length} label="Tactic lessons" run={statsSeen} />
           <Stat value={18} label="Stockfish version" run={statsSeen} />
-          <Stat value={0} label="Accounts to play the computer" run={statsSeen} />
         </ul>
       </section>
 
