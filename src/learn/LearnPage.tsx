@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Chess } from 'chess.js'
 import { HomeFrame } from '../components/HomeFrame'
 import { IconCalendar, IconPuzzle } from '../components/ModeIcons'
@@ -98,6 +98,8 @@ export function LearnPage({ onNavigate, onPlaySchool }: {
   onPlaySchool: (school: ChessSchool) => void
 }) {
   const [tab, setTabState] = useState<TabId>(readTab)
+  const [reading, setReading] = useState(false)
+  const onReadingChange = useCallback((r: boolean) => setReading(r), [])
   const refs = useRef<Record<TabId, HTMLButtonElement | null>>({ tactics: null, strategy: null, lore: null })
 
   const setTab = (next: TabId) => {
@@ -127,7 +129,8 @@ export function LearnPage({ onNavigate, onPlaySchool }: {
       copy="Tactics to sharpen your play, strategy to guide it, and the stories and science behind the game."
     >
       <div className="ln">
-        <div className="ln-tabs" role="tablist" aria-label="Learn sections" onKeyDown={onKey}>
+        <div className="ln-stick" hidden={reading}>
+         <div className="ln-tabs" role="tablist" aria-label="Learn sections" onKeyDown={onKey}>
           {TABS.map(t => (
             <button key={t.id} type="button" role="tab" id={`ln-tab-${t.id}`} aria-selected={tab === t.id}
               aria-controls={`ln-panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
@@ -135,12 +138,13 @@ export function LearnPage({ onNavigate, onPlaySchool }: {
               {t.label}
             </button>
           ))}
+         </div>
         </div>
 
         <div role="tabpanel" id={`ln-panel-${tab}`} aria-labelledby={`ln-tab-${tab}`} className="ln-panel">
           {tab === 'tactics' && <TacticsTab onNavigate={onNavigate} />}
           {tab === 'strategy' && <StrategyTab />}
-          {tab === 'lore' && <LoreTab onPlaySchool={onPlaySchool} />}
+          {tab === 'lore' && <LoreTab onPlaySchool={onPlaySchool} onReadingChange={onReadingChange} />}
         </div>
       </div>
     </HomeFrame>
