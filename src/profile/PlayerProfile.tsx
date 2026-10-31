@@ -117,6 +117,16 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
   }
 
   const stop = () => runRef.current?.abort()
+
+  // One action for the whole job: fetch the newest Lichess games, then review whatever is not reviewed yet.
+  // Without a username it still reviews saved games (for example ones played against the computer).
+  const accountName = (connected || username).trim()
+  async function sync() {
+    if (accountName) return importAndAnalyze()
+    if (pending) return analyze(data.games)
+    setError('Enter a Lichess username to import public games.')
+  }
+  const syncLabel = !accountName && pending ? `Analyze ${Math.min(pending, MAX_PER_RUN)} games` : 'Import & analyze'
   const shown = showAll ? data.games : data.games.slice(0, SHOWN)
   const pct = progress ? Math.round(((progress.game - 1 + progress.done / progress.total) / progress.of) * 100) : 0
 
@@ -126,16 +136,9 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
       kicker="Player profile" title="Your style, from your own games"
       copy="Games are reviewed by Stockfish on your device. The result is an estimate that sharpens with every game."
       actions={
-        <>
-          <button type="button" className="begin-game" onClick={importAndAnalyze} disabled={busy}>
-            {busy ? 'Working…' : 'Import & analyze'}
-          </button>
-          {busy
-            ? <button type="button" className="btn-ghost" onClick={stop}>Stop</button>
-            : <button type="button" className="btn-ghost" onClick={() => analyze(data.games)} disabled={!pending}>
-                {pending ? `Analyze ${Math.min(pending, MAX_PER_RUN)} new` : 'Up to date'}
-              </button>}
-        </>
+        <button type="button" className={busy ? 'btn-ghost' : 'begin-game'} onClick={busy ? stop : sync}>
+          {busy ? 'Stop' : syncLabel}
+        </button>
       }
     >
       <div className="profile-controls">
@@ -143,9 +146,14 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           <span className="field-label">Lichess account</span>
           <input className="profile-input" value={username} readOnly={!!connected} disabled={busy}
             onChange={e => setUsername(e.target.value)} placeholder="username" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            onKeyDown={e => { if (e.key === 'Enter' && !busy) importAndAnalyze() }} />
+            onKeyDown={e => { if (e.key === 'Enter' && !busy) void sync() }} />
           {connected && <small className="profile-hint">Connected through Multiplayer</small>}
         </label>
+        {data.games.length > 0 && (
+          <small className="profile-hint" aria-live="polite">
+            {pending ? `${pending} saved ${pending === 1 ? 'game is' : 'games are'} waiting for review.` : 'All saved games are reviewed.'}
+          </small>
+        )}
       </div>
       <p className="profile-privacy">Your last 100 Lichess games are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
 
