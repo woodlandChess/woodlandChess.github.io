@@ -178,20 +178,19 @@
    Fully opaque on purpose: no translucency or blur, so text never ghosts through while scrolling. */
 .ln-stick {
   position: sticky;
-  top: var(--safe-top);
+  top: var(--app-top);   /* below iOS's blurred status-bar edge zone in the installed app */
   z-index: 6;
   margin: 0 calc(-1 * var(--home-pad-r)) 0 calc(-1 * var(--home-pad-x));
   padding: 0.45rem var(--home-pad-r) 0.65rem var(--home-pad-x);
   background: #08090b;
-  box-shadow: 0 12px 12px -10px #08090b;
+  border-bottom: 1px solid var(--border);   /* crisp edge, no soft shadow */
 }
 .ln-stick[hidden] { display: none; }
-/* solid strip over the status bar area in the installed app */
-.ln-stick::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--safe-top); background: #08090b; }
+/* solid strip above the bar: scrolled text disappears under it, so the iOS edge blur has nothing to smear */
+.ln-stick::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--app-top); background: #08090b; }
 .ln-articlebar { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
 .ln-articlebar .ln-back { flex-shrink: 0; }
 .ln-bartitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-style: italic; font-size: 1.05rem; color: var(--text-2); }
 @media (min-width: 700px) {
   .ln-stick, .ln-stick::before { background: var(--bg-2); }
-  .ln-stick { box-shadow: 0 12px 12px -10px var(--bg-2); }
 }
