@@ -243,7 +243,7 @@ export function HomePage({ onNavigate, onPlaySchool, resume }: HomePageProps) {
       {/* ── puzzle teaser ────────────────────────────────────────────────── */}
       <Reveal as="section" className="hm-section hm-puzzle" aria-labelledby="hm-puzzle-t">
         <div className="hm-puzzle-board">
-          <MiniBoard fen={teaser.fen} marks={{ g8: 'target' }} arrows={[['a1', 'a8']]} label="White to move: rook on a1, black king on g8 behind its pawns" />
+          <MiniBoard fen={teaser.fen!} marks={{ g8: 'target' }} arrows={[['a1', 'a8']]} label="White to move: rook on a1, black king on g8 behind its pawns" />
         </div>
         <div className="hm-puzzle-copy">
           <span className="hm-eyebrow">Tactics</span>
