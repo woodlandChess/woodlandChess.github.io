@@ -11,6 +11,7 @@ export type Block =
   | { t: 'note'; text: string }
   | { t: 'table'; head: string[]; rows: string[][] }
   | { t: 'widget'; id: LoreWidget }
+  | { t: 'board'; fen: string; caption: string; marks?: Record<string, 'target' | 'from' | 'to' | 'pinned'>; arrows?: [string, string][] }
 
 export interface Article {
   id: string
@@ -351,7 +352,7 @@ export const LORE: Article[] = [
     "id": "players",
     "topic": "Players",
     "title": "Great players and what they changed",
-    "summary": "From the first world champion to the engine era: ten names and the ideas they gave the game.",
+    "summary": "From Philidor to Carlsen: twenty masters and the ideas they gave the game.",
     "blocks": [
       {
         "t": "p",
@@ -366,6 +367,16 @@ export const LORE: Article[] = [
         ],
         "rows": [
           [
+            "François-André Philidor",
+            "1726 to 1795",
+            "The strongest player of his century. He taught that pawns shape the game and used the pawn chain as a weapon."
+          ],
+          [
+            "Adolf Anderssen",
+            "1818 to 1879",
+            "Romantic master of the Immortal and Evergreen games. A model of imaginative sacrifices."
+          ],
+          [
             "Paul Morphy",
             "1837 to 1884",
             "American prodigy who beat the best players in Europe in 1858 and 1859. He showed the power of fast development and open lines, and retired young."
@@ -374,6 +385,11 @@ export const LORE: Article[] = [
             "Wilhelm Steinitz",
             "1836 to 1900",
             "First official World Champion (1886). He proved that quiet advantages in structure and space win games."
+          ],
+          [
+            "Siegbert Tarrasch",
+            "1862 to 1934",
+            "Teacher of the classical rules: development, mobility, and rooks behind passed pawns."
           ],
           [
             "Emanuel Lasker",
@@ -386,9 +402,29 @@ export const LORE: Article[] = [
             "World Champion from 1921 to 1927. Famous for clean, almost effortless technique, especially in endgames."
           ],
           [
+            "Richard Réti",
+            "1889 to 1929",
+            "Hypermodern pioneer who attacked the centre from a distance. Author of Modern Ideas in Chess."
+          ],
+          [
+            "Aron Nimzowitsch",
+            "1886 to 1935",
+            "Author of My System (1925): prophylaxis, blockade and overprotection."
+          ],
+          [
+            "Alexander Alekhine",
+            "1892 to 1946",
+            "World Champion 1927 to 1935 and 1937 to 1946. Brilliant combinations and deep preparation."
+          ],
+          [
             "Mikhail Botvinnik",
             "1911 to 1995",
             "Three-time World Champion who built the Soviet school of serious, scientific preparation."
+          ],
+          [
+            "Vasily Smyslov",
+            "1921 to 2010",
+            "World Champion 1957 to 1958. Famous for harmony between the pieces and endgame technique."
           ],
           [
             "Mikhail Tal",
@@ -396,14 +432,29 @@ export const LORE: Article[] = [
             "\"The Magician from Riga\". He became World Champion at 23 (1960) with fearless, complicated attacking play."
           ],
           [
+            "Tigran Petrosian",
+            "1929 to 1984",
+            "World Champion 1963 to 1969. The master of prophylaxis and the exchange sacrifice."
+          ],
+          [
             "Bobby Fischer",
             "1943 to 2008",
             "World Champion in 1972. He combined deep opening preparation, clarity and relentless will to win."
           ],
           [
+            "Anatoly Karpov",
+            "born 1951",
+            "World Champion 1975 to 1985. The great squeezer, who restricted opponents until they ran out of moves."
+          ],
+          [
             "Garry Kasparov",
             "born 1963",
             "World Champion from 1985 to 2000 and the highest-rated player for two decades. Dynamic play and heavy preparation."
+          ],
+          [
+            "Viswanathan Anand",
+            "born 1969",
+            "World Champion 2007 to 2013. Lightning calculation and a universal style."
           ],
           [
             "Judit Polgár",
@@ -796,6 +847,7 @@ export function readingMinutes(article: Article): number {
   const words = article.blocks.reduce((n, b) => {
     if (b.t === 'p' || b.t === 'h' || b.t === 'note') return n + b.text.split(/\s+/).length
     if (b.t === 'ul') return n + b.items.join(' ').split(/\s+/).length
+    if (b.t === 'board') return n + 20
     if (b.t === 'table') return n + b.head.join(' ').split(/\s+/).length + b.rows.flat().join(' ').split(/\s+/).length
     return n + 60
   }, 0)
