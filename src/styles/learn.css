@@ -109,7 +109,7 @@
 
 .ln-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-3); -webkit-overflow-scrolling: touch; }
 .ln-table-wrap:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: 2px; }
-.ln-table { width: 100%; min-width: 26rem; border-collapse: collapse; font-size: 0.8rem; text-align: left; }
+.ln-table { width: 100%; min-width: 0; border-collapse: collapse; font-size: 0.8rem; text-align: left; }
 .ln-table th, .ln-table td { padding: 0.7rem 0.85rem; vertical-align: top; border-bottom: 1px solid var(--border); line-height: 1.55; }
 .ln-table tbody tr:last-child > * { border-bottom: 0; }
 .ln-table thead th { font-family: var(--font-mono); font-size: 0.56rem; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
@@ -193,4 +193,33 @@
 .ln-bartitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-style: italic; font-size: 1.05rem; color: var(--text-2); }
 @media (min-width: 700px) {
   .ln-stick, .ln-stick::before { background: var(--bg-2); }
+}
+
+/* ── no sideways scrolling on phones: tables become stacked cards ───────────
+   Each row turns into a small card. The first column is the card title and every other
+   cell shows its column name from the data-label attribute. */
+.ln, .ln-article, .ln-p, .ln-ul li, .ln-callout, .ln-detail, .ln-idea, .ln-result, .ln-lede, .ln-widget { overflow-wrap: anywhere; }
+.ln-table-wrap { overflow-x: visible; border: 0; background: transparent; }
+@media (max-width: 699.98px) {
+  .ln-table, .ln-table tbody, .ln-table tr, .ln-table th, .ln-table td { display: block; width: 100%; min-width: 0; }
+  .ln-table-wrap { position: relative; overflow: hidden; }
+  .ln-table thead, .ln-table thead tr, .ln-table thead th { position: absolute; display: block; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); }
+  .ln-table tbody { display: grid; gap: 0.6rem; }
+  .ln-table tr { padding: 0.8rem 0.9rem; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  .ln-table th, .ln-table td { padding: 0; border: 0; }
+  .ln-table tbody th { white-space: normal; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 1.15rem; line-height: 1.2; margin-bottom: 0.35rem; }
+  .ln-table td { display: grid; grid-template-columns: minmax(5.2rem, 32%) 1fr; gap: 0.7rem; padding: 0.35rem 0; border-top: 1px solid var(--border); font-size: 0.8rem; }
+  .ln-table td::before { content: attr(data-label); font-family: var(--font-mono); font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); padding-top: 0.15rem; }
+}
+@media (max-width: 699.98px) {
+  /* two-column tables read better as compact label and value rows than as tall cards */
+  .ln-table--pair tbody { gap: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-3); }
+  .ln-table--pair tr { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 1rem; padding: 0.6rem 0.9rem; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+  .ln-table--pair tr:last-child { border-bottom: 0; }
+  .ln-table--pair tbody th { margin: 0; font-family: var(--font-mono); font-style: normal; font-size: 0.85rem; }
+  .ln-table--pair td { display: block; padding: 0; border: 0; text-align: right; font-size: 0.9rem; color: var(--text); }
+  .ln-table--pair td::before { display: none; }
+}
+@media (min-width: 700px) {
+  .ln-table-wrap { overflow-x: auto; border: 1px solid var(--border); background: var(--bg-3); }
 }

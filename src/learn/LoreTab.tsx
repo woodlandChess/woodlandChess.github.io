@@ -13,11 +13,11 @@ function Blocks({ blocks, onPlaySchool }: { blocks: Block[]; onPlaySchool: (s: C
           case 'ul': return <ul key={i} className="ln-ul">{b.items.map(t => <li key={t}>{t}</li>)}</ul>
           case 'note': return <p key={i} className="ln-callout">{b.text}</p>
           case 'table': return (
-            <div key={i} className="ln-table-wrap" tabIndex={0} role="region" aria-label="Table, scrolls sideways on small screens">
-              <table className="ln-table">
+            <div key={i} className="ln-table-wrap">
+              <table className={`ln-table${b.head.length === 2 ? ' ln-table--pair' : ''}`}>
                 <thead><tr>{b.head.map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
                 <tbody>{b.rows.map((r, ri) => (
-                  <tr key={ri}>{r.map((c, ci) => ci === 0 ? <th key={ci} scope="row">{c}</th> : <td key={ci}>{c}</td>)}</tr>
+                  <tr key={ri}>{r.map((c, ci) => ci === 0 ? <th key={ci} scope="row">{c}</th> : <td key={ci} data-label={b.head[ci]}>{c}</td>)}</tr>
                 ))}</tbody>
               </table>
             </div>
