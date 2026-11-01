@@ -377,7 +377,7 @@
   .hm-title { font-size: clamp(4.6rem, 7.4vw, 7.2rem); }
   .hm-lede { font-size: 1.02rem; max-width: 36ch; }
   .hm-cta { margin-top: 2rem; }
-  .hm-btn--primary { flex: 0 0 auto; }
+  .hm-btn--primary, .hm-hero .hm-btn--primary { flex: 0 0 auto; }
   .hm-scroll {
     display: inline-flex;
     align-items: center;
