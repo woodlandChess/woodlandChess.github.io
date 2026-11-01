@@ -3,7 +3,7 @@
    so reduced motion, or no animation support at all, still shows a finished picture. */
 
 .hv { display: block; width: 100%; height: 100%; overflow: visible; }
-.hv-sq, .hv-spin, .hv-mist, .hv-knight, .hv-shadow, .hv-spec, .hv-ripple, .hv-mote, .hv-sway {
+.hv-sq, .hv-spin, .hv-mist, .hv-ripple, .hv-contact, .hv-mote, .hv-sway, .hv-tip {
   /* Only elements that animate get a fill-box origin: the groups that carry a transform
      attribute (halo, knight scale) must keep SVG's default origin or they would shift. */
   transform-box: fill-box;
@@ -53,43 +53,39 @@
 .hv-sq--d { fill: rgba(13, 16, 19, 0.92); }
 @keyframes hvTile { from { opacity: 0; transform: scale(0.72); } }
 
-/* ── the move ───────────────────────────────────────────────────────────── */
-.hv-move { animation: hvFade 1.6s var(--ease-liturgy) 2.4s backwards; }
-.hv-from { fill: rgba(201, 207, 210, 0.07); stroke: rgba(201, 207, 210, 0.3); stroke-width: 0.8; }
-.hv-to { fill: rgba(201, 207, 210, 0.1); stroke: rgba(201, 207, 210, 0.5); stroke-width: 1; animation: hvTarget 6s ease-in-out 3.2s infinite; }
-.hv-path { fill: none; stroke: rgba(201, 207, 210, 0.38); stroke-width: 1.3; stroke-dasharray: 2 6; stroke-linecap: round; stroke-linejoin: round; }
-.hv-comet { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
-  stroke-dasharray: 7 100; stroke-dashoffset: 7; opacity: 0; animation: hvComet 6s cubic-bezier(0.45, 0, 0.2, 1) 3.2s infinite; }
-.hv-comet--glow { stroke: rgba(201, 207, 210, 0.5); stroke-width: 9; stroke-dasharray: 9 100; }
-.hv-ripple { fill: none; stroke: var(--accent-bright); stroke-width: 1; opacity: 0; animation: hvRipple 6s ease-out 3.2s infinite; }
-.hv-tag { fill: var(--accent); font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.18em; opacity: 0.85; }
+/* ── the trident ────────────────────────────────────────────────────────── */
+.hv-rise { animation: hvRise 2.4s var(--ease-liturgy) 0.5s backwards; }
+@keyframes hvRise { from { transform: translateY(18px); } }
 
-@keyframes hvComet {
-  0%   { stroke-dashoffset: 7;   opacity: 0; }
-  6%   { opacity: 1; }
-  58%  { stroke-dashoffset: -93; opacity: 1; }
-  66%  { stroke-dashoffset: -100; opacity: 0; }
-  100% { stroke-dashoffset: -100; opacity: 0; }
+/* 1. the rim light is drawn first, foot to tips, one stroke after another */
+.hv-edge path {
+  stroke-dasharray: 100;
+  animation: hvDraw 1.3s cubic-bezier(0.5, 0, 0.2, 1) calc(0.7s + var(--i, 0) * 0.32s) backwards;
 }
-@keyframes hvTarget {
-  0%, 52%, 100% { fill: rgba(201, 207, 210, 0.1); stroke: rgba(201, 207, 210, 0.5); }
-  60% { fill: rgba(201, 207, 210, 0.3); stroke: rgba(230, 227, 218, 0.95); }
-  80% { fill: rgba(201, 207, 210, 0.14); stroke: rgba(201, 207, 210, 0.6); }
-}
+@keyframes hvDraw { from { stroke-dashoffset: 100; opacity: 0.2; } }
+
+/* 2. the body fades in beneath the line */
+.hv-body { animation: hvFade 1.8s var(--ease-liturgy) 2s backwards; }
+.hv-aura { opacity: 0.04; animation: hvFade 2.4s var(--ease-liturgy) 2.4s backwards, hvAura 7s ease-in-out 4.8s infinite alternate; }
+@keyframes hvAura { from { opacity: 0.04; } to { opacity: 0.1; } }
+
+/* 3. the tips ignite one after another, then breathe */
+.hv-tip { animation: hvIgnite 1.6s var(--ease-liturgy) calc(2.9s + var(--t, 0) * 0.35s) backwards, hvBreathe 5.5s ease-in-out calc(4.6s + var(--t, 0) * 0.9s) infinite alternate; }
+@keyframes hvIgnite { from { opacity: 0; transform: scale(0.2); } 40% { opacity: 1; transform: scale(1.6); } }
+
+/* 4. a slow specular pass across the metal */
+.hv-spec { animation: hvSpec 9s cubic-bezier(0.4, 0, 0.2, 1) 4s infinite; }
+@keyframes hvSpec { 0% { transform: translateX(0); } 38%, 100% { transform: translateX(58px); } }
+
+/* ── water: ripples travelling over the board ───────────────────────────── */
+.hv-ripples { animation: hvFade 2s var(--ease-liturgy) 3s backwards; }
+.hv-contact { fill: none; stroke: rgba(230, 227, 218, 0.5); stroke-width: 1; }
+.hv-ripple { fill: none; stroke: rgba(214, 219, 222, 0.42); stroke-width: 1; opacity: 0; animation: hvRipple 6.4s ease-out infinite; }
 @keyframes hvRipple {
-  0%, 56% { transform: scale(0.4); opacity: 0; }
-  60% { opacity: 0.75; }
-  92%, 100% { transform: scale(1.9); opacity: 0; }
+  0% { transform: scale(0.14); opacity: 0; }
+  12% { opacity: 0.8; }
+  100% { transform: scale(1); opacity: 0; }
 }
-
-/* ── the knight ─────────────────────────────────────────────────────────── */
-.hv-knight { animation: hvRise 1.8s var(--ease-liturgy) 0.6s backwards, hvFloat 9s ease-in-out 2.4s infinite alternate; }
-@keyframes hvRise { from { opacity: 0; transform: translateY(34px); } }
-@keyframes hvFloat { from { transform: translateY(0); } to { transform: translateY(-9px); } }
-.hv-shadow { animation: hvFade 1.8s var(--ease-liturgy) 0.6s backwards, hvShadow 9s ease-in-out 2.4s infinite alternate; }
-@keyframes hvShadow { from { transform: scale(1); opacity: 1; } to { transform: scale(0.9); opacity: 0.8; } }
-.hv-spec { animation: hvSpec 10s cubic-bezier(0.4, 0, 0.2, 1) 3.4s infinite; }
-@keyframes hvSpec { 0% { transform: translateX(0); } 36%, 100% { transform: translateX(62px); } }
 
 /* ── dust ───────────────────────────────────────────────────────────────── */
 .hv-mote { fill: var(--text); opacity: 0; animation: hvMote linear infinite; }
@@ -105,6 +101,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hv * { animation: none !important; }
-  .hv-comet, .hv-ripple { display: none; }
+  .hv-ripple { display: none; }
   .hv-mote { opacity: 0.35; }
 }

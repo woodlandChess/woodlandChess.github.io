@@ -82,10 +82,10 @@ function SoundButton() {
 }
 
 const ways: { id: Exclude<ModeId, 'home' | 'puzzle'>; no: string; title: string; copy: string; meta: string; Icon: typeof IconComputer }[] = [
-  { id: 'ai',      no: '01', title: 'Computer', copy: 'Face Stockfish 18 across ten playing schools and three strengths.', meta: 'On your device', Icon: IconComputer },
-  { id: 'online',  no: '02', title: 'Multiplayer', copy: 'Seek real opponents through your Lichess account.',                  meta: 'Lichess',        Icon: IconOnline },
-  { id: 'profile', no: '03', title: 'Analyze',  copy: 'Review your games move by move and see how your style reads.',       meta: 'Private',        Icon: IconAnalyze },
-  { id: 'learn',   no: '04', title: 'Learn',    copy: 'Puzzles, tactics and mates, strategy guides and the story of chess.', meta: 'Tactics · Strategy · Lore', Icon: IconLearn },
+  { id: 'online',  no: '01', title: 'Multiplayer', copy: 'Seek real opponents through your Lichess account.',                  meta: 'Lichess',        Icon: IconOnline },
+  { id: 'ai',      no: '02', title: 'Computer',    copy: 'Face Stockfish 18 across ten playing schools and three strengths.', meta: 'On your device', Icon: IconComputer },
+  { id: 'profile', no: '03', title: 'Analyze',     copy: 'Review your games move by move and see how your style reads.',       meta: 'Private',        Icon: IconAnalyze },
+  { id: 'learn',   no: '04', title: 'Learn',       copy: 'Puzzles, tactics and mates, strategy guides and the story of chess.', meta: 'Tactics · Strategy · Lore', Icon: IconLearn },
 ]
 
 /** A link that behaves like a button inside the SPA but stays a real anchor. */
@@ -151,15 +151,16 @@ export function HomePage({ onNavigate, onPlaySchool, resume }: HomePageProps) {
             <em className="hm-in" style={{ '--d': '0.5s' } as CSSProperties}>intent.</em>
           </h1>
           <p className="hm-lede hm-in" style={{ '--d': '0.75s' } as CSSProperties}>
-            Stockfish on your device, real opponents on Lichess, rated tactics and a review of your own games. One quiet, dark board.
+            Real opponents on Lichess, Stockfish on your device, rated tactics and a review of your own games. One quiet, dark board.
           </p>
           <div className="hm-cta hm-in" style={{ '--d': '0.95s' } as CSSProperties}>
-            <a className="hm-btn hm-btn--primary" href={pathForMode('ai', import.meta.env.BASE_URL)} onClick={go('ai')}>
-              <span>{resume ? 'Resume game' : 'Play the computer'}</span>
-              {resume && <small>Move {Math.ceil(resume.moves / 2)}</small>}
+            <a className="hm-btn hm-btn--primary" href={pathForMode('online', import.meta.env.BASE_URL)} onClick={go('online')}>
+              <span>Play multiplayer</span>
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" /></svg>
             </a>
-            <a className="hm-btn" href={pathForMode('online', import.meta.env.BASE_URL)} onClick={go('online')}>Play online</a>
+            <a className="hm-btn" href={pathForMode('ai', import.meta.env.BASE_URL)} onClick={go('ai')}>
+              {resume ? 'Resume game' : 'Play vs AI'}
+            </a>
           </div>
           <a className="hm-scroll hm-in" style={{ '--d': '1.3s' } as CSSProperties} href="#hm-ways"
             onClick={e => { e.preventDefault(); document.getElementById('hm-ways')?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }) }}>
