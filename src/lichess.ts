@@ -12,6 +12,8 @@
 //
 // Docs: https://lichess.org/api#tag/Board
 
+import { LichessHttpError } from './connection'
+
 const CLIENT_ID = 'woodland-chess'
 const AUTH_URL  = 'https://lichess.org/oauth'
 const TOKEN_URL = 'https://lichess.org/api/token'
@@ -268,7 +270,7 @@ export class LichessClient {
 
   async getProfile(): Promise<LichessProfile> {
     const res = await fetch(`${API_BASE}/api/account`, { headers: this.headers() })
-    if (!res.ok) throw new Error('Failed to load Lichess profile')
+    if (!res.ok) throw new LichessHttpError('Failed to load Lichess profile', res.status)
     return res.json()
   }
 
@@ -276,7 +278,7 @@ export class LichessClient {
   streamEvents(signal?: AbortSignal, onActivity?: () => void) {
     return (async function* (this: LichessClient) {
       const res = await fetch(`${API_BASE}/api/stream/event`, { headers: this.headers(), signal })
-      if (!res.ok) throw new Error('Failed to open event stream')
+      if (!res.ok) throw new LichessHttpError('Failed to open event stream', res.status)
       onActivity?.()
       yield* readNDJSON(res, signal, onActivity)
     }).call(this)
@@ -317,7 +319,7 @@ export class LichessClient {
   streamGame(gameId: string, signal?: AbortSignal, onActivity?: () => void) {
     return (async function* (this: LichessClient) {
       const res = await fetch(`${API_BASE}/api/board/game/stream/${gameId}`, { headers: this.headers(), signal })
-      if (!res.ok) throw new Error('Failed to open game stream')
+      if (!res.ok) throw new LichessHttpError('Failed to open game stream', res.status)
       onActivity?.()
       yield* readNDJSON(res, signal, onActivity)
     }).call(this)
@@ -345,7 +347,7 @@ export class LichessClient {
   /** Your games in progress (a game can outlive the page that started it). */
   async getOngoingGames(): Promise<OngoingGame[]> {
     const res = await fetch(`${API_BASE}/api/account/playing`, { headers: this.headers() })
-    if (!res.ok) throw new Error(`Could not load your ongoing games (${res.status})`)
+    if (!res.ok) throw new LichessHttpError(`Could not load your ongoing games (${res.status})`, res.status)
     const data = await res.json()
     return Array.isArray(data?.nowPlaying) ? data.nowPlaying : []
   }
