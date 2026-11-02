@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { backoff, isNetworkError, startWatchdog, STALE_AFTER_MS } from './connection'
+import { backoff, isNetworkError, startWatchdog, STALE_AFTER_MS, LichessHttpError, isAuthError, isGone, isTransient, retryDelay, sleepUnlessWoken } from './connection'
 import { LichessClient, MoveRejectedError } from './lichess'
 
 describe('startWatchdog', () => {
@@ -98,5 +98,90 @@ describe('stream activity', () => {
     for await (const e of new LichessClient('t').streamGame('g1', undefined, touches)) events.push(e)
     expect(events).toEqual([{ type: 'gameFull' }])
     expect(touches.mock.calls.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('retry policy', () => {
+  const http = (status: number) => new LichessHttpError(`HTTP ${status}`, status)
+
+  it('only a 401 means the login is gone', () => {
+    expect(isAuthError(http(401))).toBe(true)
+    for (const s of [403, 404, 429, 500, 503]) expect(isAuthError(http(s))).toBe(false)
+    expect(isAuthError(new TypeError('Failed to fetch'))).toBe(false)
+  })
+
+  it('a network failure or a Lichess hiccup is worth another try, a refusal is not', () => {
+    expect(isTransient(new TypeError('Failed to fetch'))).toBe(true)
+    for (const s of [408, 429, 500, 502, 503]) expect(isTransient(http(s))).toBe(true)
+    for (const s of [400, 401, 403, 404]) expect(isTransient(http(s))).toBe(false)
+  })
+
+  it('a game that does not exist is gone for good', () => {
+    expect(isGone(http(404))).toBe(true)
+    expect(isGone(http(410))).toBe(true)
+    expect(isGone(http(500))).toBe(false)
+    expect(isGone(new TypeError('x'))).toBe(false)
+  })
+
+  it('waits a full minute after "too many requests", otherwise backs off gently', () => {
+    expect(retryDelay(http(429), 0)).toBe(60_000)
+    expect(retryDelay(http(500), 0)).toBe(1000)
+    expect(retryDelay(new TypeError('x'), 3)).toBe(8000)
+    expect(retryDelay(null, 10)).toBe(8000)
+  })
+
+  it('sleepUnlessWoken returns early when the network comes back', async () => {
+    const t0 = Date.now()
+    const win = new EventTarget()
+    const p = sleepUnlessWoken(5000, win, undefined)
+    win.dispatchEvent(new Event('online'))
+    await p
+    expect(Date.now() - t0).toBeLessThan(1000)
+  })
+
+  it('sleepUnlessWoken also wakes when the tab becomes visible', async () => {
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' })
+    const t0 = Date.now()
+    const p = sleepUnlessWoken(5000, undefined, doc)
+    doc.dispatchEvent(new Event('visibilitychange'))
+    await p
+    expect(Date.now() - t0).toBeLessThan(1000)
+  })
+
+  it('sleepUnlessWoken still ends by itself', async () => {
+    const t0 = Date.now()
+    await sleepUnlessWoken(30, new EventTarget(), undefined)
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(25)
+  })
+})
+
+describe('Lichess client errors carry the HTTP status', () => {
+  const reply = (status: number) => vi.stubGlobal('fetch', vi.fn(async () => ({ ok: status >= 200 && status < 300, status, json: async () => ({}), body: null })))
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('a rejected token is a 401 the screen can recognise', async () => {
+    reply(401)
+    const err = await new LichessClient('t').getProfile().catch(e => e)
+    expect(err).toBeInstanceOf(LichessHttpError)
+    expect(isAuthError(err)).toBe(true)
+  })
+
+  it('a Lichess outage is transient, not a reason to sign out', async () => {
+    reply(503)
+    const err = await new LichessClient('t').getProfile().catch(e => e)
+    expect(isAuthError(err)).toBe(false)
+    expect(isTransient(err)).toBe(true)
+  })
+
+  it('a failed check for ongoing games is an error to retry, not "no game"', async () => {
+    reply(500)
+    await expect(new LichessClient('t').getOngoingGames()).rejects.toBeInstanceOf(LichessHttpError)
+  })
+
+  it('a game that no longer exists is reported as gone', async () => {
+    reply(404)
+    const run = async () => { for await (const _ of new LichessClient('t').streamGame('zzzz', new AbortController().signal)) void _ }
+    const err = await run().catch(e => e)
+    expect(isGone(err)).toBe(true)
   })
 })

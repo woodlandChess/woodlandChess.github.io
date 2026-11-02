@@ -1,6 +1,8 @@
 import type { PlayerProgress } from '../types/chess';
 
-const STORAGE_KEY = 'woodland.puzzle.progress.v1';
+/** Exported so the backup can include puzzle progress. */
+export const PUZZLE_PROGRESS_KEY = 'woodland.puzzle.progress.v1';
+const STORAGE_KEY = PUZZLE_PROGRESS_KEY;
 
 const DEFAULT_PROGRESS: PlayerProgress = {
   totalSolved: 0,

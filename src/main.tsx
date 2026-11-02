@@ -10,4 +10,8 @@ if ((navigator as Navigator & { standalone?: boolean }).standalone) document.doc
 // Decode the piece artwork up front so a moved piece never paints blank for a frame (iOS decodes lazily).
 preloadPieceImages()
 
+// Ask the browser not to clear this site's saved data when storage runs low. It does not survive deleting an installed
+// app (see backup.ts for that), but it protects against the browser's own clean-ups.
+try { void navigator.storage?.persist?.() } catch { /* not supported */ }
+
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

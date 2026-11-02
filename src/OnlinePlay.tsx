@@ -9,7 +9,10 @@ import { ChessBoard, PromotionModal, type TrailMove } from './ChessBoard'
 import type { ModeId } from './components/ModeNav'
 import { HomeFrame } from './components/HomeFrame'
 import { materialScore } from './material'
-import { backoff, isNetworkError, startWatchdog, STALE_AFTER_MS, watchNetwork } from './connection'
+import {
+  backoff, isAuthError, isGone, isNetworkError, retryDelay, sleepUnlessWoken, startWatchdog, STALE_AFTER_MS, watchNetwork,
+} from './connection'
+import { forgetGame, recallGame, rememberGame } from './lastGame'
 import { GameScreen, ConfirmButton, type ClockView, type RatingChange } from './components/GameScreen'
 import { BrandMark } from './components/BrandMark'
 import { GameResultDialog, type RematchState } from './components/GameResultDialog'
@@ -165,6 +168,9 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   const [eventLost, setEventLost] = useState(false)
   const eventAttemptRef = useRef<AbortController | null>(null)
   const gameAttemptRef = useRef<AbortController | null>(null)
+  const aliveRef = useRef(true)                        // false once this screen is gone: every background loop stops
+  const resumingRef = useRef(false)
+  const [connectTrouble, setConnectTrouble] = useState(false)   // the profile request keeps failing (no signal, Lichess down)
   const wakeRef = useRef(false)                       // the network just came back: reconnect now, no waiting
   const confirmedMovesRef = useRef('')
   const optimisticPlyRef = useRef(0)
@@ -172,6 +178,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   // ── Init: process OAuth redirect (if any), then try a stored token ───────
   useEffect(() => {
     let cancelled = false
+    aliveRef.current = true
     ;(async () => {
       const fromRedirect = await handleAuthRedirect()
       const token = fromRedirect ?? getStoredToken()
@@ -180,19 +187,33 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
 
       const client = new LichessClient(token.access_token)
       clientRef.current = client
-      try {
-        const prof = await client.getProfile()
-        if (cancelled) return
-        setProfile(prof)
-        setPhase('idle')
-        listenForGames(client)
-      } catch {
-        logout()
-        if (!cancelled) setPhase('login')
+      // Back to a game in progress (you left the tab, or the phone reloaded the app): show the board at once
+      // and let the stream fill in the rest. Nothing below needs the network to have worked first.
+      const last = recallGame()
+      if (last) joinGame(client, last.id, last.color)
+      listenForGames(client)
+      // The profile only supplies names and ratings. A failed request must never sign you out: only Lichess
+      // rejecting the token itself (401) means the login is really gone. Anything else is a bad moment: try again.
+      for (let attempt = 0; !cancelled; attempt++) {
+        try {
+          const prof = await client.getProfile()
+          if (cancelled) return
+          setProfile(prof)
+          setConnectTrouble(false)
+          setPhase(p => (p === 'loading' ? 'idle' : p))
+          return
+        } catch (e) {
+          if (cancelled) return
+          if (isAuthError(e)) { expireSession(); return }
+          setConnectTrouble(true)
+          const wait = retryDelay(e, attempt)
+          await (wait > 8000 ? sleep(wait) : sleepUnlessWoken(wait))
+        }
       }
     })()
     return () => {
       cancelled = true
+      aliveRef.current = false
       eventAbortRef.current?.abort()
       gameAbortRef.current?.abort()
       seekAbortRef.current?.abort()
@@ -208,23 +229,62 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       eventAttemptRef.current?.abort()               // each loop notices, skips its back-off wait and reconnects
       gameAttemptRef.current?.abort()
       const c = clientRef.current
-      if (c) void resumeOngoing(c)
+      setError(null)                                 // a connection warning from before is history now
+      if (c) void checkForGame(c)
     },
     () => { setGameLost(true); setEventLost(true) },
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [])
 
+  /** The saved login was rejected by Lichess: the one case where the user really has to sign in again. */
+  function expireSession() {
+    eventAbortRef.current?.abort()
+    gameAbortRef.current?.abort()
+    seekAbortRef.current?.abort()
+    logout()
+    forgetGame()
+    clientRef.current = null
+    setProfile(null)
+    setLiveGame(null)
+    setPhase('login')
+    notify('Your Lichess sign-in has expired. Connect again to continue.', 15000)
+  }
+
   /** A game can outlive the page that started it. If one is running, rejoin it instead of showing the menu. */
-  async function resumeOngoing(client: LichessClient): Promise<boolean> {
-    if (!['loading', 'idle', 'seeking'].includes(phaseRef.current)) return false
+  async function resumeOngoing(client: LichessClient): Promise<'joined' | 'none' | 'error'> {
+    if (!['loading', 'idle', 'seeking'].includes(phaseRef.current)) return 'none'
     try {
       const games = await client.getOngoingGames()
       const g = games.find(x => !x.variant?.key || x.variant.key === 'standard')
-      if (!g || !['loading', 'idle', 'seeking'].includes(phaseRef.current)) return false
+      if (!aliveRef.current || !g || !['loading', 'idle', 'seeking'].includes(phaseRef.current)) return 'none'
       seekAbortRef.current?.abort()
       joinGame(client, g.gameId, g.color === 'white' ? 'w' : 'b')
-      return true
-    } catch { return false }
+      return 'joined'
+    } catch (e) {
+      if (isAuthError(e)) expireSession()
+      return 'error'
+    }
+  }
+
+  /**
+   * Finds out whether a game is running, and keeps asking until Lichess actually answers. A failed check used to be
+   * forgotten, which left a running game invisible (and every new search refused) after one bad moment on the network.
+   */
+  async function checkForGame(client: LichessClient) {
+    if (resumingRef.current) return
+    resumingRef.current = true
+    try {
+      for (let attempt = 0; aliveRef.current && clientRef.current === client; attempt++) {
+        if (!['loading', 'idle', 'seeking'].includes(phaseRef.current)) return
+        const r = await resumeOngoing(client)
+        if (r !== 'error') return
+        if (attempt === 1) {              // still no answer: trust our own note of the game and let its stream sort it out
+          const last = recallGame()
+          if (last && ['loading', 'idle', 'seeking'].includes(phaseRef.current)) { joinGame(client, last.id, last.color); return }
+        }
+        await sleepUnlessWoken(backoff(attempt))
+      }
+    } finally { resumingRef.current = false }
   }
 
   /** Shows a message that clears itself, so a stale warning never outlives the problem. */
@@ -238,10 +298,11 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
     eventAbortRef.current?.abort()
     const ac = new AbortController()
     eventAbortRef.current = ac
-    void resumeOngoing(client)
+    void checkForGame(client)
     ;(async () => {
       let attempt = 0
       while (!ac.signal.aborted) {
+        let lastError: unknown = null
         const attemptAc = new AbortController()
         eventAttemptRef.current = attemptAc
         const dog = startWatchdog(STALE_AFTER_MS, () => { setEventLost(true); attemptAc.abort() })
@@ -272,12 +333,17 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               }
             }
           }
-        } catch { /* closed, dropped or aborted: handled below */ }
+        } catch (e) { lastError = e /* closed, dropped or aborted: handled below */ }
         dog.stop()
         if (ac.signal.aborted) break
-        if (!wakeRef.current) { if (attempt >= 1 || !navigator.onLine) setEventLost(true); await sleep(backoff(attempt)); attempt++ }
-        else { wakeRef.current = false; attempt = 0 }
-        void resumeOngoing(client)                         // a game may have started while we were away
+        if (isAuthError(lastError)) { expireSession(); break }
+        if (!wakeRef.current) {
+          if (attempt >= 1 || !navigator.onLine) setEventLost(true)
+          const wait = retryDelay(lastError, attempt)
+          await (wait > 8000 ? sleep(wait) : sleepUnlessWoken(wait))
+          attempt++
+        } else { wakeRef.current = false; attempt = 0 }
+        void checkForGame(client)                          // a game may have started while we were away
       }
     })()
   }
@@ -312,6 +378,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   }
 
   function joinGame(client: LichessClient, gameId: string, myColor: Color) {
+    rememberGame({ id: gameId, color: myColor })
     gameAbortRef.current?.abort()
     const ac = new AbortController()
     gameAbortRef.current = ac
@@ -351,7 +418,9 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       // game being over, reconnect: Lichess replies with a fresh `gameFull`, which
       // resyncs board and clocks from scratch.
       let attempt = 0
+      let gone = 0
       while (!ac.signal.aborted) {
+        let lastError: unknown = null
         const attemptAc = new AbortController()
         gameAttemptRef.current = attemptAc
         const link = () => attemptAc.abort()
@@ -361,6 +430,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         try {
           for await (const evt of client.streamGame(gameId, attemptAc.signal, () => dog.touch())) {
             attempt = 0
+            gone = 0
             if (evt.type === 'gameFull') {
               setGameLost(false)
               setError(null)                  // whatever went wrong before the reconnect is history
@@ -452,17 +522,32 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
               if (finished) finish(evt.status, evt.winner, myColor)
             }
           }
-        } catch { /* aborted or closed - handled below */ }
+        } catch (e) { lastError = e /* aborted or closed - handled below */ }
         dog.stop()
         ac.signal.removeEventListener('abort', link)
         if (ac.signal.aborted) break
-        if (!wakeRef.current) { if (attempt >= 1 || !navigator.onLine) setGameLost(true); await sleep(backoff(attempt)); attempt++ }
-        else { wakeRef.current = false; attempt = 0 }
+        if (isAuthError(lastError)) { expireSession(); break }
+        // A game Lichess does not know (any more) can never be rejoined: stop trying instead of "reconnecting" for ever.
+        if (isGone(lastError) && ++gone >= 3) {
+          forgetGame()
+          setGameLost(false)
+          setLiveGame(null)
+          setPhase('idle')
+          notify('That game is no longer available.')
+          break
+        }
+        if (!wakeRef.current) {
+          if (attempt >= 1 || !navigator.onLine) setGameLost(true)
+          const wait = retryDelay(lastError, attempt)
+          await (wait > 8000 ? sleep(wait) : sleepUnlessWoken(wait))
+          attempt++
+        } else { wakeRef.current = false; attempt = 0 }
       }
     })()
   }
 
   function finish(status: string, winner: string | undefined, myColor: Color) {
+    forgetGame()
     let text = STATUS_LABEL[status] ?? 'Game over'
     if (winner) {
       const iWon = winner === (myColor === 'w' ? 'white' : 'black')
@@ -511,7 +596,7 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
   // ── Actions ────────────────────────────────────────────────────────────────
   async function connect() {
     setError(null)
-    try { await startLogin() } catch { setError('Could not reach Lichess.') }
+    try { await startLogin() } catch { notify('Could not reach Lichess. Check your connection and try again.', 8000) }
   }
 
   function updatePrefs(next: MenuPrefs) {
@@ -550,10 +635,13 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
       // phase to in-game once Lichess announces the game.
     } catch (e) {
       if (ac.signal.aborted) return   // cancelled by us, or matched
-      const message = e instanceof Error ? e.message : 'Could not start a search.'
-      // Lichess refuses a search while a game is running. That game is usually the one we lost track of: rejoin it.
-      if (/already playing/i.test(message) && await resumeOngoing(client)) return
-      setError(message)
+      // Whatever went wrong, first check whether a game is already running. That is the usual reason a search is
+      // refused after a dropped connection, and the answer is to go back to that game, not to show an error.
+      if (await resumeOngoing(client) === 'joined') return
+      const message = isNetworkError(e)
+        ? 'No connection to Lichess. Check your internet and try again.'
+        : e instanceof Error ? e.message : 'Could not start a search.'
+      notify(message, 8000)           // clears itself, so it never outlives the problem
       // Only fall back to the menu if we are still searching (not already matched).
       setPhase(p => (p === 'seeking' ? 'idle' : p))
     }
@@ -764,7 +852,8 @@ export function OnlinePlay({ onBack, onNavigate }: { onBack: () => void; onNavig
         <div className="home-body">
           <div className="online-wait" role="status">
             <span className="spinner" aria-hidden="true" />
-            <p>Connecting to Lichess…</p>
+            <p>{connectTrouble ? 'Can\'t reach Lichess right now. Trying again…' : 'Connecting to Lichess…'}</p>
+            {connectTrouble && <button type="button" className="online-link" onClick={() => window.dispatchEvent(new Event('online'))}>Try now</button>}
           </div>
         </div>
       </HomeFrame>

@@ -128,18 +128,39 @@ export function clearProfile(): void {
   try { localStorage.removeItem(KEY) } catch { /* unavailable */ }
 }
 
+/** Turns raw saved or backed-up data into a clean profile. Anything unreadable is dropped, never rendered. */
+export function parseProfile(v: any): PlayerProfileData {
+  if (!v || !Array.isArray(v.games)) return empty()
+  return {
+    username: typeof v.username === 'string' ? v.username : '',
+    games: v.games.filter((g: ProfileGame) => g && typeof g.id === 'string' && typeof g.moves === 'string' && (g.userColor === 'w' || g.userColor === 'b')),
+    reviews: Array.isArray(v.reviews) ? v.reviews.filter(isValidReview) : [],
+    updatedAt: Number(v.updatedAt) || 0,
+  }
+}
+
 /** Reads the stored profile. Reviews made by older, less accurate versions are dropped (they are recomputed). */
 export function readProfile(): PlayerProfileData {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null')
-    if (!v || !Array.isArray(v.games)) return empty()
-    return {
-      username: typeof v.username === 'string' ? v.username : '',
-      games: v.games.filter((g: ProfileGame) => g && typeof g.id === 'string' && typeof g.moves === 'string' && (g.userColor === 'w' || g.userColor === 'b')),
-      reviews: Array.isArray(v.reviews) ? v.reviews.filter(isValidReview) : [],
-      updatedAt: Number(v.updatedAt) || 0,
-    }
-  } catch { return empty() }
+  try { return parseProfile(JSON.parse(localStorage.getItem(KEY) ?? 'null')) } catch { return empty() }
+}
+
+/**
+ * Combines what is on this device with a backup: every game and every review from both, nothing lost. A game
+ * or review that exists on both sides keeps the version already here. Newest games first, capped as usual.
+ */
+export function mergeProfiles(local: PlayerProfileData, incoming: PlayerProfileData): PlayerProfileData {
+  const games = new Map<string, ProfileGame>()
+  for (const g of [...incoming.games, ...local.games]) games.set(g.id, g)       // local wins on a clash
+  const reviews = new Map<string, GameReview>()
+  for (const r of [...incoming.reviews, ...local.reviews]) reviews.set(r.gameId, r)
+  const kept = [...games.values()].sort((a, b) => b.playedAt - a.playedAt).slice(0, MAX_GAMES)
+  const ids = new Set(kept.map(g => g.id))
+  return {
+    username: local.username || incoming.username,
+    games: kept,
+    reviews: [...reviews.values()].filter(r => ids.has(r.gameId)),
+    updatedAt: Math.max(local.updatedAt, incoming.updatedAt),
+  }
 }
 
 export function saveProfile(data: PlayerProfileData): void {

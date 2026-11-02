@@ -55,3 +55,53 @@ export function watchNetwork(onWake: () => void, onSleep: () => void): () => voi
 
 /** Errors that mean "the request never reached Lichess" (as opposed to Lichess saying no). */
 export const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'NetworkError')
+
+// ── HTTP errors and retry policy ──────────────────────────────────────────────────────────────────────────
+
+/** Lichess answered, but not with success. Carries the status so callers can tell "sign in again" from "try again". */
+export class LichessHttpError extends Error {
+  constructor(message: string, readonly status: number) { super(message); this.name = 'LichessHttpError' }
+}
+
+/** The saved login was rejected. The only case where signing the user out is correct. */
+export const isAuthError = (e: unknown) => e instanceof LichessHttpError && e.status === 401
+
+/** Worth trying again: no connection, a Lichess hiccup, or being asked to slow down. */
+export const isTransient = (e: unknown) =>
+  isNetworkError(e) || (e instanceof LichessHttpError && (e.status >= 500 || e.status === 429 || e.status === 408))
+
+/** The game (or account) does not exist any more: retrying will never help. */
+export const isGone = (e: unknown) => e instanceof LichessHttpError && (e.status === 404 || e.status === 410)
+
+/** How long to wait before trying again. Lichess asks clients that got a 429 to pause for a full minute. */
+export function retryDelay(e: unknown, attempt: number): number {
+  return e instanceof LichessHttpError && e.status === 429 ? 60_000 : backoff(attempt)
+}
+
+type Events = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>
+
+/**
+ * Resolves after `ms`, or sooner when the page comes back online or becomes visible again.
+ * The event sources can be passed in so the behaviour can be tested without a browser.
+ */
+export function sleepUnlessWoken(
+  ms: number,
+  win: Events | undefined = typeof window === 'undefined' ? undefined : window,
+  doc: (Events & { visibilityState?: string }) | undefined = typeof document === 'undefined' ? undefined : document,
+): Promise<void> {
+  return new Promise(resolve => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      win?.removeEventListener('online', finish)
+      doc?.removeEventListener('visibilitychange', onVisible)
+      resolve()
+    }
+    const onVisible = () => { if (doc?.visibilityState === 'visible') finish() }
+    const timer = setTimeout(finish, ms)
+    win?.addEventListener('online', finish)
+    doc?.addEventListener('visibilitychange', onVisible)
+  })
+}

@@ -1,3 +1,4 @@
+import { DataBackup } from './DataBackup'
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EnginePool, REVIEW_DEPTH, REVIEW_MAX_MS } from './enginePool'
 import { HomeFrame } from '../components/HomeFrame'
@@ -272,7 +273,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
       <section className="profile-section">
         <div className="profile-section-head"><h3>Recent games</h3><span>{data.games.length} saved · {data.reviews.length} analyzed</span></div>
         {data.games.length === 0 ? (
-          <p className="profile-empty">Import Lichess games, or finish a game against the computer, then study it here.</p>
+          <p className="profile-empty">Import Lichess games, or finish a game against the computer, then study it here. If you removed and re-added the app, restore your backup under Your data below.</p>
         ) : (
           <div className="profile-games">
             {shown.map(g => {
@@ -294,6 +295,8 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           </div>
         )}
       </section>
+
+      <DataBackup data={data} onRestored={commit} />
 
       {open && <GameStudy game={open.game} review={open.review} onClose={() => setOpen(null)} />}
     </HomeFrame>
