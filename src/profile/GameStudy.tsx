@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Square } from 'chess.js'
-import { ChessBoard, type TrailMove } from '../ChessBoard'
+import { ChessBoard, type HintMove, type TrailMove } from '../ChessBoard'
 import type { GameReview, Grade, PlyReview, ProfileGame } from './store'
 
 /** Annotation symbols, as printed in chess books. */
@@ -84,17 +84,18 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
   const highlights = plies.filter(p => p.color === user && HIGHLIGHT.includes(p.grade))
   const mineWin = (k: number) => Math.round(user === 'w' ? review.wins[k] : 100 - review.wins[k])
 
-  // The move just played, plus (on request) the engine's preferred move.
+  // The move just played, and (on request) the engine's preferred move, drawn separately so it stands out.
   const trail = useMemo(() => {
     const out: TrailMove[] = []
     if (current) out.push({ from: current.uci.slice(0, 2) as Square, to: current.uci.slice(2, 4) as Square, color: current.color })
-    if (showBest && current?.best) {
-      try {
-        const m = new Chess(fens[ply - 1]).move(current.best)
-        out.push({ from: m.from, to: m.to, color: current.color === 'w' ? 'b' : 'w' })
-      } catch { /* ignore */ }
-    }
     return out
+  }, [current])
+  const hint = useMemo<HintMove | undefined>(() => {
+    if (!showBest || !current?.best) return undefined
+    try {
+      const m = new Chess(fens[ply - 1]).move(current.best)
+      return { from: m.from, to: m.to }
+    } catch { return undefined }
   }, [current, showBest, fens, ply])
 
   const go = (p: number) => { setShowBest(false); setPly(Math.max(0, Math.min(plies.length, p))) }
@@ -170,7 +171,7 @@ export function GameStudy({ game, review, onClose }: { game: ProfileGame; review
                 const dx = e.clientX - s.x, dy = e.clientY - s.y
                 if (Math.abs(dx) > 36 && Math.abs(dy) < 30) go(ply + (dx < 0 ? 1 : -1))     // swipe the board to step through the game
               }}>
-              <ChessBoard board={grid} orientation={user} interactive={false} selected={null} legalTargets={[]} trail={trail}
+              <ChessBoard board={grid} orientation={user} interactive={false} selected={null} legalTargets={[]} trail={trail} hint={hint}
                 onSquareClick={() => {}} getLegalTargets={() => []} />
             </div>
 

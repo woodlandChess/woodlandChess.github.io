@@ -192,3 +192,19 @@ export function recordComputerGame(g: {
   }
   saveProfile({ ...data, games: [game, ...data.games], updatedAt: Date.now() })
 }
+
+/**
+ * Saves a game together with its review in one step, adding the game to the profile if it is not there yet.
+ * Used after a post-game analysis, so a game analysed right after it ended (against the computer or online)
+ * also appears in the Analyze tab with its review, and never needs to be analysed twice.
+ */
+export function saveReviewedGame(game: ProfileGame, review: GameReview): void {
+  const data = readProfile()
+  const games = data.games.some(g => g.id === game.id) ? data.games : [game, ...data.games]
+  saveProfile({
+    ...data,
+    games,
+    reviews: [...data.reviews.filter(r => r.gameId !== game.id), review],
+    updatedAt: Date.now(),
+  })
+}

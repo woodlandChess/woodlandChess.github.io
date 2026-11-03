@@ -9,6 +9,9 @@ type BoardSquares = ReturnType<Chess['board']>
 /** One highlighted move. `color` is the side that played it, so the highlight matches the pieces. */
 export interface TrailMove { from: Square; to: Square; color: Color }
 
+/** A move to point out, for example the engine's best move in a review. Drawn as a bright arrow with lit squares. */
+export interface HintMove { from: Square; to: Square }
+
 function squareAtPoint(board: HTMLDivElement | null, x: number, y: number, orientation: Color): Square | undefined {
   if (!board) return undefined
   const rect = board.getBoundingClientRect()
@@ -30,7 +33,7 @@ function squareAtPoint(board: HTMLDivElement | null, x: number, y: number, orien
  * both row and column order preserves checkerboard parity.
  */
 export function ChessBoard({
-  board, onSquareClick, selected, legalTargets, lastFrom, lastTo, trail,
+  board, onSquareClick, selected, legalTargets, lastFrom, lastTo, trail, hint,
   orientation = 'w', interactive = true, boardRef, getLegalTargets, onDropMove,
 }: {
   board: BoardSquares
@@ -45,6 +48,7 @@ export function ChessBoard({
    * players' latest moves stay readable at a glance. Overrides lastFrom/lastTo.
    */
   trail?: TrailMove[]
+  hint?: HintMove
   orientation?: Color
   interactive?: boolean
   boardRef?: React.RefObject<HTMLDivElement | null>
@@ -101,6 +105,7 @@ export function ChessBoard({
   }
 
   const marks = new Map<Square, string>()
+  if (hint) { marks.set(hint.from, 'hint-from'); marks.set(hint.to, 'hint-to') }      // claims its squares before the trail does
   for (const m of trail ?? []) {          // newest first, so the newest claims a shared square
     if (!marks.has(m.from)) marks.set(m.from, `trail trail-${m.color}-from`)
     if (!marks.has(m.to))   marks.set(m.to,   `trail trail-${m.color}-to`)
@@ -151,7 +156,41 @@ export function ChessBoard({
           )
         })
       )}
+      {hint && <HintArrow from={hint.from} to={hint.to} orientation={orientation} />}
     </div>
+  )
+}
+
+/** Centre of a square in the board's own 8 by 8 unit space, for the given orientation. */
+function squareCentre(sq: Square, orientation: Color): [number, number] {
+  const file = sq.charCodeAt(0) - 97
+  const rank = Number(sq[1])
+  return orientation === 'w' ? [file + 0.5, 8 - rank + 0.5] : [7 - file + 0.5, rank - 1 + 0.5]
+}
+
+/** A bright arrow laid over the board. Pointer events pass straight through it. */
+function HintArrow({ from, to, orientation }: { from: Square; to: Square; orientation: Color }) {
+  const [x1, y1] = squareCentre(from, orientation)
+  const [x2, y2] = squareCentre(to, orientation)
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1
+  const ux = (x2 - x1) / len, uy = (y2 - y1) / len
+  const head = 0.46                                   // length of the arrowhead
+  const bx = x2 - ux * head * 0.9, by = y2 - uy * head * 0.9   // where the shaft meets the head
+  const sx = x1 + ux * 0.22, sy = y1 + uy * 0.22      // start just off the piece's centre
+  const px = -uy, py = ux
+  const tip = `${x2 - ux * 0.12},${y2 - uy * 0.12}`
+  const head1 = `${bx + px * 0.24},${by + py * 0.24}`
+  const head2 = `${bx - px * 0.24},${by - py * 0.24}`
+  return (
+    <svg className="hint-arrow" viewBox="0 0 8 8" aria-hidden="true" focusable="false">
+      <g strokeLinecap="round" strokeLinejoin="round">
+        {/* a dark underlay keeps the arrow readable on any square */}
+        <line x1={sx} y1={sy} x2={bx} y2={by} stroke="#08090b" strokeOpacity="0.6" strokeWidth="0.3" />
+        <polygon points={`${tip} ${head1} ${head2}`} fill="#08090b" fillOpacity="0.6" stroke="#08090b" strokeOpacity="0.6" strokeWidth="0.1" />
+        <line x1={sx} y1={sy} x2={bx} y2={by} stroke="#f1eee4" strokeWidth="0.17" />
+        <polygon points={`${tip} ${head1} ${head2}`} fill="#f1eee4" />
+      </g>
+    </svg>
   )
 }
 
