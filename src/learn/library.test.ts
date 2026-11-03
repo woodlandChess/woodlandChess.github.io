@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
+import { GLOSSARY } from './glossary'
+import { replay } from './lesson'
+import { START_FEN } from './motifs'
 import { LORE, readingMinutes, type Article } from './lore'
 import { STRATEGY } from './strategy'
 
@@ -28,6 +31,7 @@ describe.each(all)('%s articles', (_name, articles) => {
       if (b.t === 'ul') expect(b.items.length).toBeGreaterThan(0)
       if (b.t === 'board') {
         expect(() => new Chess(b.fen), `${a.id} diagram`).not.toThrow()
+        if (b.line) expect(replay(START_FEN, b.line).at(-1)!.fen.split(' ').slice(0, 2), `${a.id}: ${b.caption}`).toEqual(b.fen.split(' ').slice(0, 2))
         for (const s of Object.keys(b.marks ?? {})) expect(s).toMatch(sqRe)
         for (const [x, y] of b.arrows ?? []) { expect(x).toMatch(sqRe); expect(y).toMatch(sqRe) }
       }
@@ -44,6 +48,27 @@ describe('coverage', () => {
 
   it('lore includes history, ratings, players, schools and engines', () => {
     const ids = LORE.map(a => a.id)
-    for (const id of ['words', 'elo', 'players', 'schools', 'styles', 'engines', 'panel']) expect(ids).toContain(id)
+    for (const id of ['words', 'elo', 'players', 'schools', 'styles', 'engines', 'panel', 'timeline', 'rules-evolution', 'champions', 'championship',
+      'women', 'computers', 'online', 'rules-basics', 'special-moves', 'game-end', 'etiquette', 'time-controls', 'formats', 'titles', 'notation',
+      'equipment', 'glossary', 'openings-intro', 'openings-e4', 'openings-d4', 'gambits', 'chess960', 'variants', 'mind', 'benefits', 'shannon',
+      'studies', 'culture', 'world', 'fairplay', 'records']) expect(ids, id).toContain(id)
+    expect(LORE.length).toBeGreaterThanOrEqual(35)
+    expect(new Set(LORE.map(a => a.topic)).size).toBeGreaterThanOrEqual(10)
+  })
+})
+
+describe('glossary', () => {
+  it('has unique, sorted, well-formed terms with no dashes', () => {
+    expect(GLOSSARY.length).toBeGreaterThanOrEqual(100)
+    const names = GLOSSARY.map(g => g.term.toLowerCase())
+    expect(new Set(names).size).toBe(names.length)
+    expect([...names].sort()).toEqual(names)
+    for (const g of GLOSSARY) { expect(g.term.length).toBeGreaterThan(1); expect(g.meaning.length).toBeGreaterThan(15) }
+    expect(JSON.stringify(GLOSSARY)).not.toMatch(/[\u2013\u2014]/)
+  })
+
+  it('the glossary article exists and says what it is', () => {
+    const a = LORE.find(x => x.id === 'glossary')!
+    expect(a.blocks.some(b => b.t === 'glossary')).toBe(true)
   })
 })

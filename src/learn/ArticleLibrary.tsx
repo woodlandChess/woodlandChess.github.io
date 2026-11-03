@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChessSchool } from '../stockfish'
 import type { Article, Block } from './lore'
 import { readingMinutes } from './lore'
+import { Glossary } from './Glossary'
 import { MiniBoard } from './MiniBoard'
 import { EloCalculator, EvalMeter, SchoolsGrid } from './Widgets'
 
@@ -14,6 +15,7 @@ function Blocks({ blocks, onPlaySchool }: { blocks: Block[]; onPlaySchool: (s: C
           case 'h': return <h3 key={i} className="ln-h3">{b.text}</h3>
           case 'ul': return <ul key={i} className="ln-ul">{b.items.map(t => <li key={t}>{t}</li>)}</ul>
           case 'note': return <p key={i} className="ln-callout">{b.text}</p>
+          case 'glossary': return <Glossary key={i} />
           case 'board': return (
             <figure key={i} className="ln-fig">
               <MiniBoard fen={b.fen} marks={b.marks} arrows={b.arrows} label={b.caption} />
