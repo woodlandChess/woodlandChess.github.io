@@ -1815,5 +1815,461 @@ export const MOTIFS: Motif[] = [
     "text": "Rc2#: the rook delivers mate."
    }
   ]
+ },
+ {
+  "id": "royal-fork",
+  "name": "Royal fork",
+  "group": "core",
+  "idea": "A knight forks the king and the queen.",
+  "detail": "The most famous fork of all. The knight gives check, so the king must move, and the queen on the other target falls. Look for knight squares that touch both.",
+  "fen": "q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1",
+  "line": [
+   "Nc7+"
+  ],
+  "result": "The knight checks the king on e8 and attacks the queen on a8. After the king moves, Nxa8 wins her.",
+  "marks": {
+   "a8": "target",
+   "e8": "target"
+  },
+  "arrows": [
+   [
+    "d5",
+    "c7"
+   ]
+  ],
+  "aka": "Knight fork of king and queen"
+ },
+ {
+  "id": "family-fork",
+  "name": "Family fork (grand fork)",
+  "group": "core",
+  "idea": "A knight forks the king, the queen and a rook at once.",
+  "detail": "The \"family check\" is the dream version of a fork: the knight attacks the whole family. It is also called the grand fork. The king must answer the check, and the most valuable piece is lost.",
+  "fen": "r3k3/8/4q3/3N4/8/8/8/6K1 w - - 0 1",
+  "line": [
+   "Nc7+"
+  ],
+  "result": "The knight on c7 checks the king, attacks the queen on e6 and the rook on a8 together. After the king moves, Nxe6 wins the queen.",
+  "marks": {
+   "a8": "target",
+   "e6": "target",
+   "e8": "target"
+  },
+  "arrows": [
+   [
+    "d5",
+    "c7"
+   ]
+  ],
+  "aka": "Grand fork, family check"
+ },
+ {
+  "id": "other-forks",
+  "name": "Forks by other pieces",
+  "group": "core",
+  "idea": "Queens, rooks, bishops, pawns and even kings can fork.",
+  "detail": "Any piece that attacks two targets forks. Queens fork the most, because they cover so many squares. Rooks fork along ranks and files, bishops along diagonals, and the king can fork loose pawns or pieces in the endgame.",
+  "spot": [
+   "Look for a square from which your piece attacks two undefended or valuable targets.",
+   "Check that the forking piece cannot be captured, and that it is not itself pinned.",
+   "A fork with check is the strongest, because it cannot be ignored."
+  ],
+  "see": "See Fork, Royal fork, Family fork, Fork with check and Pawn fork."
+ },
+ {
+  "id": "absolute-pin",
+  "name": "Absolute pin",
+  "group": "core",
+  "idea": "The pinned piece cannot move at all, because the piece behind it is the king.",
+  "detail": "It is against the rules to expose your king, so the pinned piece is frozen. You can attack it again and again until it falls.",
+  "spot": [
+   "Look for a bishop, rook or queen lined up with a piece and the king behind it.",
+   "Attack the pinned piece with a pawn if you can, because the pawn costs less.",
+   "Defenders should unpin: move the king, block, or capture the pinner."
+  ],
+  "see": "See the Pin card in this tab."
+ },
+ {
+  "id": "relative-pin",
+  "name": "Relative pin",
+  "group": "core",
+  "idea": "The pinned piece may move, but it would expose a more valuable piece behind it.",
+  "detail": "Unlike the absolute pin, the move is legal, but it loses material. Pins to a queen or rook are relative pins.",
+  "spot": [
+   "Count the value of the piece behind the pinned piece.",
+   "Pile up attackers on the pinned piece.",
+   "Defenders can counter with a threat, so check for zwischenzug."
+  ],
+  "see": "The Opera Game has a classic pin of the knight on f6 to the queen."
+ },
+ {
+  "id": "cross-pin",
+  "name": "Cross-pin",
+  "group": "core",
+  "idea": "A piece is pinned in two directions at once.",
+  "detail": "Two lines pass through the same piece. It is almost impossible to free, and it is often decisive.",
+  "spot": [
+   "Look at pieces that sit between two long-range enemy pieces.",
+   "A knight pinned on both a file and a diagonal cannot move at all."
+  ]
+ },
+ {
+  "id": "breaking-pin",
+  "name": "Breaking a pin",
+  "group": "core",
+  "idea": "How to escape a pin, and why you should not ignore one.",
+  "detail": "The standard ways are to move the king, to block the line, to capture the pinning piece, to attack the pinner with a pawn, or to add a defender so the pinned piece is no longer a liability. A pawn move such as h3 against a bishop on g4 is the most common.",
+  "spot": [
+   "Count the attackers and defenders of the pinned piece.",
+   "Ask whether a counter-threat is stronger.",
+   "Do not allow a cross-pin in the opening."
+  ]
+ },
+ {
+  "id": "battery",
+  "name": "Battery",
+  "group": "core",
+  "idea": "Two or more pieces on the same line that attack together.",
+  "detail": "A queen behind a bishop on a diagonal, or two rooks doubled on a file, strike harder than any one of them. Batteries are the basis of many attacks.",
+  "spot": [
+   "Line up queen and bishop towards the enemy king.",
+   "Double rooks on an open file.",
+   "Opponents can break a battery by exchanging the front piece."
+  ],
+  "see": "Alekhine's gun below is a battery of three."
+ },
+ {
+  "id": "alekhines-gun",
+  "name": "Alekhine's gun",
+  "group": "core",
+  "idea": "Two rooks doubled on a file with the queen behind them.",
+  "detail": "Named after Alexander Alekhine, who used it often. The three heavy pieces form a battery that crushes the file and the seventh rank. It is hard to defend because each piece supports the others.",
+  "fen": "6k1/3r1ppp/8/8/8/3R4/3R4/3Q2K1 w - - 0 1",
+  "line": [],
+  "marks": {
+   "d3": "target",
+   "d2": "target",
+   "d1": "target"
+  },
+  "arrows": [
+   [
+    "d1",
+    "d7"
+   ]
+  ],
+  "kind": "static",
+  "result": "The two rooks and the queen on the d-file point at the black rook on d7. Any exchange on d7 leaves White with more attackers than Black has defenders.",
+  "aka": "Triple battery"
+ },
+ {
+  "id": "exposed-king",
+  "name": "Exposed king",
+  "group": "combo",
+  "idea": "A king without its pawn cover or protecting pieces is a target.",
+  "detail": "An exposed king makes sacrifices work, because the attacker has fewer pieces to beat. The king can be exposed by pawn moves, by exchanges, or by a sacrifice that tears away the cover.",
+  "spot": [
+   "Count the defenders around the king.",
+   "Look for checks that drive the king into the open.",
+   "Sacrifice to remove the last defender when the attack cannot be stopped."
+  ]
+ },
+ {
+  "id": "attacking-castled-king",
+  "name": "Attacking the kingside or queenside",
+  "group": "combo",
+  "idea": "Open lines to the king, bring pieces and sacrifice to finish.",
+  "detail": "Most attacks against a castled king share a pattern: a pawn storm or a sacrifice to open a file, a queen and rook on the file, and a minor piece that covers the key squares. Lichess lists them as kingside attack and queenside attack themes.",
+  "spot": [
+   "Count attackers against defenders near the king.",
+   "Open a file or diagonal by a pawn break or a sacrifice.",
+   "Do not attack without enough pieces."
+  ],
+  "see": "See the Opera Game and the Immortal Game in Master games."
+ },
+ {
+  "id": "advanced-pawn",
+  "name": "Advanced pawn and promotion",
+  "group": "combo",
+  "idea": "A pawn near the last rank ties down the opponent and wins by force.",
+  "detail": "A pawn on the sixth or seventh rank creates immediate threats. Tactics involving promotion include underpromotion, promotion with check, and giving up a piece to remove a blocker.",
+  "spot": [
+   "Count the moves the pawn needs and who can stop it.",
+   "Check promotion with check, which gains a tempo.",
+   "Check underpromotion if a queen would be stalemate or would not give check."
+  ],
+  "see": "See the Lasker trap and the Underpromotion concept."
+ },
+ {
+  "id": "breakthrough",
+  "name": "Pawn breakthrough",
+  "group": "endgame",
+  "idea": "A pawn sacrifice that clears the way for a passed pawn.",
+  "detail": "With three pawns against three on the same wing, one sacrifice breaks through. Remember the pattern: the middle pawn goes first, then the side pawn forces through. Endgames like this are won by calculation, not by rule.",
+  "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1",
+  "line": [
+   "b6",
+   "axb6",
+   "c6",
+   "bxc6",
+   "a6",
+   "Kg7",
+   "a7",
+   "Kf6",
+   "a8=Q"
+  ],
+  "result": "The sacrifice on b6 opens the path. After 2.c6 the pawn on a5 runs to a8 and becomes a queen, while the black king is too far away.",
+  "marks": {
+   "b6": "target"
+  },
+  "arrows": [
+   [
+    "b5",
+    "b6"
+   ]
+  ],
+  "aka": "Triple breakthrough"
+ },
+ {
+  "id": "square-rule",
+  "name": "Rule of the square",
+  "group": "endgame",
+  "idea": "A quick way to see whether a king can catch a passed pawn.",
+  "detail": "Draw a square whose side is the number of steps from the pawn to its promotion square. If the defending king is inside the square (or can step into it on its move), it catches the pawn. If it is outside, the pawn promotes.",
+  "spot": [
+   "Count the squares from the pawn to the last rank.",
+   "Draw the square towards the defending king.",
+   "Remember that a pawn on its starting rank can move two squares, so count from the square in front."
+  ],
+  "see": "See the Strategy tab guide on king and pawn endings."
+ },
+ {
+  "id": "lucena",
+  "name": "Lucena position",
+  "group": "endgame",
+  "idea": "The standard winning position with a rook and a pawn on the seventh rank.",
+  "detail": "White has the pawn on the seventh and the king in front of it, but the enemy king is cutting it off. The winning method is to build a bridge: bring the rook to the fourth rank, then use it to shield the king from checks.",
+  "fen": "1K6/1P1k4/8/8/8/8/r7/2R5 w - - 0 1",
+  "line": [],
+  "marks": {
+   "b7": "target",
+   "c1": "target"
+  },
+  "arrows": [
+   [
+    "c1",
+    "d1"
+   ]
+  ],
+  "kind": "static",
+  "result": "White wins with 1.Rd1+ Ke7 2.Rd4!, building a bridge on the fourth rank. This position is named after Luis Ramírez de Lucena, who described a similar idea in 1497.",
+  "aka": "Building a bridge"
+ },
+ {
+  "id": "philidor-position",
+  "name": "Philidor position",
+  "group": "endgame",
+  "idea": "The standard drawing method in a rook ending with a pawn on the fifth.",
+  "detail": "The defending side keeps the rook on the sixth rank until the pawn advances, then moves the rook behind and checks from far away. It is named after François-André Philidor.",
+  "spot": [
+   "Put the rook on the sixth rank to cut the king off.",
+   "When the pawn reaches the sixth rank, switch to checks from behind.",
+   "Keep the king in front of the pawn."
+  ],
+  "see": "See the Strategy tab guide on rook endings."
+ },
+ {
+  "id": "vancura",
+  "name": "Vančura position",
+  "group": "endgame",
+  "idea": "A rook ending with a rook pawn that is drawn by checking from the side.",
+  "detail": "The defender puts the rook on the side of the board and attacks the pawn from the side, so the attacking king cannot escape the checks. Named after the Czech composer Josef Vančura.",
+  "spot": [
+   "The defender attacks the pawn from the side.",
+   "The attacker cannot hide the king without giving up the pawn."
+  ]
+ },
+ {
+  "id": "saavedra",
+  "name": "Saavedra position",
+  "group": "endgame",
+  "idea": "A famous underpromotion that turns a lost ending into a win.",
+  "detail": "A pawn on the seventh rank promotes to a rook rather than a queen, because a queen would be stalemate or lose to a check. It was found in a study based on a game by Fernando Saavedra in 1895.",
+  "spot": [
+   "Check whether promotion to a queen allows a stalemate.",
+   "Check whether a rook promotion forces a win."
+  ],
+  "see": "See the Underpromotion concept in this tab."
+ },
+ {
+  "id": "triangulation",
+  "name": "Triangulation",
+  "group": "endgame",
+  "idea": "Lose a tempo with the king by walking around a triangle of squares.",
+  "detail": "The opponent cannot do the same, so the move passes to him and he falls into zugzwang. It is the main way of winning a pawn ending when the opposition is wrong.",
+  "spot": [
+   "Find three squares that your king can use and your opponent cannot.",
+   "Walk the triangle so that the same position arises with the opponent to move."
+  ],
+  "see": "See the Strategy tab guide on the opposition."
+ },
+ {
+  "id": "wrong-bishop",
+  "name": "Wrong-coloured bishop",
+  "group": "endgame",
+  "idea": "A bishop and a rook pawn can be a draw if the bishop does not control the corner.",
+  "detail": "The rook pawn promotes on a corner square, and the bishop must control that corner. Here the bishop is on light squares, but h8 is a dark square, so the defending king reaches h8 and cannot be driven out.",
+  "fen": "7k/8/7P/8/8/8/8/5B1K w - - 0 1",
+  "line": [],
+  "marks": {
+   "h8": "target",
+   "f1": "target"
+  },
+  "arrows": [],
+  "kind": "static",
+  "result": "Black draws by staying in the corner. A bishop of the other colour would win, because it controls h8.",
+  "aka": "Wrong rook pawn"
+ },
+ {
+  "id": "queen-vs-pawn",
+  "name": "Queen against a pawn on the seventh",
+  "group": "endgame",
+  "idea": "A queen usually beats a pawn on the seventh, except for rook and bishop pawns.",
+  "detail": "A queen can stop a central or knight pawn with help from the king. A rook pawn or bishop pawn with the king next to it may draw by stalemate tricks.",
+  "spot": [
+   "Check the file of the pawn: rook and bishop pawns are the drawing exceptions.",
+   "Bring the king closer while giving checks."
+  ]
+ },
+ {
+  "id": "stalemate-trick",
+  "name": "Stalemate trick (swindle)",
+  "group": "endgame",
+  "idea": "A lost side offers material to force a stalemate.",
+  "detail": "If the defending king has no legal moves and no other piece can move, a sacrifice can leave the side to move with no moves at all. It saves many lost games.",
+  "spot": [
+   "Look for corner positions where the king has few squares.",
+   "A queen or rook sacrifice that forces a capture can stalemate.",
+   "Attackers: always check that the opponent has a legal move after yours."
+  ],
+  "see": "See the Stalemate card in this tab."
+ },
+ {
+  "id": "fortress",
+  "name": "Fortress",
+  "group": "endgame",
+  "idea": "A defence the opponent cannot break, even with extra material.",
+  "detail": "The defender sets up a position where all entry squares are covered, and the stronger side cannot make progress. Common fortresses include opposite-coloured bishops and a rook behind a pawn chain.",
+  "spot": [
+   "Look for a setup where every entry square is controlled.",
+   "Avoid being driven into zugzwang.",
+   "Attackers should keep more pieces on the board to prevent fortresses."
+  ]
+ },
+ {
+  "id": "defensive-move",
+  "name": "Defensive tactics",
+  "group": "combo",
+  "idea": "Ways to meet an attack: capture the attacker, block, move away, counterattack or interpose.",
+  "detail": "Good defenders look for the move that solves all threats at once. A counter-check, a zwischenzug or a stalemate trick can turn a lost game around.",
+  "spot": [
+   "Count every threat before you reply.",
+   "Look for forcing replies: checks, captures and threats.",
+   "Trade the attacking pieces.",
+   "Do not forget perpetual check."
+  ]
+ },
+ {
+  "id": "counter-sacrifice",
+  "name": "Counter-sacrifice",
+  "group": "sacrifice",
+  "idea": "Answer a sacrifice with a sacrifice of your own.",
+  "detail": "When the opponent breaks through with a sacrifice, giving back material at the right moment can break the attack.",
+  "spot": [
+   "Look for a piece that can be returned with tempo.",
+   "Calculate the resulting position carefully."
+  ]
+ },
+ {
+  "id": "pawn-storm",
+  "name": "Pawn storm",
+  "group": "sacrifice",
+  "idea": "Push the pawns against the enemy king to open lines.",
+  "detail": "Typical when the kings castle on opposite wings. The pawns open files for rooks and queen.",
+  "spot": [
+   "Count the tempi on both sides of the board.",
+   "Support the storm with pieces.",
+   "Do not forget to watch for the opponent's counter-attack."
+  ],
+  "see": "See the Strategy tab guide on opposite-side castling."
+ },
+ {
+  "id": "rook-lift",
+  "name": "Rook lift",
+  "group": "sacrifice",
+  "idea": "Swing a rook to the third rank or higher to join the attack.",
+  "detail": "The rook goes up a file to the third rank, then sideways, to attack the king. Rooks on the first rank are passive, so lifting them is a normal attacking idea.",
+  "spot": [
+   "Open a path with a pawn.",
+   "Make sure the rook cannot be trapped."
+  ]
+ },
+ {
+  "id": "mate-in-n",
+  "name": "Mate in one, two, three and more",
+  "group": "mate",
+  "idea": "Count the moves to the checkmate.",
+  "detail": "Puzzles and engines write it as M1, M2, M3. A mate in two means White moves, Black replies, and White mates. Look at checks first, then at quiet moves that take away the last escape.",
+  "spot": [
+   "Check every check and capture.",
+   "Count the escape squares of the king.",
+   "Do not stop at the first idea: find all the king's replies."
+  ]
+ },
+ {
+  "id": "fried-liver",
+  "name": "Fried Liver Attack",
+  "group": "trap",
+  "idea": "White sacrifices a knight on f7 for a strong attack on the king.",
+  "detail": "After 4.Ng5 d5 5.exd5 Nxd5 6.Nxf7 the king is dragged to the centre. Black can defend with accurate play, so it works best against weak opposition.",
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "line": [
+   "e4",
+   "e5",
+   "Nf3",
+   "Nc6",
+   "Bc4",
+   "Nf6",
+   "Ng5",
+   "d5",
+   "exd5",
+   "Nxd5",
+   "Nxf7",
+   "Kxf7",
+   "Qf3+",
+   "Ke6",
+   "Nc3",
+   "Nb4",
+   "O-O",
+   "c6",
+   "d4"
+  ],
+  "result": "White has given a knight for two pawns and an exposed king. Black has to find several only moves to survive.",
+  "marks": {},
+  "arrows": [],
+  "credit": "Italian Game, Two Knights Defence",
+  "notes": [
+   {
+    "at": "6w",
+    "text": "Nxf7!? The knight sacrifice drags the king out."
+   },
+   {
+    "at": "7w",
+    "text": "Qf3+ forces the king forward again."
+   },
+   {
+    "at": "10w",
+    "text": "d4: White opens the centre against the exposed king."
+   }
+  ]
  }
 ]

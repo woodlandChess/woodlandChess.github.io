@@ -67,7 +67,7 @@ describe('tactics library: every diagram is real', () => {
   })
 
   it('mating patterns end in checkmate and basic mates are one move', () => {
-    for (const m of MOTIFS.filter(x => x.group === 'mate')) expect(m.line!.at(-1)!.endsWith('#')).toBe(true)
+    for (const m of MOTIFS.filter(x => x.group === 'mate' && x.fen)) expect(m.line!.at(-1)!.endsWith('#')).toBe(true)
     for (const id of ['kq-mate', 'kr-mate', 'kbb-mate', 'kbn-mate']) expect(get(id).line).toHaveLength(1)
   })
 })
@@ -182,6 +182,26 @@ describe('tactics library: the claims in the text', () => {
     const g = new Chess(get('stalemate').fen!)
     expect(g.isStalemate()).toBe(true)
     expect(g.isCheck()).toBe(false)
+  })
+
+  it('royal and family forks win the queen', () => {
+    const royal = rankMoves(get('royal-fork').fen!, 3)
+    expect(royal[0].san).toBe('Nc7+')
+    expect(royal[0].gain).toBeGreaterThanOrEqual(600)
+    expect(royal[0].gain - royal[1].gain).toBeGreaterThanOrEqual(500)
+    const fam = rankMoves(get('family-fork').fen!, 3)
+    expect(fam[0].san).toBe('Nc7+')
+    expect(fam[0].gain).toBeGreaterThanOrEqual(600)
+    expect(fam[0].gain - fam[1].gain).toBeGreaterThanOrEqual(500)
+    const g = new Chess(get('family-fork').fen!)
+    g.move('Nc7+')
+    expect(g.isCheck()).toBe(true)
+  }, 30_000)
+
+  it('pawn breakthrough: the line ends with a new queen', () => {
+    const steps = replay(get('breakthrough').fen!, get('breakthrough').line!)
+    const end = new Chess(steps.at(-1)!.fen)
+    expect(end.board().flat().some(p => p?.type === 'q' && p.color === 'w')).toBe(true)
   })
 
   it('scholar: the sideline from the reference game reaches the diagram', () => {

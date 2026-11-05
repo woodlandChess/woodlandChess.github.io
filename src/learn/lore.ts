@@ -3058,6 +3058,147 @@ export const LORE: Article[] = [
         "t": "glossary"
       }
     ]
+  },
+  {
+    "id": "chess-map",
+    "topic": "Reference",
+    "title": "The map of chess: every area and where to find it",
+    "summary": "A guide to the whole subject, from rules to engines, with pointers to every tab.",
+    "blocks": [
+      {
+        "t": "p",
+        "text": "Chess is a large subject. This map lists every area, what it covers and where to find it in the app, so you can see what is there and what you want to learn next."
+      },
+      {
+        "t": "table",
+        "head": [
+          "Area",
+          "What it covers",
+          "Where to find it"
+        ],
+        "rows": [
+          [
+            "Rules",
+            "Moves, castling, en passant, promotion, draws, etiquette, time controls",
+            "Lore: Rules"
+          ],
+          [
+            "Notation",
+            "Algebraic notation, PGN, FEN, UCI",
+            "Lore: Reference"
+          ],
+          [
+            "Tactics: core",
+            "Fork, pin, skewer, discovered attack, double check, royal and family forks, batteries",
+            "Tactics: Core tactics"
+          ],
+          [
+            "Tactics: combinations",
+            "Decoy, deflection, overloading, interference, clearance, zwischenzug",
+            "Tactics: Combinations"
+          ],
+          [
+            "Sacrifices",
+            "Greek gift, queen sacrifice, exchange sacrifice, pawn storms",
+            "Tactics: Sacrifices"
+          ],
+          [
+            "Mating patterns",
+            "Back rank, smothered, Arabian, Anastasia, Boden, Epaulette, Opera, Hook and more",
+            "Tactics: Mating patterns"
+          ],
+          [
+            "Opening traps",
+            "Légal, Elephant, Noah's Ark, Blackburne Shilling, Budapest, Fried Liver",
+            "Tactics: Opening traps"
+          ],
+          [
+            "Master games",
+            "Opera Game, Immortal Game, Evergreen Game, Réti vs Tartakower, Fischer's game",
+            "Tactics: Master games"
+          ],
+          [
+            "Endgame tactics",
+            "Basic mates, stalemate, opposition, Lucena, breakthroughs",
+            "Tactics: Endgame tactics"
+          ],
+          [
+            "Strategy foundations",
+            "Centre, development, king safety, space, phases",
+            "Strategy: Foundations"
+          ],
+          [
+            "Pawns and structure",
+            "Isolated, hanging and passed pawns, structures from openings",
+            "Strategy: Pawns"
+          ],
+          [
+            "Pieces",
+            "Good and bad bishops, knights, rooks, queen, exchanges",
+            "Strategy: Pieces"
+          ],
+          [
+            "Attack and defence",
+            "Attacking the king, castling, counterattack, defending",
+            "Strategy: Attack and defence"
+          ],
+          [
+            "Planning",
+            "Prophylaxis, imbalances, weaknesses, squeeze, converting",
+            "Strategy: Planning"
+          ],
+          [
+            "Endgames",
+            "King and pawn, rook, queen and minor piece endings, drawing methods",
+            "Strategy: Endgames"
+          ],
+          [
+            "Masters' ideas",
+            "Steinitz, Tarrasch, Nimzowitsch, Petrosian, and others",
+            "Strategy: Masters"
+          ],
+          [
+            "Training",
+            "Tactics, analysis, time management, psychology, repertoire",
+            "Strategy: Training"
+          ],
+          [
+            "Openings",
+            "ECO families, 1.e4, 1.d4, flank openings, gambits",
+            "Lore: Openings"
+          ],
+          [
+            "History",
+            "Origins, words, timeline, champions, women, matches",
+            "Lore: History and Players"
+          ],
+          [
+            "Ratings and titles",
+            "Elo, calculator, titles, norms, FIDE",
+            "Lore: Ratings and Competition"
+          ],
+          [
+            "Engines and computers",
+            "Stockfish, NNUE, analysis panel, Deep Blue, tablebases, the Shannon number",
+            "Lore: Engines"
+          ],
+          [
+            "Mind and fair play",
+            "Memory, chunking, benefits, cheating",
+            "Lore: Mind"
+          ],
+          [
+            "Variants and culture",
+            "Chess960, crazyhouse, books, films, records",
+            "Lore: Variants and Culture"
+          ]
+        ]
+      },
+      {
+        "t": "note",
+        "text": "If you cannot find a topic, use the search boxes at the top of each tab. They search titles and descriptions across all lessons and articles."
+      }
+    ]
   }
 ]
 
