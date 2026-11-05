@@ -1190,5 +1190,1042 @@ export const STRATEGY: Article[] = [
     "text": "Alexander Kotov's classic book Think Like a Grandmaster recommends the same discipline: list the candidate moves, then calculate each line once instead of jumping back and forth between them."
    }
   ]
+ },
+ {
+  "id": "phases",
+  "topic": "Foundations",
+  "title": "The three phases of the game",
+  "summary": "Opening, middlegame and endgame, and how your priorities change.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "A game is usually divided into three phases, though the borders are blurred. Each phase has its own priorities, and strong players change their thinking as the phase changes."
+   },
+   {
+    "t": "table",
+    "head": [
+     "Phase",
+     "Main goals",
+     "Typical mistakes"
+    ],
+    "rows": [
+     [
+      "Opening",
+      "Develop pieces, control the centre, castle, avoid early tactics.",
+      "Moving the same piece twice, bringing the queen out early, ignoring the centre."
+     ],
+     [
+      "Middlegame",
+      "Make a plan: attack a weakness, improve the worst piece, create threats or defend.",
+      "Drifting without a plan, missing tactics, trading the wrong pieces."
+     ],
+     [
+      "Endgame",
+      "Activate the king, create and support passed pawns, use technique.",
+      "Passive play, leaving the king at home, losing the opposition."
+     ]
+    ]
+   },
+   {
+    "t": "ul",
+    "items": [
+     "The king hides in the opening and middlegame and becomes a fighter in the endgame.",
+     "Piece values change: pawns grow more valuable as pieces come off the board.",
+     "Plans differ too. In the middlegame you can attack the king. In the endgame you promote pawns."
+    ]
+   },
+   {
+    "t": "note",
+    "text": "Many games are decided at the moment of transition: a trade of queens, for example, can turn a middlegame attack into an endgame where structure matters."
+   }
+  ]
+ },
+ {
+  "id": "open-closed",
+  "topic": "Foundations",
+  "title": "Open and closed positions",
+  "summary": "How the pawn structure decides which pieces and plans are best.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Open positions",
+     "Closed positions"
+    ],
+    "rows": [
+     [
+      "Pawns are traded and files and diagonals are open.",
+      "Pawns are locked in the centre, with few open lines."
+     ],
+     [
+      "Bishops, rooks and queens are strong.",
+      "Knights are often strong, because they can jump over the pawns."
+     ],
+     [
+      "Speed and development matter. Tactics decide.",
+      "Plans and pawn breaks matter. Manoeuvring decides."
+     ],
+     [
+      "The king in the centre is in danger.",
+      "The king can be safe in the centre for a while."
+     ]
+    ]
+   },
+   {
+    "t": "p",
+    "text": "You can steer the game. If you have the bishop pair or a lead in development, open the position. If you have a space advantage or good knights, keep it closed and prepare a break."
+   }
+  ]
+ },
+ {
+  "id": "material",
+  "topic": "Foundations",
+  "title": "Material values and when they change",
+  "summary": "Why the numbers 1, 3, 3, 5 and 9 are only a guide.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Piece",
+     "Typical value",
+     "Notes"
+    ],
+    "rows": [
+     [
+      "Pawn",
+      "1",
+      "Worth more in the endgame, especially a passed pawn."
+     ],
+     [
+      "Knight",
+      "3",
+      "Better in closed positions."
+     ],
+     [
+      "Bishop",
+      "3",
+      "Better in open positions. The pair is worth about half a pawn extra."
+     ],
+     [
+      "Rook",
+      "5",
+      "Needs open files. Two rooks are roughly equal to a queen."
+     ],
+     [
+      "Queen",
+      "9",
+      "The strongest piece, but easy to harass."
+     ]
+    ]
+   },
+   {
+    "t": "ul",
+    "items": [
+     "The exchange (a rook for a minor piece) is worth about two pawns.",
+     "A strong passed pawn can be worth more than a piece.",
+     "Activity can be worth more than material, which is why gambits and sacrifices work.",
+     "Engines weigh these things together. Use the numbers to count, and judgment to decide."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "tension",
+  "topic": "Foundations",
+  "title": "Pawn tension and when to resolve it",
+  "summary": "Whether to capture, push or keep the tension.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "Pawn tension means that two pawns attack each other and either side can capture. Resolving it changes the structure for good, so the timing matters."
+   },
+   {
+    "t": "ul",
+    "items": [
+     "Capture when the resulting structure favours you, for example when it gives you a passed pawn or leaves the opponent with a weak pawn.",
+     "Keep the tension when the opponent has to commit first or when releasing it helps the opponent.",
+     "Push the pawn when it gains space and the structure stays healthy.",
+     "Do not release tension just because it feels uncomfortable."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "opening-to-middlegame",
+  "topic": "Foundations",
+  "title": "From opening to middlegame",
+  "summary": "How to find a plan once the opening theory runs out.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Look at the pawn structure. It tells you the typical plans.",
+     "Ask where each piece belongs, and which one is worst.",
+     "Decide where the king is safest and where the opponent's king is weakest.",
+     "Choose a side of the board to play on, based on space and open files.",
+     "Check tactics for both sides every move."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Many opening mistakes at club level are not about theory. They come from reaching a position without a plan. A simple rule helps: improve your worst piece until a concrete idea appears."
+   }
+  ]
+ },
+ {
+  "id": "iqp",
+  "topic": "Pawns",
+  "title": "The isolated queen's pawn (IQP)",
+  "summary": "The most common isolated pawn: strength and weakness at the same time.",
+  "blocks": [
+   {
+    "t": "board",
+    "fen": "2r2rk1/pp2bppp/4pn2/8/3P4/2N1BN2/PP3PPP/R2Q1RK1 w - - 0 1",
+    "caption": "White has an isolated pawn on d4. The square in front of it, d5, is the key to the fight.",
+    "marks": {
+     "d4": "target",
+     "d5": "target"
+    },
+    "arrows": []
+   },
+   {
+    "t": "table",
+    "head": [
+     "For the side with the pawn",
+     "For the side against it"
+    ],
+    "rows": [
+     [
+      "Space and open lines for the pieces.",
+      "Blockade the pawn with a knight on d5."
+     ],
+     [
+      "Attacking chances against the king.",
+      "Trade pieces, because the weakness shows more in the endgame."
+     ],
+     [
+      "The pawn can advance to d5 at the right moment.",
+      "Pressure the pawn along the d-file."
+     ]
+    ]
+   },
+   {
+    "t": "note",
+    "text": "As a rule, the side with the isolated pawn should attack before the pieces come off the board. The other side should simplify."
+   }
+  ]
+ },
+ {
+  "id": "hanging-pawns",
+  "topic": "Pawns",
+  "title": "Hanging pawns",
+  "summary": "Two connected pawns on neighbouring files with no friendly pawns beside them.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "Hanging pawns, usually on c and d, control many central squares and can drive an attack. They are also a target, because they have no pawn support. The side with hanging pawns must keep them mobile, or they become weak."
+   },
+   {
+    "t": "ul",
+    "items": [
+     "Advance them with the right timing to create a passed pawn.",
+     "Keep the pieces active, so the pawns are protected by pieces.",
+     "The opponent attacks them with pieces and tries to force one to move, which leaves the other exposed."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "structures",
+  "topic": "Pawns",
+  "title": "Typical pawn structures from the openings",
+  "summary": "A map of the structures that come up again and again.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Structure",
+     "What it looks like",
+     "Typical plans"
+    ],
+    "rows": [
+     [
+      "Carlsbad",
+      "White d4 and e3 against Black d5 and e6, c-file half open.",
+      "White: minority attack with b4 and b5. Black: pressure on the e-file."
+     ],
+     [
+      "Maroczy bind",
+      "White pawns on c4 and e4 against Black d6.",
+      "White clamps d5 and b5. Black looks for a break with b5 or f5."
+     ],
+     [
+      "Hedgehog",
+      "Black pawns on a6, b6, d6 and e6.",
+      "Black waits, then breaks with b5 or d5."
+     ],
+     [
+      "Stonewall",
+      "A chain of pawns on c6, d5, e6 and f5.",
+      "A strong grip on e4. A weak e5 square."
+     ],
+     [
+      "French advance chain",
+      "White d4 and e5 against Black d5 and e6.",
+      "Attack the base of the chain with ...c5 and ...f6."
+     ],
+     [
+      "King's Indian",
+      "Black pawns on d6 and e5 against White c4, d5 and e4.",
+      "White: queenside play. Black: kingside pawn storm."
+     ],
+     [
+      "Benoni",
+      "Black c5, d6 and e6 against White d5 and e4.",
+      "White: e5 break. Black: queenside majority."
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "doubled",
+  "topic": "Pawns",
+  "title": "Doubled and backward pawns",
+  "summary": "When a structural weakness matters, and when it does not.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Doubled pawns are weak in the endgame, because one cannot support the other.",
+     "They can be strong if they open a file for a rook or control important squares.",
+     "A backward pawn is weak when the square in front of it can be taken by an enemy piece.",
+     "A backward pawn on a half-open file is a target for the opponent's rooks."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Before you accept doubled pawns, ask what you receive in return: the bishop pair, an open file or a lead in development."
+   }
+  ]
+ },
+ {
+  "id": "knight-play",
+  "topic": "Pieces",
+  "title": "Knight manoeuvres",
+  "summary": "How to bring a knight to a good square, and why the rim is dim.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "A knight in the centre controls up to eight squares. On the rim it controls only four.",
+     "Plan the route: usually two or three moves to a better square.",
+     "Outposts are the dream squares, supported by a pawn and safe from enemy pawns.",
+     "In closed positions, knights can reroute behind the pawn chain.",
+     "A knight is weaker near the edge of the board, where it can be trapped."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "A common manoeuvre is Nb1-d2-f1-g3, bringing a knight from the back rank to the kingside in three moves."
+   }
+  ]
+ },
+ {
+  "id": "bishop-play",
+  "topic": "Pieces",
+  "title": "Bishop play",
+  "summary": "Long diagonals, fianchettoes and the bishop that belongs outside the pawn chain.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Put bishops on open diagonals, aimed at the enemy king or at a weak pawn.",
+     "A fianchettoed bishop on g2 or b2 controls the long diagonal and protects the king.",
+     "Keep the bishop outside the pawn chain, so pawns do not block it.",
+     "Trade a bad bishop, but keep the good one.",
+     "Bishops of opposite colours attack in a way that the opponent cannot defend easily."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "queen-play",
+  "topic": "Pieces",
+  "title": "Queen play",
+  "summary": "How to use the strongest piece without losing time.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Develop the other pieces first. An early queen is a target.",
+     "Keep the queen on a safe square, with access to both wings.",
+     "The queen is best placed behind other pieces, as in a battery.",
+     "Beware of grabbing pawns far from home with the queen, as the Poisoned Pawn lines show.",
+     "A queen trade changes the character of the game, so ask whether it helps you."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "minor-vs-rook",
+  "topic": "Pieces",
+  "title": "Two minor pieces against a rook",
+  "summary": "How to evaluate the most common material imbalance.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "Two minor pieces (6 points) against a rook and a pawn (6 points) is a typical imbalance. Which side is better depends on the position."
+   },
+   {
+    "t": "table",
+    "head": [
+     "Favours the minor pieces",
+     "Favours the rook"
+    ],
+    "rows": [
+     [
+      "Many pawns on the board, closed centre.",
+      "Open files and an exposed enemy king."
+     ],
+     [
+      "The king is safe and the pieces coordinate well.",
+      "The rook can reach the seventh rank."
+     ],
+     [
+      "In the middlegame, with many pieces.",
+      "In an endgame with few pieces and passed pawns."
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "king-in-centre",
+  "topic": "Attack and defence",
+  "title": "The king in the centre",
+  "summary": "When it is dangerous, and when it is fine.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Danger: open centre files and the opponent ahead in development.",
+     "Often fine: closed centre, with locked pawns and no way for the opponent to open lines.",
+     "If you cannot castle, find a safe square, or build a pawn shield in the centre.",
+     "Hitting a king in the centre is often the reason for gambits and sacrifices."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "The classic punishment is to open the centre with a pawn break or sacrifice. The Opera Game shows what happens when a king stays in the centre against a lead in development."
+   }
+  ]
+ },
+ {
+  "id": "castling-decision",
+  "topic": "Attack and defence",
+  "title": "Which way to castle?",
+  "summary": "Kingside, queenside or later: how to decide.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Choice",
+     "Good because",
+     "Watch out for"
+    ],
+    "rows": [
+     [
+      "Kingside",
+      "Fast, and the king is protected by three pawns.",
+      "Pawn storms and the Greek gift sacrifice."
+     ],
+     [
+      "Queenside",
+      "Rook reaches the d-file faster and the queen is more active.",
+      "The king is nearer the open a-file and b-file. Slower to arrange."
+     ],
+     [
+      "Delaying",
+      "Keeps options open and hides your plan.",
+      "Danger of getting stuck in the centre."
+     ]
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Castling on opposite sides leads to sharp games. The player who attacks faster wins. Castling on the same side usually leads to quieter play with a focus on structure."
+   }
+  ]
+ },
+ {
+  "id": "weaknesses",
+  "topic": "Planning",
+  "title": "Creating and attacking weaknesses",
+  "summary": "The method behind most positional wins.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "A weakness is something you can attack: an isolated pawn, a weak square, an exposed king.",
+     "One weakness can be defended. Two are much harder, so try to create a second one.",
+     "Attack weaknesses with pieces, because pawns cannot attack backwards.",
+     "Fix the weakness, so it cannot move away, then attack it.",
+     "Trade the pieces that defend it."
+    ]
+   },
+   {
+    "t": "note",
+    "text": "The principle of two weaknesses explains many master games: first force a weakness on one side, then switch to another wing."
+   }
+  ]
+ },
+ {
+  "id": "squeeze",
+  "topic": "Planning",
+  "title": "The squeeze",
+  "summary": "How Karpov and the Soviet school won without any obvious tactics.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "A squeeze takes away the opponent's moves, bit by bit, until every move loses something. It needs patience and technique."
+   },
+   {
+    "t": "ul",
+    "items": [
+     "Gain space and control key squares with pawns and pieces.",
+     "Use prophylaxis to stop the opponent's freeing breaks.",
+     "Trade the opponent's active pieces and keep your own.",
+     "Make small improvements each move. Do not hurry.",
+     "Look for zugzwang in the endgame."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "transformation",
+  "topic": "Planning",
+  "title": "Transforming an advantage",
+  "summary": "Turning one kind of advantage into another that is easier to use.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "Advantages can be converted. A lead in development can become material. Material can become a passed pawn. A space advantage can become a lasting weakness. Strong players know when to convert."
+   },
+   {
+    "t": "ul",
+    "items": [
+     "A positional advantage is permanent, so convert only when it is concrete.",
+     "A dynamic advantage fades, so convert it soon, usually into material or structure.",
+     "Trading to an endgame turns a better structure into a passed pawn."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "counterattack",
+  "topic": "Attack and defence",
+  "title": "Counterattack",
+  "summary": "How to defend by attacking when the opponent presses, and when it works.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Look for the opponent's weakest point when you are being attacked.",
+     "A counter-threat can be more powerful than a defence, especially if it hits the king or the queen.",
+     "Timing is critical: you must be faster, or you must create a threat that has to be answered.",
+     "A counterattack on the other wing works well when the position is open."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "dynamic-play",
+  "topic": "Planning",
+  "title": "Dynamic play",
+  "summary": "Activity over material, as shown by Tal, Kasparov and the engines.",
+  "blocks": [
+   {
+    "t": "p",
+    "text": "Dynamic play values initiative and piece activity above static features like a better structure. A dynamic player sacrifices a pawn or two for open lines and fast development."
+   },
+   {
+    "t": "ul",
+    "items": [
+     "Count activity, not only material.",
+     "Keep making threats, so the opponent never gets time to consolidate.",
+     "Keep your own king safe enough.",
+     "Avoid slow positions where the opponent's extra pawn counts."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Modern engines have confirmed this view: they often prefer active, risky-looking moves that human players would reject."
+   }
+  ]
+ },
+ {
+  "id": "evaluate",
+  "topic": "Planning",
+  "title": "A checklist for evaluating a position",
+  "summary": "The factors that decide who is better.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Factor",
+     "Questions"
+    ],
+    "rows": [
+     [
+      "Material",
+      "Who is ahead? Is there compensation?"
+     ],
+     [
+      "King safety",
+      "Which king is more exposed?"
+     ],
+     [
+      "Piece activity",
+      "Which pieces are active and which are passive?"
+     ],
+     [
+      "Pawn structure",
+      "Weaknesses, passed pawns, majorities."
+     ],
+     [
+      "Space and files",
+      "Who controls more squares and open files?"
+     ],
+     [
+      "Development",
+      "Who is ahead?"
+     ],
+     [
+      "Initiative",
+      "Who makes the threats?"
+     ],
+     [
+      "Tactics",
+      "Is there a forcing line for either side?"
+     ]
+    ]
+   },
+   {
+    "t": "note",
+    "text": "Evaluate first, then plan. If you cannot name the main feature of the position, you are not ready to make a plan."
+   }
+  ]
+ },
+ {
+  "id": "king-pawn",
+  "topic": "Endgames",
+  "title": "King and pawn endings",
+  "summary": "The rules that decide almost every pawn ending.",
+  "blocks": [
+   {
+    "t": "board",
+    "fen": "8/8/8/8/P6k/8/8/7K w - - 0 1",
+    "caption": "Rule of the square: the black king on h4 is outside the square of the a4 pawn, so the pawn promotes.",
+    "marks": {
+     "a4": "target",
+     "h4": "target"
+    },
+    "arrows": []
+   },
+   {
+    "t": "ul",
+    "items": [
+     "The opposition decides who must give way.",
+     "Key squares: a king on a key square in front of its pawn wins.",
+     "The rule of the square tells you whether a king catches a runaway pawn.",
+     "An outside passed pawn drags the enemy king away from the rest of the board.",
+     "Triangulation wins a tempo when the opposition is wrong.",
+     "Rook pawns are special: a king in the corner draws more often."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rook-positions",
+  "topic": "Endgames",
+  "title": "Rook endings: the four standard positions",
+  "summary": "Lucena, Philidor, Vančura and the Tarrasch rule.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Name",
+     "Idea",
+     "Who benefits"
+    ],
+    "rows": [
+     [
+      "Lucena",
+      "Build a bridge with the rook to promote a pawn on the seventh rank.",
+      "The side with the pawn."
+     ],
+     [
+      "Philidor",
+      "Keep the rook on the sixth rank, then check from behind.",
+      "The defender."
+     ],
+     [
+      "Vančura",
+      "Attack a rook pawn from the side.",
+      "The defender."
+     ],
+     [
+      "Tarrasch rule",
+      "Put your rook behind a passed pawn, yours or the opponent's.",
+      "Both sides."
+     ]
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Many rook endings are drawn with correct play. The key is activity: an active rook is worth more than a pawn."
+   }
+  ]
+ },
+ {
+  "id": "queen-endings",
+  "topic": "Endgames",
+  "title": "Queen endings",
+  "summary": "Perpetual check, passed pawns and king safety.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Perpetual check is the main resource of the defender.",
+     "Centralise the queen, and keep the king close to its pawns.",
+     "Passed pawns are very strong, supported by the queen.",
+     "A queen and pawn ending can be lost by a single careless move, so calculate carefully."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "bishop-vs-knight",
+  "topic": "Endgames",
+  "title": "Bishop against knight endings",
+  "summary": "Which piece is better, and why.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Bishops are better when pawns are on both wings, because they can cover the whole board.",
+     "Knights are better in closed positions with pawns on one side.",
+     "A knight needs support from pawns, and is weaker in the open.",
+     "A bishop that is blocked by its own pawns is bad."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "drawing-techniques",
+  "topic": "Endgames",
+  "title": "How to save a worse endgame",
+  "summary": "Fortress, stalemate, perpetual check and trading down.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Fortress: set up a defence that cannot be broken.",
+     "Stalemate: look for tricks when the king has no moves.",
+     "Perpetual check: harass the king until the opponent repeats.",
+     "Opposite-coloured bishops: trade other pieces to reach one.",
+     "Activity: even a pawn down, an active rook can draw."
+    ]
+   },
+   {
+    "t": "note",
+    "text": "Save the half-point. A draw from a bad position is a good result, and many strong players are known for their defensive skill."
+   }
+  ]
+ },
+ {
+  "id": "endgame-technique",
+  "topic": "Endgames",
+  "title": "Endgame technique",
+  "summary": "Zugzwang, triangulation, passed pawns and patient play.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Make progress step by step. Improve your king first, then the pieces, then break through.",
+     "Do not rush the pawn. Support it with the king.",
+     "Avoid unnecessary pawn moves that create weaknesses.",
+     "Use zugzwang: a position where any move by the opponent is a mistake.",
+     "Calculate concrete lines before you simplify."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "time-management",
+  "topic": "Training",
+  "title": "Time management",
+  "summary": "Spending the clock where it matters.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Play the opening quickly, with moves you know.",
+     "Use more time in critical positions: tactics, structure changes, trades.",
+     "Do not spend long on a move where there is only one sensible choice.",
+     "Use increments: they exist to be used.",
+     "Check your time every few moves, and keep a reserve for the end."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Time trouble causes more lost games than any opening. A good habit is to set a rough budget, such as two minutes a move in a slow game, and to stay near it."
+   }
+  ]
+ },
+ {
+  "id": "psychology",
+  "topic": "Training",
+  "title": "The psychology of playing",
+  "summary": "Tilt, confidence, and how to handle losing.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Tilt is playing worse because of emotion. A short break stops it.",
+     "Do not play revenge games straight after a loss.",
+     "Treat every loss as information, not as a verdict.",
+     "Build a pre-game routine: sleep, food, a short warm-up with tactics.",
+     "Emanuel Lasker taught that you should play the opponent as well as the position: choose lines that suit their style."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "repertoire",
+  "topic": "Training",
+  "title": "Building an opening repertoire",
+  "summary": "What to learn, and how to remember it.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Choose openings that fit your style: attacking, solid or flexible.",
+     "As White, pick a system against everything, such as 1.e4 or 1.d4 and a plan.",
+     "As Black, have one reply to 1.e4 and one to 1.d4.",
+     "Learn the ideas behind the moves: the pawn breaks, the typical piece placement and the traps.",
+     "Review your games to find where your preparation ended."
+    ]
+   },
+   {
+    "t": "note",
+    "text": "Quality beats quantity. A small repertoire you understand is stronger than a big one you have memorised."
+   }
+  ]
+ },
+ {
+  "id": "analyze-games",
+  "topic": "Training",
+  "title": "How to analyse your own games",
+  "summary": "A process that finds the real reasons you lose.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Replay the game without an engine, and mark the moments where you were unsure.",
+     "Write down what you thought at each moment.",
+     "Run the engine to find the critical mistakes.",
+     "Sort the errors: tactics, opening, strategy, endgame, time or nerves.",
+     "Make a training plan from the biggest category of errors."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "calculation",
+  "topic": "Training",
+  "title": "Calculation",
+  "summary": "Seeing the future: how to analyse lines without getting lost.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "List the candidate moves, and look at forcing ones first: checks, captures and threats.",
+     "Calculate each line to a quiet position, then evaluate.",
+     "Visualise the board. Practise by solving puzzles without moving the pieces.",
+     "Do not repeat the same line over and over. If you have analysed it, trust the result.",
+     "Check the opponent's best reply at every step."
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Alexander Kotov described the \"tree of analysis\" in Think Like a Grandmaster: a good player keeps a clear list of lines and does not jump back to the beginning."
+   }
+  ]
+ },
+ {
+  "id": "stronger-weaker",
+  "topic": "Training",
+  "title": "Playing stronger and weaker opponents",
+  "summary": "How to adjust your approach.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Against a stronger player",
+     "Against a weaker player"
+    ],
+    "rows": [
+     [
+      "Play solid, and avoid early risks.",
+      "Play principled chess and keep making threats."
+     ],
+     [
+      "Use your preparation and pose practical problems.",
+      "Do not overpress. Keep control of the position."
+     ],
+     [
+      "Be patient: strong players also make mistakes.",
+      "Avoid cheap tricks that give a draw."
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "tournament",
+  "topic": "Training",
+  "title": "The day of a tournament",
+  "summary": "Practical advice that saves half-points.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Sleep well and eat before the round.",
+     "Check the pairing and review your opening for that opponent.",
+     "Bring a pen, a water bottle and a calm mind.",
+     "Write down every move, and read your move before you play it.",
+     "After the game, analyse, even if you won."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "practical-chances",
+  "topic": "Training",
+  "title": "Practical chances and swindles",
+  "summary": "What to play when you are lost.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Choose the move that sets the most problems, not the move that looks best on paper.",
+     "Complicate the position, so the opponent has to find several only moves.",
+     "Set traps that fit the opponent's style.",
+     "Use the clock: strong players also make mistakes in time trouble.",
+     "Look for stalemate and perpetual check tricks."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "plateau",
+  "topic": "Training",
+  "title": "Breaking a rating plateau",
+  "summary": "Why progress stops, and what to change.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "You repeat the same mistakes. Analyse your losses to find patterns.",
+     "You play too many fast games. Add slower ones.",
+     "You study openings only. Add tactics and endgames.",
+     "You are afraid to lose. Play real games against stronger opponents.",
+     "Rest matters: a break can bring a jump in strength."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "classics",
+  "topic": "Training",
+  "title": "Learning from the classics",
+  "summary": "Why replaying the masters' games works, and how to do it.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Play through the game on a board, and try to guess each move before it is played.",
+     "Start with annotated games from different eras: Morphy, Capablanca, Tal, Fischer, Karpov, Kasparov, Carlsen.",
+     "Pause at the critical moments and think for five minutes.",
+     "Note the typical plans, and use them in your own games.",
+     "Study complete games, not only the opening."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "steinitz",
+  "topic": "Masters",
+  "title": "Steinitz's principles",
+  "summary": "The first modern theory of chess strategy.",
+  "blocks": [
+   {
+    "t": "table",
+    "head": [
+     "Principle",
+     "Meaning"
+    ],
+    "rows": [
+     [
+      "Attack only with an advantage",
+      "A premature attack fails against correct defence."
+     ],
+     [
+      "Accumulate small advantages",
+      "A better pawn structure or a better piece placement adds up."
+     ],
+     [
+      "The king is a strong piece",
+      "In the endgame, and sometimes even in the middlegame."
+     ],
+     [
+      "Defend actively",
+      "Stay flexible, and wait for the opponent to overreach."
+     ],
+     [
+      "The centre is the key",
+      "Control it, and the wings are easy to open."
+     ]
+    ]
+   },
+   {
+    "t": "p",
+    "text": "Steinitz's ideas were mocked at first, but they won him the first official World Championship in 1886 and became the basis of the classical school."
+   }
+  ]
+ },
+ {
+  "id": "tarrasch",
+  "topic": "Masters",
+  "title": "Tarrasch's rules",
+  "summary": "Clear rules for beginners, and the rooks behind passed pawns.",
+  "blocks": [
+   {
+    "t": "ul",
+    "items": [
+     "Develop your pieces quickly, and do not waste time with the same piece.",
+     "Control the centre with pawns and pieces.",
+     "Mobility is the key: a position with active pieces is better.",
+     "Place the rook behind a passed pawn. This is Tarrasch's rule.",
+     "A bad bishop can be exchanged for a good knight."
+    ]
+   },
+   {
+    "t": "note",
+    "text": "Siegbert Tarrasch was a teacher. His clear rules made him the Praeceptor Germaniae, the teacher of Germany, though he was sometimes too dogmatic."
+   }
+  ]
  }
 ]

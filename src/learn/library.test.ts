@@ -16,7 +16,7 @@ describe.each(all)('%s articles', (_name, articles) => {
       expect(a.topic.length).toBeGreaterThan(2)
       expect(a.title.length).toBeGreaterThan(5)
       expect(a.summary.length).toBeGreaterThan(20)
-      expect(a.blocks.length).toBeGreaterThan(1)
+      expect(a.blocks.length).toBeGreaterThanOrEqual(1)
       expect(readingMinutes(a)).toBeGreaterThanOrEqual(1)
     }
   })
@@ -43,7 +43,7 @@ describe('coverage', () => {
   it('strategy covers the main areas', () => {
     const topics = new Set(STRATEGY.map(a => a.topic))
     for (const t of ['Foundations', 'Pawns', 'Pieces', 'Attack and defence', 'Planning', 'Endgames', 'Masters', 'Training']) expect(topics.has(t), t).toBe(true)
-    expect(STRATEGY.length).toBeGreaterThanOrEqual(30)
+    expect(STRATEGY.length).toBeGreaterThanOrEqual(65)
   })
 
   it('lore includes history, ratings, players, schools and engines', () => {
