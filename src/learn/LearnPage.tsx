@@ -213,10 +213,10 @@ export function LearnPage({ onNavigate, onPlaySchool }: {
         <div role="tabpanel" id={`ln-panel-${tab}`} aria-labelledby={`ln-tab-${tab}`} className="ln-panel">
           {tab === 'tactics' && <TacticsTab onNavigate={onNavigate} />}
           {tab === 'strategy' && (
-            <ArticleLibrary articles={STRATEGY} onPlaySchool={onPlaySchool} onReadingChange={onReadingChange} backLabel="All guides" noun="strategy guides" />
+            <ArticleLibrary articles={STRATEGY} onPlaySchool={onPlaySchool} onReadingChange={onReadingChange} backLabel="All guides" noun="strategy guides" libraryId="strategy" />
           )}
           {tab === 'lore' && (
-            <ArticleLibrary articles={LORE} onPlaySchool={onPlaySchool} onReadingChange={onReadingChange} backLabel="All lore" noun="lore" />
+            <ArticleLibrary articles={LORE} onPlaySchool={onPlaySchool} onReadingChange={onReadingChange} backLabel="All lore" noun="lore" libraryId="lore" />
           )}
         </div>
       </div>

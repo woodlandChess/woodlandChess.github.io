@@ -27,7 +27,7 @@ export function PostGameAnalysis({ input }: { input: PostGameInput }) {
   const { moves, userColor, result, opponentName, profileId, gameId, userName } = input
   const key = `${userColor}:${moves.join(' ')}`
   const game = useMemo<ProfileGame>(() => ({
-    id: profileId ?? gameId ?? `post-${userColor}-${moves.join('')}`, source: profileId ? 'ai' : 'lichess', playedAt: Date.now(),
+    id: profileId ?? (gameId ? `lichess-${gameId}` : `post-${userColor}-${moves.join('')}`), source: profileId ? 'ai' : 'lichess', playedAt: Date.now(),
     white: userColor === 'w' ? (userName || 'You') : opponentName, black: userColor === 'b' ? (userName || 'You') : opponentName,
     userColor, result, moves: moves.join(' '),
   }), [key, result, opponentName, profileId, gameId, userName])  // eslint-disable-line react-hooks/exhaustive-deps

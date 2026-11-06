@@ -1,4 +1,5 @@
 import { DataBackup } from './DataBackup'
+import '../styles/analyzecontrols.css'
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EnginePool, REVIEW_DEPTH, REVIEW_MAX_MS } from './enginePool'
 import { HomeFrame } from '../components/HomeFrame'
@@ -12,8 +13,14 @@ import { GameStudy } from './GameStudy'
 import '../styles/profile.css'
 
 const MAX_PER_RUN = 100
+const COUNT_KEY = 'woodland-chess:analyze-count'
+const COUNT_CHOICES = [5, 10, 25, 50, 100]
+
+function readCount(): number {
+  try { const n = Number(localStorage.getItem(COUNT_KEY)); if (Number.isFinite(n) && n >= 1) return Math.min(100, Math.round(n)) } catch { /* ignore */ }
+  return 25
+}
 /** Most recent Lichess games fetched per import. */
-const IMPORT_COUNT = '100'
 const SHOWN = 8
 
 interface Progress { game: number; of: number; done: number; total: number }
@@ -41,12 +48,20 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
   const [open, setOpen] = useState<{ game: ProfileGame; review: GameReview } | null>(null)
   const [showAll, setShowAll] = useState(false)
   const runRef = useRef<AbortController | null>(null)
+  // How many of the latest games to import and analyze. Remembered between visits.
+  const [count, setCountState] = useState(readCount)
+  const [confirm, setConfirm] = useState<'analyses' | 'games' | null>(null)
+  const setCount = (n: number) => {
+    const v = Math.max(1, Math.min(100, Math.round(n) || 1))
+    setCountState(v)
+    try { localStorage.setItem(COUNT_KEY, String(v)) } catch { /* ignore */ }
+  }
 
   const commit = (next: PlayerProfileData) => { dataRef.current = next; setData(next); saveProfile(next) }
   const summary = useMemo(() => summarizeStyle(data.games, data.reviews), [data])
   const tips = useMemo(() => makeTips(data.games, data.reviews), [data])
   const reviewOf = useMemo(() => new Map(data.reviews.map(r => [r.gameId, r])), [data.reviews])
-  const pending = data.games.filter(g => !reviewOf.has(g.id)).length
+  const pending = data.games.slice(0, count).filter(g => !reviewOf.has(g.id)).length
 
   useEffect(() => {
     let active = true
@@ -66,7 +81,8 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
     const engine = new EnginePool()
     try {
       const known = new Set(dataRef.current.reviews.map(r => r.gameId))
-      const batch = games.filter(g => !known.has(g.id)).slice(0, MAX_PER_RUN)
+      // Only the newest `count` games are considered, so choosing 10 means the 10 latest games and nothing older.
+      const batch = games.slice(0, count).filter(g => !known.has(g.id)).slice(0, MAX_PER_RUN)
       if (!batch.length) { setStatus('Everything is already analyzed.'); return }
       for (let i = 0; i < batch.length; i++) {
         const review = await reviewGame(batch[i], engine, {
@@ -91,7 +107,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
     setBusy(true); setError(''); setStatus('Loading public games from Lichess…')
     try {
       const url = new URL(`https://lichess.org/api/games/user/${encodeURIComponent(name)}`)
-      url.searchParams.set('max', IMPORT_COUNT); url.searchParams.set('moves', 'true')
+      url.searchParams.set('max', String(count)); url.searchParams.set('moves', 'true')
       url.searchParams.set('clocks', 'false'); url.searchParams.set('evals', 'false'); url.searchParams.set('opening', 'true')
       const token = getStoredToken()
       const response = await fetch(url, {
@@ -127,7 +143,7 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
     if (pending) return analyze(data.games)
     setError('Enter a Lichess username to import public games.')
   }
-  const syncLabel = !accountName && pending ? `Analyze ${Math.min(pending, MAX_PER_RUN)} games` : 'Import & analyze'
+  const syncLabel = !accountName && pending ? `Analyze ${Math.min(pending, MAX_PER_RUN)} ${pending === 1 ? 'game' : 'games'}` : `Import & analyze ${count}`
   const shown = showAll ? data.games : data.games.slice(0, SHOWN)
   const pct = progress ? Math.round(((progress.game - 1 + progress.done / progress.total) / progress.of) * 100) : 0
 
@@ -152,11 +168,21 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
         </label>
         {data.games.length > 0 && (
           <small className="profile-hint" aria-live="polite">
-            {pending ? `${pending} saved ${pending === 1 ? 'game is' : 'games are'} waiting for review.` : 'All saved games are reviewed.'}
+            {pending ? `${pending} of the latest ${count} ${pending === 1 ? 'game is' : 'games are'} waiting for review.` : `The latest ${count} saved games are reviewed.`}
           </small>
         )}
       </div>
-      <p className="profile-privacy">Your last 100 Lichess games are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
+      <div className="analyze-count" role="group" aria-label="How many of your latest games to analyze">
+        <label htmlFor="analyze-count-input"><span>Latest games to analyze</span></label>
+        <div className="analyze-count-row">
+          <input id="analyze-count-input" type="number" inputMode="numeric" min={1} max={100} value={count} disabled={busy}
+            onChange={e => setCount(Number(e.target.value))} />
+          {COUNT_CHOICES.map(n => (
+            <button key={n} type="button" className="analyze-count-chip" aria-pressed={count === n} disabled={busy} onClick={() => setCount(n)}>{n}</button>
+          ))}
+        </div>
+      </div>
+      <p className="profile-privacy">The latest games you choose above are imported and reviewed in depth. Public Lichess games and the games you play against the computer are stored on this device only. Importing needs no account permission.</p>
 
       {(busy || status) && !error && (
         <div className="profile-progress" role="status" aria-live="polite">
@@ -295,6 +321,33 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           </div>
         )}
       </section>
+
+      {data.games.length > 0 && (
+        <section className="profile-section analyze-manage" aria-labelledby="analyze-manage-title">
+          <div className="profile-section-head"><h3 id="analyze-manage-title">Clean up</h3><span>{data.reviews.length} analyzed</span></div>
+          {confirm ? (
+            <div className="databackup-confirm" role="alertdialog" aria-label="Confirm">
+              <p>{confirm === 'analyses'
+                ? `Delete all ${data.reviews.length} analyses? Your games stay saved, so you can analyze them again.`
+                : `Remove all ${data.games.length} games and their analyses from this device?`}</p>
+              <div className="databackup-actions">
+                <button type="button" className="begin-game" onClick={() => {
+                  commit(confirm === 'analyses'
+                    ? { ...dataRef.current, reviews: [], updatedAt: Date.now() }
+                    : { ...dataRef.current, games: [], reviews: [], updatedAt: Date.now() })
+                  setConfirm(null); setShowAll(false); setStatus('')
+                }}>{confirm === 'analyses' ? 'Delete analyses' : 'Remove everything'}</button>
+                <button type="button" className="btn-ghost" onClick={() => setConfirm(null)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="databackup-actions">
+              <button type="button" className="btn-ghost" disabled={busy || data.reviews.length === 0} onClick={() => setConfirm('analyses')}>Clear analyses</button>
+              <button type="button" className="btn-ghost" disabled={busy} onClick={() => setConfirm('games')}>Remove all games</button>
+            </div>
+          )}
+        </section>
+      )}
 
       <DataBackup data={data} onRestored={commit} />
 

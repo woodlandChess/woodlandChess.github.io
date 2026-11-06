@@ -24,8 +24,8 @@ describe('saving a game together with its review', () => {
     expect(readProfile().games).toHaveLength(0)
     saveReviewedGame(game('abcd1234'), review('abcd1234'))
     const p = readProfile()
-    expect(p.games.map(g => g.id)).toEqual(['abcd1234'])
-    expect(p.reviews.map(r => r.gameId)).toEqual(['abcd1234'])
+    expect(p.games.map(g => g.id)).toEqual(['lichess-abcd1234'])
+    expect(p.reviews.map(r => r.gameId)).toEqual(['lichess-abcd1234'])
   })
 
   it('does not duplicate the game when it is imported later, and replaces an older review', () => {
@@ -43,5 +43,38 @@ describe('saving a game together with its review', () => {
     const p = readProfile()
     expect(p.games.map(g => g.id).sort()).toEqual(['one', 'two'])
     expect(p.reviews).toHaveLength(2)
+  })
+})
+
+describe('one game, one entry', () => {
+  beforeEach(() => { vi.stubGlobal('localStorage', mem()) })
+
+  it('an imported game and the same game analysed after the match are one game', () => {
+    // imported from Lichess earlier: "lichess-<id>", with no review yet
+    localStorage.setItem('woodland-chess:player-style-v1', JSON.stringify({
+      username: 'me', games: [game('lichess-abcd1234')], reviews: [], updatedAt: 1,
+    }))
+    saveReviewedGame(game('lichess-abcd1234'), review('lichess-abcd1234'))
+    const p = readProfile()
+    expect(p.games.map(g => g.id)).toEqual(['lichess-abcd1234'])
+    expect(p.reviews.map(r => r.gameId)).toEqual(['lichess-abcd1234'])
+  })
+
+  it('repairs profiles saved by the earlier version, which used the bare id and left a duplicate', () => {
+    localStorage.setItem('woodland-chess:player-style-v1', JSON.stringify({
+      username: 'me', updatedAt: 1,
+      games: [game('abcd1234'), game('lichess-abcd1234'), game('lichess-zzzz9999')],
+      reviews: [review('abcd1234')],
+    }))
+    const p = readProfile()
+    expect(p.games.map(g => g.id).sort()).toEqual(['lichess-abcd1234', 'lichess-zzzz9999'])
+    expect(p.reviews.map(r => r.gameId)).toEqual(['lichess-abcd1234'])         // the review followed the game
+  })
+
+  it('does not touch ids of games against the computer', () => {
+    localStorage.setItem('woodland-chess:player-style-v1', JSON.stringify({
+      username: '', updatedAt: 1, games: [{ ...game('abcd1234'), source: 'ai' }], reviews: [],
+    }))
+    expect(readProfile().games.map(g => g.id)).toEqual(['abcd1234'])
   })
 })
