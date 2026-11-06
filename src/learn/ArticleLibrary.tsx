@@ -51,11 +51,19 @@ export interface ArticleLibraryProps {
   backLabel: string
   /** What the search box looks for, for example "lore". */
   noun: string
+  /** Which library this is, so a browser history entry knows which article it belongs to. */
+  libraryId: 'lore' | 'strategy'
+}
+
+interface HistoryArticle { lib: string; id: string }
+const fromHistory = (lib: string): string | null => {
+  const a = (window.history.state as { learnArticle?: HistoryArticle } | null)?.learnArticle
+  return a && a.lib === lib ? a.id : null
 }
 
 /** A searchable list of articles; opening one shows it in place with a pinned back button. */
-export function ArticleLibrary({ articles, onPlaySchool, onReadingChange, backLabel, noun }: ArticleLibraryProps) {
-  const [openId, setOpenId] = useState<string | null>(null)
+export function ArticleLibrary({ articles, onPlaySchool, onReadingChange, backLabel, noun, libraryId }: ArticleLibraryProps) {
+  const [openId, setOpenId] = useState<string | null>(() => fromHistory(libraryId))
   const [topic, setTopic] = useState('All')
   const [query, setQuery] = useState('')
   const top = useRef<HTMLElement>(null)
@@ -71,8 +79,24 @@ export function ArticleLibrary({ articles, onPlaySchool, onReadingChange, backLa
   }, [articles, topic, query])
 
   const scroller = () => (top.current ?? listRef.current)?.closest<HTMLElement>('.setup-shell') ?? null
-  const open = (id: string) => { savedScroll.current = scroller()?.scrollTop ?? 0; setOpenId(id) }
-  const close = () => setOpenId(null)
+  // Opening an article adds a browser history entry. The phone's back swipe (or the browser's back button) then
+  // closes the article and lands on the list, instead of leaving the Learn screen altogether.
+  const open = (id: string) => {
+    savedScroll.current = scroller()?.scrollTop ?? 0
+    try { window.history.pushState({ ...(window.history.state ?? {}), learnArticle: { lib: libraryId, id } satisfies HistoryArticle }, '') } catch { /* history unavailable */ }
+    setOpenId(id)
+  }
+  const close = () => {
+    // Our own back button goes through the history too, so the entry is removed and Back does not reopen the article.
+    if (fromHistory(libraryId)) window.history.back()
+    else setOpenId(null)
+  }
+
+  useEffect(() => {
+    const onPop = () => setOpenId(fromHistory(libraryId))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [libraryId])
 
   useEffect(() => { onReadingChange?.(openId !== null); return () => onReadingChange?.(false) }, [openId, onReadingChange])
 

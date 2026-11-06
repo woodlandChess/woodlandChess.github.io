@@ -1,0 +1,10 @@
+/* Woodland Chess - choosing how many games to analyze, and cleaning up, on the Analyze screen. */
+.analyze-count { display: grid; gap: 0.5rem; margin: 0.2rem 0 0.4rem; }
+.analyze-count label span { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3); }
+.analyze-count-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: stretch; }
+.analyze-count-row input { width: 5.2rem; min-height: 42px; padding: 0.4rem 0.7rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-card); color: var(--text); font-family: var(--font-mono); font-size: 0.95rem; }
+.analyze-count-row input:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: 1px; }
+.analyze-count-chip { appearance: none; min-width: 44px; min-height: 42px; padding: 0 0.7rem; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-card); color: var(--text-2); font-family: var(--font-mono); font-size: 0.78rem; }
+.analyze-count-chip[aria-pressed="true"] { border-color: var(--accent-bright); color: var(--text); }
+.analyze-count-chip:disabled, .analyze-count-row input:disabled { opacity: 0.5; }
+.analyze-manage { gap: 0.8rem; }

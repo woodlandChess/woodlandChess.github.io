@@ -128,15 +128,40 @@ export function clearProfile(): void {
   try { localStorage.removeItem(KEY) } catch { /* unavailable */ }
 }
 
+const RAW_LICHESS_ID = /^[A-Za-z0-9]{8}$/
+
+/**
+ * Games imported from Lichess are saved as "lichess-<id>". An earlier version saved a game analysed right after
+ * a multiplayer match under the bare id, so the same game could appear twice. This gives such games their proper
+ * id and merges the pair, keeping the one that has a review.
+ */
+function unifyIds(games: ProfileGame[], reviews: GameReview[]): { games: ProfileGame[]; reviews: GameReview[] } {
+  const renamed = new Map<string, string>()
+  const fixed = games.map(g => {
+    if (g.source === 'lichess' && RAW_LICHESS_ID.test(g.id)) { renamed.set(g.id, `lichess-${g.id}`); return { ...g, id: `lichess-${g.id}` } }
+    return g
+  })
+  const reviewIds = new Set(reviews.map(r => renamed.get(r.gameId) ?? r.gameId))
+  const byId = new Map<string, ProfileGame>()
+  for (const g of fixed) if (!byId.has(g.id) || reviewIds.has(g.id)) byId.set(g.id, byId.get(g.id) ?? g)
+  const seen = new Set<string>()
+  const outReviews: GameReview[] = []
+  for (const r of reviews) {
+    const id = renamed.get(r.gameId) ?? r.gameId
+    if (seen.has(id)) continue
+    seen.add(id)
+    outReviews.push(id === r.gameId ? r : { ...r, gameId: id })
+  }
+  return { games: [...byId.values()], reviews: outReviews }
+}
+
 /** Turns raw saved or backed-up data into a clean profile. Anything unreadable is dropped, never rendered. */
 export function parseProfile(v: any): PlayerProfileData {
   if (!v || !Array.isArray(v.games)) return empty()
-  return {
-    username: typeof v.username === 'string' ? v.username : '',
-    games: v.games.filter((g: ProfileGame) => g && typeof g.id === 'string' && typeof g.moves === 'string' && (g.userColor === 'w' || g.userColor === 'b')),
-    reviews: Array.isArray(v.reviews) ? v.reviews.filter(isValidReview) : [],
-    updatedAt: Number(v.updatedAt) || 0,
-  }
+  const games: ProfileGame[] = v.games.filter((g: ProfileGame) => g && typeof g.id === 'string' && typeof g.moves === 'string' && (g.userColor === 'w' || g.userColor === 'b'))
+  const reviews: GameReview[] = Array.isArray(v.reviews) ? v.reviews.filter(isValidReview) : []
+  const clean = unifyIds(games, reviews)
+  return { username: typeof v.username === 'string' ? v.username : '', games: clean.games, reviews: clean.reviews, updatedAt: Number(v.updatedAt) || 0 }
 }
 
 /** Reads the stored profile. Reviews made by older, less accurate versions are dropped (they are recomputed). */
@@ -198,7 +223,11 @@ export function recordComputerGame(g: {
  * Used after a post-game analysis, so a game analysed right after it ended (against the computer or online)
  * also appears in the Analyze tab with its review, and never needs to be analysed twice.
  */
-export function saveReviewedGame(game: ProfileGame, review: GameReview): void {
+export function saveReviewedGame(rawGame: ProfileGame, rawReview: GameReview): void {
+  // Normalised the same way as everything read from storage, so a bare Lichess id can never create a second entry.
+  const clean = parseProfile({ games: [rawGame], reviews: [rawReview] })
+  const game = clean.games[0] ?? rawGame
+  const review = clean.reviews[0] ?? rawReview
   const data = readProfile()
   const games = data.games.some(g => g.id === game.id) ? data.games : [game, ...data.games]
   saveProfile({
