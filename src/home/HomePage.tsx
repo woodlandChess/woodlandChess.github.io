@@ -84,8 +84,8 @@ function SoundButton() {
 const ways: { id: Exclude<ModeId, 'home' | 'puzzle'>; no: string; title: string; copy: string; meta: string; Icon: typeof IconComputer }[] = [
   { id: 'online',  no: '01', title: 'Multiplayer', copy: 'Seek real opponents through your Lichess account.',                  meta: 'Lichess',        Icon: IconOnline },
   { id: 'ai',      no: '02', title: 'Computer',    copy: 'Face Stockfish 18 across ten playing schools and three strengths.', meta: 'On your device', Icon: IconComputer },
-  { id: 'profile', no: '03', title: 'Analyze',     copy: 'Review your games move by move and see how your style reads.',       meta: 'Private',        Icon: IconAnalyze },
-  { id: 'learn',   no: '04', title: 'Learn',       copy: 'Puzzles, tactics and mates, strategy guides and the story of chess.', meta: 'Tactics · Strategy · Lore', Icon: IconLearn },
+  { id: 'learn',   no: '03', title: 'Learn',       copy: 'Puzzles, tactics and mates, strategy guides and the story of chess.', meta: 'Tactics · Strategy · Lore', Icon: IconLearn },
+  { id: 'profile', no: '04', title: 'Analyze',     copy: 'Review your games move by move and see how your style reads.',       meta: 'Private',        Icon: IconAnalyze },
 ]
 
 /** A link that behaves like a button inside the SPA but stays a real anchor. */

@@ -13,8 +13,8 @@ const tabs: { id: TabId; label: string; full: string; Icon: typeof IconHome }[] 
   { id: 'online',  label: 'Multiplayer', full: 'Multiplayer',         Icon: IconOnline },
   { id: 'ai',      label: 'AI',          full: 'Play the computer',   Icon: IconComputer },
   { id: 'home',    label: 'Home',        full: 'Home',                Icon: IconHome },
-  { id: 'profile', label: 'Analyze',     full: 'Analyze your games',  Icon: IconAnalyze },
   { id: 'learn',   label: 'Learn',       full: 'Learn and practice',  Icon: IconLearn },
+  { id: 'profile', label: 'Analyze',     full: 'Analyze your games',  Icon: IconAnalyze },
 ]
 
 /** Puzzles live under Learn, so they keep the Learn tab lit. */

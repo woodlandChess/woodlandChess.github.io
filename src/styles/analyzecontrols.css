@@ -8,3 +8,30 @@
 .analyze-count-chip[aria-pressed="true"] { border-color: var(--accent-bright); color: var(--text); }
 .analyze-count-chip:disabled, .analyze-count-row input:disabled { opacity: 0.5; }
 .analyze-manage { gap: 0.8rem; }
+
+/* Confirm and choice buttons: one size everywhere on this screen, so a pair always lines up. */
+.confirm-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.confirm-btn {
+  appearance: none;
+  min-height: 48px;
+  padding: 0.7rem 0.8rem;
+  background: rgba(13, 16, 19, 0.6);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-card);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-align: center;
+  transition: border-color 0.3s var(--ease), color 0.3s var(--ease), background 0.3s var(--ease), transform 0.2s var(--ease);
+}
+.confirm-btn:hover:not(:disabled) { border-color: rgba(214, 219, 222, 0.34); color: var(--text); }
+.confirm-btn:active:not(:disabled) { transform: scale(0.98); }
+.confirm-btn:focus-visible { outline: 1px solid var(--accent-bright); outline-offset: 2px; }
+.confirm-btn:disabled { opacity: 0.4; }
+.confirm-btn--primary { border-color: var(--accent-bright); background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--bg-3); color: var(--text); font-weight: 400; }
+.confirm-btn--danger { border-color: var(--w-attack); background: rgba(192, 83, 74, 0.14); color: #e8c9c5; font-weight: 400; }
+.confirm-btn--danger-quiet { color: #d9a8a3; }
+.confirm-btn--danger-quiet:hover:not(:disabled) { border-color: var(--w-attack); color: #e8c9c5; }

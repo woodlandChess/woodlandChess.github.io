@@ -237,3 +237,13 @@ export function saveReviewedGame(rawGame: ProfileGame, rawReview: GameReview): v
     updatedAt: Date.now(),
   })
 }
+
+/** Deletes every review but keeps all saved games, so they can be analyzed again. */
+export function clearAnalyses(data: PlayerProfileData, now = Date.now()): PlayerProfileData {
+  return { ...data, reviews: [], updatedAt: now }
+}
+
+/** Deletes every saved game and its review. Your Lichess username is kept. */
+export function clearEverything(data: PlayerProfileData, now = Date.now()): PlayerProfileData {
+  return { ...data, games: [], reviews: [], updatedAt: now }
+}

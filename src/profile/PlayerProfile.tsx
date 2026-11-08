@@ -6,7 +6,7 @@ import { HomeFrame } from '../components/HomeFrame'
 import type { ModeId } from '../components/ModeNav'
 import { getStoredToken, LichessClient } from '../lichess'
 import { parseLichessNdjson, reviewGame } from './analysis'
-import { clearProfile, readProfile, saveProfile, type GameReview, type PlayerProfileData, type ProfileGame } from './store'
+import { clearAnalyses, clearEverything, clearProfile, readProfile, saveProfile, type GameReview, type PlayerProfileData, type ProfileGame } from './store'
 import { makeTips, summarizeStyle } from './style'
 import { AXES, AXIS_HINT, AXIS_LABEL } from './players'
 import { GameStudy } from './GameStudy'
@@ -328,22 +328,20 @@ function PlayerProfileScreen({ onNavigate }: { onNavigate: (m: ModeId) => void }
           {confirm ? (
             <div className="databackup-confirm" role="alertdialog" aria-label="Confirm">
               <p>{confirm === 'analyses'
-                ? `Delete all ${data.reviews.length} analyses? Your games stay saved, so you can analyze them again.`
-                : `Remove all ${data.games.length} games and their analyses from this device?`}</p>
-              <div className="databackup-actions">
-                <button type="button" className="begin-game" onClick={() => {
-                  commit(confirm === 'analyses'
-                    ? { ...dataRef.current, reviews: [], updatedAt: Date.now() }
-                    : { ...dataRef.current, games: [], reviews: [], updatedAt: Date.now() })
-                  setConfirm(null); setShowAll(false); setStatus('')
+                ? `Delete all ${data.reviews.length} analyses? Your ${data.games.length} saved games stay, so you can analyze them again.`
+                : `Remove all ${data.games.length} games and all ${data.reviews.length} analyses from this device? This cannot be undone.`}</p>
+              <div className="confirm-actions">
+                <button type="button" className="confirm-btn" onClick={() => setConfirm(null)}>Cancel</button>
+                <button type="button" className={`confirm-btn ${confirm === 'games' ? 'confirm-btn--danger' : 'confirm-btn--primary'}`} onClick={() => {
+                  commit(confirm === 'analyses' ? clearAnalyses(dataRef.current) : clearEverything(dataRef.current))
+                  setConfirm(null); setStatus('')
                 }}>{confirm === 'analyses' ? 'Delete analyses' : 'Remove everything'}</button>
-                <button type="button" className="btn-ghost" onClick={() => setConfirm(null)}>Cancel</button>
               </div>
             </div>
           ) : (
-            <div className="databackup-actions">
-              <button type="button" className="btn-ghost" disabled={busy || data.reviews.length === 0} onClick={() => setConfirm('analyses')}>Clear analyses</button>
-              <button type="button" className="btn-ghost" disabled={busy} onClick={() => setConfirm('games')}>Remove all games</button>
+            <div className="confirm-actions">
+              <button type="button" className="confirm-btn" disabled={busy || data.reviews.length === 0} onClick={() => setConfirm('analyses')}>Clear analyses</button>
+              <button type="button" className="confirm-btn confirm-btn--danger-quiet" disabled={busy} onClick={() => setConfirm('games')}>Remove all games</button>
             </div>
           )}
         </section>
