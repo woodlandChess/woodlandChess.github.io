@@ -60,9 +60,9 @@ export function DataBackup({ data, onRestored }: { data: PlayerProfileData; onRe
         Save a backup file to Files or iCloud Drive, and restore it after you add the app again.
       </p>
       {unsaved && <p className="databackup-nudge" role="status">You have analysis that is not in a backup yet.</p>}
-      <div className="databackup-actions">
-        <button type="button" className="btn-ghost" onClick={save}>Save backup</button>
-        <button type="button" className="btn-ghost" onClick={() => input.current?.click()}>Restore backup</button>
+      <div className="confirm-actions">
+        <button type="button" className="confirm-btn" onClick={save}>Save backup</button>
+        <button type="button" className="confirm-btn" onClick={() => input.current?.click()}>Restore backup</button>
         <input ref={input} type="file" accept="application/json,.json" hidden onChange={e => void choose(e.target.files?.[0])} />
       </div>
 
@@ -73,9 +73,9 @@ export function DataBackup({ data, onRestored }: { data: PlayerProfileData; onRe
             {' '}{pending.summary.games} games, {pending.summary.reviews} analyzed{pending.summary.puzzles ? ', with puzzle progress' : ''}.
             It is added to what is already here, so nothing is lost.
           </p>
-          <div className="databackup-actions">
-            <button type="button" className="begin-game" onClick={restore}>Restore</button>
-            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Cancel</button>
+          <div className="confirm-actions">
+            <button type="button" className="confirm-btn" onClick={() => setPending(null)}>Cancel</button>
+            <button type="button" className="confirm-btn confirm-btn--primary" onClick={restore}>Restore</button>
           </div>
         </div>
       )}

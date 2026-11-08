@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { readProfile, REVIEW_VERSION, saveReviewedGame, type GameReview, type ProfileGame } from './store'
+import { clearAnalyses, clearEverything, readProfile, REVIEW_VERSION, saveReviewedGame, type GameReview, type ProfileGame } from './store'
 
 const mem = () => {
   const m = new Map<string, string>()
@@ -76,5 +76,32 @@ describe('one game, one entry', () => {
       username: '', updatedAt: 1, games: [{ ...game('abcd1234'), source: 'ai' }], reviews: [],
     }))
     expect(readProfile().games.map(g => g.id)).toEqual(['abcd1234'])
+  })
+})
+
+describe('cleaning up', () => {
+  const sample = (): PlayerProfileDataLike => ({ username: 'me', games: [game('lichess-aaaa1111'), game('lichess-bbbb2222')], reviews: [review('lichess-aaaa1111')], updatedAt: 1 })
+  type PlayerProfileDataLike = Parameters<typeof clearAnalyses>[0]
+
+  it('clearing analyses keeps every game and your username', () => {
+    const p = clearAnalyses(sample(), 99)
+    expect(p.reviews).toEqual([])
+    expect(p.games.map(g => g.id)).toEqual(['lichess-aaaa1111', 'lichess-bbbb2222'])
+    expect(p.username).toBe('me')
+    expect(p.updatedAt).toBe(99)
+  })
+
+  it('removing everything empties games and analyses but keeps the username', () => {
+    const p = clearEverything(sample(), 99)
+    expect(p.games).toEqual([])
+    expect(p.reviews).toEqual([])
+    expect(p.username).toBe('me')
+  })
+
+  it('does not change the profile it was given', () => {
+    const before = sample()
+    clearAnalyses(before); clearEverything(before)
+    expect(before.reviews).toHaveLength(1)
+    expect(before.games).toHaveLength(2)
   })
 })
