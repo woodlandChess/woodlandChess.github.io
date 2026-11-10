@@ -214,13 +214,18 @@
 @media (max-width: 699.98px) {
   /* two-column tables read better as compact label and value rows than as tall cards */
   .ln-table--pair tbody { gap: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-3); }
-  .ln-table--pair tr { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 1rem; padding: 0.6rem 0.9rem; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+  /* the label column keeps a real width: with a bare 1fr/auto pair, the long value column wins and the label is squeezed
+     to one character per line (the inherited overflow-wrap: anywhere makes that legal). */
+  .ln-table--pair tr { display: grid; grid-template-columns: minmax(6.4rem, 34%) minmax(0, 1fr); align-items: baseline; gap: 0.4rem 1rem; padding: 0.6rem 0.9rem; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
   .ln-table--pair tr:last-child { border-bottom: 0; }
-  .ln-table--pair tbody th { margin: 0; font-family: var(--font-mono); font-style: normal; font-size: 0.85rem; }
-  .ln-table--pair td { display: block; padding: 0; border: 0; text-align: right; font-size: 0.9rem; color: var(--text); }
+  .ln-table--pair tbody th { margin: 0; font-family: var(--font-mono); font-style: normal; font-size: 0.8rem; line-height: 1.5; color: var(--text); }
+  .ln-table--pair td { display: block; padding: 0; border: 0; text-align: left; font-size: 0.88rem; line-height: 1.55; color: var(--text-2); }
   .ln-table--pair td::before { display: none; }
 }
+/* Row and column titles are never broken inside a word, on any screen: they wrap between words only. */
+.ln-table th, .ln-term dt { overflow-wrap: normal; word-break: normal; hyphens: manual; }
 @media (min-width: 700px) {
+  .ln-table tbody th { white-space: normal; min-width: 7.5rem; }
   .ln-table-wrap { overflow-x: auto; border: 1px solid var(--border); background: var(--bg-3); }
 }
 

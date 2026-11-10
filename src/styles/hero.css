@@ -1,93 +1,146 @@
 /* Woodland Chess - Home hero artwork (see src/home/HeroArt.tsx).
+
+   One clock. Every delay below is built from the timeline variables, so the whole sequence can be
+   retimed in one place and nothing drifts out of sync. After the intro, every loop is an exact
+   divisor of the 6 second beat (or of 240 seconds for the slow rings), so the scene realigns
+   perfectly on a fixed grid instead of drifting.
+
    Resting state == final state: every keyframe only declares its "from" or loop values,
    so reduced motion, or no animation support at all, still shows a finished picture. */
 
-.hv { display: block; width: 100%; height: 100%; overflow: visible; }
-.hv-sq, .hv-spin, .hv-mist, .hv-ripple, .hv-contact, .hv-mote, .hv-sway, .hv-tip {
-  /* Only elements that animate get a fill-box origin: the groups that carry a transform
-     attribute (halo, knight scale) must keep SVG's default origin or they would shift. */
+.hv {
+  display: block; width: 100%; height: 100%; overflow: visible;
+
+  /* ── the timeline ─────────────────────────────────────────────────────── */
+  --t-foot: 0.3s;        /* a point of light at the foot */
+  --t-board: 0.35s;      /* board and forest spread outward from it */
+  --t-draw: 1.4s;        /* rim light starts climbing the shaft (constant speed: 29.5 units/s) */
+  --t-fill: 1.75s;       /* metal fills in behind the line */
+  --t-ignite-c: 3.2s;    /* crown tip, as the shaft's head is traced */
+  --t-ignite: 3.4s;      /* both side tips, halo release, orbs, and beat 0 */
+  --beat: 6s;
+  --e: var(--ease-liturgy, cubic-bezier(0.16, 0.4, 0.15, 1));
+}
+
+/* Only elements that animate around their own centre get a fill-box origin. Anything inside a
+   translated group that must turn around the group's origin uses the local origin instead. */
+.hv-sq, .hv-mist, .hv-ripple, .hv-contact, .hv-mote, .hv-sway, .hv-trunk {
   transform-box: fill-box;
   transform-origin: center;
 }
+.hv-spin, .hv-rg, .hv-tip, .hv-wipe {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
 
-/* ── light: one source, breathing ───────────────────────────────────────── */
-.hv-light { animation: hvFade 2s var(--ease-liturgy) backwards, hvBreathe 9s ease-in-out 2s infinite alternate; }
 @keyframes hvFade { from { opacity: 0; } }
-@keyframes hvBreathe { from { opacity: 0.8; } to { opacity: 1; } }
 
-/* ── halo ───────────────────────────────────────────────────────────────── */
-.hv-halo { animation: hvFade 2.2s var(--ease-liturgy) 0.2s backwards; }
-.hv-ring { fill: none; }
-.hv-ring--ticks { stroke: rgba(214, 219, 222, 0.2); stroke-width: 2.4; stroke-dasharray: 1.2 14.5; }
-.hv-ring--solid { stroke: rgba(214, 219, 222, 0.075); stroke-width: 1; }
-.hv-ring--inner { stroke: rgba(214, 219, 222, 0.13); }
-.hv-ring--dash { stroke: rgba(214, 219, 222, 0.14); stroke-width: 1; stroke-dasharray: 2 7; }
-.hv-ring--arc { stroke: var(--accent-bright); stroke-opacity: 0.6; stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 150 604; }
-.hv-orb { fill: var(--text); }
-.hv-orb-halo { fill: none; stroke: rgba(230, 227, 218, 0.28); stroke-width: 1; }
+/* ── light: one source, breathing on the beat ───────────────────────────── */
+.hv-light { animation: hvFade 1.6s var(--e) backwards, hvLight calc(var(--beat) * 2) ease-in-out var(--t-ignite) infinite; }
+@keyframes hvLight { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
 
-.hv-spin { animation: hvSpin 160s linear infinite; }
-.hv-spin--slow { animation-duration: 180s; }
-.hv-spin--rev { animation-duration: 120s; animation-direction: reverse; }
-.hv-spin--mid { animation-duration: 28s; }
-.hv-spin--orbit { animation-duration: 46s; }
-@keyframes hvSpin { to { transform: rotate(360deg); } }
+/* ── the origin ─────────────────────────────────────────────────────────── */
+.hv-ripples { animation: hvFade 0.01s linear backwards; }
+.hv-contact { fill: none; stroke: rgba(230, 227, 218, 0.5); stroke-width: 1; animation: hvFoot 1s var(--e) var(--t-foot) backwards; }
+.hv-contact--core { stroke: rgba(251, 248, 238, 0.8); animation: hvFoot 1s var(--e) var(--t-foot) backwards, hvPulse var(--beat) ease-in-out var(--t-ignite) infinite; }
+@keyframes hvFoot { from { opacity: 0; transform: scale(0.15); } 45% { opacity: 1; } }
+@keyframes hvPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
-/* ── forest ─────────────────────────────────────────────────────────────── */
-.hv-forest { animation: hvFade 2.4s var(--ease-liturgy) 0.5s backwards; }
-.hv-sway { transform-origin: 50% 100%; animation: hvSway 14s ease-in-out infinite alternate; }
-.hv-sway--1 { animation-duration: 18s; animation-delay: -6s; }
-.hv-sway--2 { animation-duration: 22s; animation-delay: -11s; }
+/* ── forest: rises from the trident's x, outward ────────────────────────── */
+.hv-trunk { animation: hvGrow 1.3s var(--e) calc(var(--t-board) + var(--d, 0) * 1s) backwards; }
+@keyframes hvGrow { from { opacity: 0; transform: scaleY(0); } }
+.hv-sway { transform-origin: 50% 100%; animation: hvSway 12s ease-in-out infinite alternate; }
+.hv-sway--1 { animation-duration: 18s; }
+.hv-sway--2 { animation-duration: 24s; }
 @keyframes hvSway { from { transform: skewX(-0.5deg); } to { transform: skewX(0.7deg); } }
-.hv-pines { fill: none; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.hv-pines { fill: none; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; animation: hvFade 1.6s var(--e) 1.2s backwards; }
 .hv-pines--back { stroke: rgba(154, 163, 168, 0.16); }
 .hv-pines--front { stroke: rgba(154, 163, 168, 0.3); }
 
-.hv-mist { animation: hvMist 34s ease-in-out infinite alternate; }
-.hv-mist--b { animation-duration: 46s; animation-delay: -14s; animation-direction: alternate-reverse; }
+.hv-mist { animation: hvFade 2s var(--e) 1.4s backwards, hvMist 36s ease-in-out infinite alternate; }
+.hv-mist--b { animation-duration: 2s, 48s; animation-direction: normal, alternate-reverse; }
 @keyframes hvMist { from { transform: translateX(-46px); } to { transform: translateX(60px); } }
 
-/* ── board ──────────────────────────────────────────────────────────────── */
-.hv-sq { stroke: rgba(214, 219, 222, 0.06); stroke-width: 0.7; animation: hvTile 1.1s var(--ease-liturgy) backwards; }
+/* ── board: spreads from the foot, the front glints as it passes ─────────── */
+.hv-sq { stroke: rgba(214, 219, 222, 0.06); stroke-width: 0.7; animation: hvTile 1s var(--e) calc(var(--t-board) + var(--d, 0) * 1s) backwards; }
 .hv-sq--l { fill: rgba(46, 55, 63, 0.66); }
 .hv-sq--d { fill: rgba(13, 16, 19, 0.92); }
-@keyframes hvTile { from { opacity: 0; transform: scale(0.72); } }
+@keyframes hvTile {
+  from { opacity: 0; transform: scale(0.8); stroke: rgba(230, 227, 218, 0.7); }
+  40%  { opacity: 1; stroke: rgba(230, 227, 218, 0.5); }
+}
 
 /* ── the trident ────────────────────────────────────────────────────────── */
-.hv-rise { animation: hvRise 2.4s var(--ease-liturgy) 0.5s backwards; }
-@keyframes hvRise { from { transform: translateY(18px); } }
+/* (the offset starts 1 unit past the path's length: starting exactly on the dash boundary can leak a sliver)
+   1. the rim light: constant speed, so each hand-off happens exactly where the line arrives.
+      shaft 32.5 units in 1.1s -> collar at 7.5 units (0.254s), junction at 13.5 units (0.457s);
+      the prongs (29.7 units in 1s) keep the same speed. */
+.hv-e { stroke-dasharray: var(--L) calc(var(--L) * 2);   /* --L is the path's exact length, set per path in HeroArt.tsx */
+   animation: hvDraw 1s linear var(--t-draw) backwards; }
+.hv-e--shaft  { animation-duration: 1.1s; }
+.hv-e--collar { animation-duration: 0.16s; animation-delay: calc(var(--t-draw) + 0.254s); }
+.hv-e--prong  { animation-duration: 1s;   animation-delay: calc(var(--t-draw) + 0.457s); }
+.hv-e--head-c { animation-duration: 0.7s; animation-delay: calc(var(--t-draw) + 1.1s); }
+.hv-e--head-s { animation-duration: 0.5s; animation-delay: calc(var(--t-draw) + 1.457s); }
+@keyframes hvDraw { from { stroke-dashoffset: calc(var(--L) + 1px); } to { stroke-dashoffset: 0; } }
 
-/* 1. the rim light is drawn first, foot to tips, one stroke after another */
-.hv-edge path {
-  stroke-dasharray: 100;
-  animation: hvDraw 1.3s cubic-bezier(0.5, 0, 0.2, 1) calc(0.7s + var(--i, 0) * 0.32s) backwards;
-}
-@keyframes hvDraw { from { stroke-dashoffset: 100; opacity: 0.2; } }
+/* 2. the metal fills in behind the line, bottom to top */
+.hv-wipe { animation: hvWipe 1.85s linear var(--t-fill) backwards; }
+@keyframes hvWipe { from { transform: scaleY(0); } }
+.hv-wipe { transform-origin: 0 48px; }
 
-/* 2. the body fades in beneath the line */
-.hv-body { animation: hvFade 1.8s var(--ease-liturgy) 2s backwards; }
-.hv-aura { opacity: 0.04; animation: hvFade 2.4s var(--ease-liturgy) 2.4s backwards, hvAura 7s ease-in-out 4.8s infinite alternate; }
-@keyframes hvAura { from { opacity: 0.04; } to { opacity: 0.1; } }
+.hv-aura { opacity: 0.04; animation: hvFade 1.6s var(--e) var(--t-ignite) backwards, hvAura var(--beat) ease-in-out var(--t-ignite) infinite; }
+@keyframes hvAura { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.04; } }
 
-/* 3. the tips ignite one after another, then breathe */
-.hv-tip { animation: hvIgnite 1.6s var(--ease-liturgy) calc(2.9s + var(--t, 0) * 0.35s) backwards, hvBreathe 5.5s ease-in-out calc(4.6s + var(--t, 0) * 0.9s) infinite alternate; }
+/* 3. the tips: the crown first, then both sides together, then one shared breath */
+.hv-tip--c { animation: hvIgnite 1.6s var(--e) var(--t-ignite-c) backwards; }
+.hv-tip--s { animation: hvIgnite 1.6s var(--e) var(--t-ignite) backwards; }
 @keyframes hvIgnite { from { opacity: 0; transform: scale(0.2); } 40% { opacity: 1; transform: scale(1.6); } }
+.hv-breathe { animation: hvBreathe var(--beat) ease-in-out var(--t-ignite) infinite; }
+@keyframes hvBreathe { 0%, 30%, 100% { opacity: 1; } 65% { opacity: 0.72; } }
+.hv-flare { fill: none; stroke: rgba(251, 248, 238, 0.7); stroke-width: 0.2; stroke-linecap: round; }
 
-/* 4. a slow specular pass across the metal */
-.hv-spec { animation: hvSpec 9s cubic-bezier(0.4, 0, 0.2, 1) 4s infinite; }
+/* 4. a glint across the metal, every second beat */
+.hv-spec { animation: hvSpec calc(var(--beat) * 2) cubic-bezier(0.4, 0, 0.2, 1) calc(var(--t-ignite) + 0.6s) infinite; }
 @keyframes hvSpec { 0% { transform: translateX(0); } 38%, 100% { transform: translateX(58px); } }
 
-/* ── water: ripples travelling over the board ───────────────────────────── */
-.hv-ripples { animation: hvFade 2s var(--ease-liturgy) 3s backwards; }
-.hv-contact { fill: none; stroke: rgba(230, 227, 218, 0.5); stroke-width: 1; }
-.hv-ripple { fill: none; stroke: rgba(214, 219, 222, 0.42); stroke-width: 1; opacity: 0; animation: hvRipple 6.4s ease-out infinite; }
+/* ── halo: released from the trident's centre once the tips are lit ─────── */
+.hv-stage { animation: hvFade 2s var(--e) 1.4s backwards; }
+.hv-rg { animation: hvRing 1.8s var(--e) calc(var(--t-ignite) + var(--i, 0) * 0.12s) backwards; }
+@keyframes hvRing { from { opacity: 0; transform: scale(0.78); } }
+.hv-ring { fill: none; }
+.hv-draw { stroke-dasharray: var(--L) calc(var(--L) * 2); animation: hvDrawIn 1.8s var(--e) calc(var(--t-ignite) + var(--i, 0) * 0.12s) backwards; }
+@keyframes hvDrawIn { from { stroke-dashoffset: calc(var(--L) + 1px); } to { stroke-dashoffset: 0; } }
+.hv-ring--ticks { stroke: rgba(214, 219, 222, 0.2); stroke-width: 2.4; }   /* 96 ticks, exactly (dash array set in HeroArt.tsx) */
+.hv-ring--solid { stroke: rgba(214, 219, 222, 0.075); stroke-width: 1; }
+.hv-ring--key { stroke: rgba(214, 219, 222, 0.16); }   /* passes exactly through both side apexes */
+.hv-ring--inner { stroke: rgba(214, 219, 222, 0.13); }
+.hv-ring--dash { stroke: rgba(214, 219, 222, 0.14); stroke-width: 1; }   /* 90 dashes, exactly */
+.hv-ring--arc { stroke: var(--accent-bright); stroke-opacity: 0.6; stroke-width: 1.4; stroke-linecap: round; }
+.hv-orb { fill: var(--text); }
+.hv-orb-halo { fill: none; stroke: rgba(230, 227, 218, 0.28); stroke-width: 1; }
+.hv-orb-wrap { animation: hvFade 0.8s var(--e) var(--t-ignite) backwards; }
+
+/* every period divides 240s, so all rings realign exactly on that grid */
+.hv-spin { animation: hvSpin var(--p, 120s) linear infinite; }
+.hv-spin--slow { --p: 240s; }
+.hv-spin--rev { --p: 120s; animation-direction: reverse; }
+.hv-spin--mid { --p: 30s; }
+.hv-spin--orbit { --p: 60s; animation-delay: calc(var(--t-ignite) + 0.4s); }
+.hv-ccw { animation-direction: reverse; }
+@keyframes hvSpin { to { transform: rotate(360deg); } }
+
+/* ── water: one pulse of three rings per beat ───────────────────────────── */
+.hv-ripple { fill: none; stroke: rgba(214, 219, 222, 0.42); stroke-width: 1; opacity: 0;
+  animation: hvRipple var(--beat) cubic-bezier(0.2, 0.6, 0.3, 1) calc(var(--t-ignite) + var(--i, 0) * 0.28s) infinite; }
 @keyframes hvRipple {
-  0% { transform: scale(0.14); opacity: 0; }
-  12% { opacity: 0.8; }
-  100% { transform: scale(1); opacity: 0; }
+  0%   { transform: scale(0.14); opacity: 0; }
+  6%   { opacity: 0.8; }
+  50%, 100% { transform: scale(1); opacity: 0; }
 }
 
 /* ── dust ───────────────────────────────────────────────────────────────── */
+.hv-motes { animation: hvFade 2s var(--e) calc(var(--t-ignite) + 0.8s) backwards; }
 .hv-mote { fill: var(--text); opacity: 0; animation: hvMote linear infinite; }
 @keyframes hvMote {
   0%   { transform: translate(0, 0); opacity: 0; }
